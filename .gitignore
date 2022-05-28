@@ -3,3 +3,7 @@
 /.gradle/
 /build/
 /build/classes/kotlin/main/
+/src/main/resources/assets/
+/kotlin-js-store/
+/.idea/
+/gradle/
