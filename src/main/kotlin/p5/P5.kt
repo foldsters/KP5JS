@@ -771,7 +771,7 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
     operator fun Vector.divAssign(other: Number) = div(other)
     operator fun Vector.divAssign(other: Vector) = div(other)
 
-    infix fun Vector.dot(other: Vector) = (other)
+    infix fun Vector.dot(other: Vector) = dot(other)
     infix fun Vector.cross(other: Vector) = cross(other)
     fun dist(value: Vector, other: Vector) = value.dist(other)
     infix fun Vector.dist(other: Vector) = dist(other)

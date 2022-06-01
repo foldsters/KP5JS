@@ -1,6 +1,7 @@
-import scripts.dancer.unapologeticMocap
-import scripts.dancer.unapologeticShader
 
-fun main() = unapologeticShader()
+import scripts.huegene.huegene
+import scripts.huegene.huegeneFlow
+
+fun main() = huegeneFlow()
 
 
