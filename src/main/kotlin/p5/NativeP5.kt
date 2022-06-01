@@ -77,7 +77,7 @@ abstract external class NativeP5(sketch : (P5)->Unit) {
     fun color(v1: Number, v2: Number, v3: Number): Color
     fun color(v1: Number, v2: Number, v3: Number, alpha: Number): Color
     fun color(colorString: String): Color
-    fun color(colorArray: Array<Color>): Color
+    fun color(colorArray: Array<Number>): Color
 
     fun alpha(color: Color): Number
     fun blue(color: Color): Number
@@ -880,11 +880,11 @@ abstract external class NativeP5(sketch : (P5)->Unit) {
         fun div(v: Vector) // TODO: Make Binary Overload
         fun mag(): Number
         fun magSq(): Number
-        fun dot(v: Vector): Vector // TODO: Make Binary Overload
+        fun dot(v: Vector): Number // TODO: Make Binary Overload
         fun cross(v: Vector): Vector // TODO: Make Binary Overload
         fun dist(v: Vector): Number // TODO: Make Binary Overload
         fun normalize(): Vector
-        fun limit(): Vector
+        fun limit(n: Number): Vector
         fun setMag(): Vector
         fun heading(): Number
         fun setHeading(angle: Number)

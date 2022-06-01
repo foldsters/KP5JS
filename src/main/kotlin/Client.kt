@@ -1,7 +1,7 @@
-import scripts.carbon
-import scripts.dancer.unapologeticMocap
-import scripts.dancer.unapologeticShader
 
-fun main() = carbon("codeCaptures/img.png")
+import scripts.huegene.huegene
+import scripts.huegene.huegeneFlow
+
+fun main() = huegeneFlow()
 
 
