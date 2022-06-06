@@ -845,6 +845,9 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
         get() { return createVector(z, y, x) }
         set(other: Vector) { val newZ = other.x; val newY = other.y; val newX = other.z; x = newX; y = newY; z = newZ }
 
+    fun Vector.toColor(): Color {
+        return color(x, y, z)
+    }
 
 
     operator fun Number.plus(other: Number): Number {
@@ -881,6 +884,11 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
         } else 0
     }
 
+    fun Number.pow(other: Number): Number {
+        val t = this
+        return js("Math.pow(t, other)") as Number
+    }
+
     enum class DitherMode(val serpentine: Boolean = false) {
         FloydSteinberg,
         FalseFloydSteinberg,
@@ -907,6 +915,10 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
 
     fun Color.toHexString(includeAlpha: Boolean=false): String {
         return "#${hex(toArray(includeAlpha), 2).joinToString("")}"
+    }
+
+    fun Color.toVector(): Vector {
+        return createVector(red(this), green(this), blue(this))
     }
 
     fun Json.setIfNotNull(propertyName: String, value: Any?) {
@@ -1094,6 +1106,15 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
     }
     fun loadTable(filename: String, extension: TableMode, hasHeaders: Boolean, callback: (Table)->Unit, errorCallback: (dynamic)->Unit): Table {
         return _loadTable(filename, extension.nativeValue, if(hasHeaders) "header" else "", callback, errorCallback)
+    }
+
+    fun fractalNoise(x: Number, y: Number, octaves: List<Number>): Number {
+        return octaves.map { noise(x*(2.pow(it)), y*(2.0.pow(it))).toDouble() }.average()
+    }
+
+    fun fractalNoise(x: Number, y: Number, octaves: List<Pair<Number, Number>>): Number {
+        val weightSum = octaves.sumOf { it.second.toDouble() }
+        return octaves.map { (noise(x*(2.pow(it.first)), y*(2.0.pow(it.first)))*it.second).toDouble() }.sum()/weightSum
     }
 
 

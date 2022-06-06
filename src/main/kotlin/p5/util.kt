@@ -12,7 +12,7 @@ infix fun ClosedRange<Int>.step(step: Double): Iterable<Double> {
     return sequence.asIterable()
 }
 
-infix fun ClosedRange<Int>.stepUntil(step: Double): Iterable<Double> {
+infix fun ClosedRange<Int>.stepByUntil(step: Double): Iterable<Double> {
     require(step > 0.0) { "Step must be positive, was: $step." }
     val sequence = generateSequence(start.toDouble()) { previous ->
         val next = previous + step
@@ -21,7 +21,7 @@ infix fun ClosedRange<Int>.stepUntil(step: Double): Iterable<Double> {
     return sequence.asIterable()
 }
 
-infix fun ClosedRange<Double>.stepUntil(step: Double): Iterable<Double> {
+infix fun ClosedRange<Double>.stepByUntil(step: Double): Iterable<Double> {
     require(start.isFinite())
     require(endInclusive.isFinite())
     require(step > 0.0) { "Step must be positive, was: $step." }

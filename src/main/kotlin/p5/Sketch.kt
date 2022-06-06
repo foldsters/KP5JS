@@ -41,4 +41,28 @@ class SketchScope(val p5: P5) {
     fun touchMoved    (block: P5.()->Unit) { p5.touchMoved = wrap(block) }
     fun touchEnded    (block: P5.()->Unit) { p5.touchEnded = wrap(block) }
 
+    // New Scopes
+
+    fun drawWhile(cond: ()->Boolean, block: P5.()->Unit) {
+        p5.draw = wrap { if (cond()) block() else noLoop() }
+    }
+
+    fun <T> drawFor(iter: Iterable<T>, block: P5.(T) -> Unit) {
+        val itor = iter.iterator()
+        p5.draw = wrap {
+            if (itor.hasNext()) block(itor.next()) else noLoop()
+        }
+    }
+
+    fun <T> drawFor(iter: Iterable<T>, onLastFrame: ()->Unit, block: P5.(T) -> Unit) {
+        val itor = iter.iterator()
+        p5.draw = wrap {
+            if (itor.hasNext()) block(itor.next()) else {
+                onLastFrame()
+                noLoop()
+            }
+        }
+    }
+
+
 }
