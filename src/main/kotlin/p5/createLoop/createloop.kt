@@ -2,4 +2,4 @@
 @file:JsNonModule
 package p5.createLoop
 
-external val x: dynamic
+external val _createloop: dynamic

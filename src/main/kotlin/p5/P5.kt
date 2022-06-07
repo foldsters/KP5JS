@@ -7,6 +7,7 @@ import kotlin.js.json
 import kotlin.math.PI
 import kotlin.math.sign
 import kotlin.reflect.KProperty
+import p5.openSimplexNoise.OpenSimplexNoise
 
 @JsModule("p5")
 @JsNonModule
@@ -1004,6 +1005,24 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
         return Loop(nativeLoop)
     }
 
+    private var _simplexSeed = random()
+
+    private var simplexNoise2D = OpenSimplexNoise.makeNoise2D(_simplexSeed)
+    private var simplexNoise3D = OpenSimplexNoise.makeNoise3D(_simplexSeed)
+    private var simplexNoise4D = OpenSimplexNoise.makeNoise4D(_simplexSeed)
+
+    fun simplexSeed(): Number = _simplexSeed
+    fun simplexSeed(seed: Number) {
+        _simplexSeed = seed
+        simplexNoise2D = OpenSimplexNoise.makeNoise2D(_simplexSeed)
+        simplexNoise3D = OpenSimplexNoise.makeNoise3D(_simplexSeed)
+        simplexNoise4D = OpenSimplexNoise.makeNoise4D(_simplexSeed)
+    }
+
+    fun simplexNoise(x: Number): Number { return simplexNoise2D(x, 0) }
+    fun simplexNoise(x: Number, y: Number): Number { return simplexNoise2D(x, y) }
+    fun simplexNoise(x: Number, y: Number, z: Number): Number { return simplexNoise3D(x, y, z) }
+    fun simplexNoise(x: Number, y: Number, u: Number, v: Number): Number { return simplexNoise4D(x, y, u, v) }
 
     fun Button.fontSize(sizePx: Number) {
         style("font-size", "${sizePx}px")
@@ -1115,6 +1134,37 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
     fun fractalNoise(x: Number, y: Number, octaves: List<Pair<Number, Number>>): Number {
         val weightSum = octaves.sumOf { it.second.toDouble() }
         return octaves.map { (noise(x*(2.pow(it.first)), y*(2.0.pow(it.first)))*it.second).toDouble() }.sum()/weightSum
+    }
+
+    fun repeatUntilNextFrame(block: ()->Unit) {
+        val stopTime = millis() + 1000.0/frameRate()
+        while (millis() < stopTime) {
+            block()
+        }
+    }
+
+    fun <T> takeUntilNextFrame(itor: Iterator<T>) = sequence {
+        val stopTime = millis() + 1000.0/frameRate()
+        while (millis() < stopTime && itor.hasNext()) {
+            yield(itor.next())
+        }
+    }
+
+    fun <T> Iterator<T>.takeUntilNextFrame() = sequence {
+        val stopTime = millis() + 1000.0/frameRate()
+        while (millis() < stopTime && hasNext()) {
+            yield(next())
+        }
+    }
+
+    fun pointIterator(): Iterator<Pair<Number, Number>> {
+        return iterator {
+            repeat(height) { y ->
+                repeat(width) { x ->
+                    yield(x to y)
+                }
+            }
+        }
     }
 
 

@@ -54,12 +54,40 @@ class SketchScope(val p5: P5) {
         }
     }
 
+    fun <T> drawFor(itor: Iterator<T>, block: P5.(T) -> Unit) {
+        p5.draw = wrap {
+            if (itor.hasNext()) block(itor.next()) else noLoop()
+        }
+    }
+
     fun <T> drawFor(iter: Iterable<T>, onLastFrame: ()->Unit, block: P5.(T) -> Unit) {
         val itor = iter.iterator()
         p5.draw = wrap {
             if (itor.hasNext()) block(itor.next()) else {
                 onLastFrame()
                 noLoop()
+            }
+        }
+    }
+
+    enum class DrawFragmentMode {
+        //PIXEL,
+        //ROW,
+        FRAME_COMPLETE,
+        //FRAME_ELAPSED
+    }
+
+    fun drawFragment(drawFragmentMode: DrawFragmentMode=DrawFragmentMode.FRAME_COMPLETE,
+                     block: P5.(Number, Number, Number)->NativeP5.Color ) {
+        p5.draw = wrap {
+            val t = millis()/1000.0
+            background(0)
+            withPixels {
+                repeat(height) { y ->
+                    repeat(width) { x ->
+                        colorArray[y, x] = block(x, y, t)
+                    }
+                }
             }
         }
     }

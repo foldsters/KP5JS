@@ -11,10 +11,11 @@ repositories {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlinx:kotlinx-html:0.7.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-html:0.7.5")
     testImplementation(kotlin("test"))
     implementation(npm("p5", "1.4.1"))
     implementation(npm("createloop", "0.0.12"))
+    implementation(npm("open-simplex-noise", "2.5.0"))
 }
 
 kotlin {
