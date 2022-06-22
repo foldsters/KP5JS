@@ -1,27 +1,51 @@
 package p5.kshader
 
+import p5.util.ifTrue
 import kotlin.reflect.KProperty
 
 @Suppress("UNCHECKED_CAST")
 class KShader {
 
     abstract class ShaderNode {
-
-//        var expressionId = expressionIdCounter++
-//        var variableIndex: Int? = null
-//        var variableName: String? = null
-//
-//        companion object {
-//            var expressionIdCounter = 0
-//        }
-
         var children =  mutableListOf<ShaderNode>()
+        open fun render(): String = throw NotImplementedError()
+        var typeName: String = ""
     }
+
+    val declaredVariables = mutableSetOf<String>()
+
+    val lines = mutableListOf<ShaderNode>()
 
     abstract inner class genBType: ShaderNode()
 
-    class literalNode<T>(val literalValue: T): ShaderNode()
-    class VariableNode<T>(val name: String): ShaderNode()
+    fun List<ShaderNode>.render(): String {
+        isEmpty().ifTrue {
+            return ""
+        }
+        return joinToString(separator = ", ") { it.render() }
+    }
+
+    class LiteralNode<T>(val literalValue: T): ShaderNode() {
+        override fun render(): String = when(literalValue) {
+                is Double -> {
+                    val result = literalValue.toString()
+                    if ("." !in result) {
+                        "$literalValue."
+                    } else result
+                }
+                else -> "???"
+        }
+    }
+
+    class AssignmentNode(val name: String, val declare: Boolean, val expression: ShaderNode): ShaderNode() {
+        override fun render(): String {
+            return "$name = ${expression.render()}"
+        }
+    }
+
+    class VariableNode(val name: String): ShaderNode() {
+        override fun render() = name
+    }
 
     inner class bool: genBType()
     inner class bvec2: genBType()
@@ -39,21 +63,27 @@ class KShader {
         abstract fun copyType(): genFType
     }
 
-    class float(): genFType() {
+    inner class float(): genFType() {
+
+        var needsAssignment = true
 
         constructor(initValue: Double): this() {
-            children.add(literalNode(initValue))
+            children.add(LiteralNode(initValue))
         }
 
         constructor(initValue: Float): this() {
-            children.add(literalNode(initValue.toDouble()))
+            children.add(LiteralNode(initValue.toDouble()))
         }
 
         constructor(initValue: Int): this() {
-            children.add(literalNode(initValue.toDouble()))
+            children.add(LiteralNode(initValue.toDouble()))
         }
 
         constructor(initValue: float): this() {
+            children.add(initValue)
+        }
+
+        constructor(initValue: VariableNode): this() {
             children.add(initValue)
         }
 
@@ -62,31 +92,37 @@ class KShader {
         }
 
         operator fun getValue(thisRef: Any?, property: KProperty<*>): float {
-            val variableName = property.name
-            val newValue = memory.getOrPut(variableName) { this }
-            val newFloat = float()
-            newFloat.children = newValue.children
-            val s = "My name is $variableName"
+            val varName = property.name
+            needsAssignment.ifTrue {
+                lines.add(AssignmentNode(varName, varName !in declaredVariables, this))
+                needsAssignment = false
+                declaredVariables.add(varName)
+            }
+            val newFloat = float(VariableNode(varName))
             return newFloat
         }
 
         operator fun setValue(thisRef: Any?, property: KProperty<*>, value: Float) {
             val s = "$value has been assigned to '${property.name}' in $thisRef."
-            memory[s] = float(value)
+            children = mutableListOf(LiteralNode(value.toDouble()))
+            needsAssignment = true
         }
 
         operator fun setValue(thisRef: Any?, property: KProperty<*>, value: float) {
             val s = "$value has been assigned to '${property.name}' in $thisRef."
-            memory[s] = float(value)
+            children = value.children
+            needsAssignment = true
         }
 
         operator fun setValue(thisRef: Any?, property: KProperty<*>, value: Double) {
             val s = "$value has been assigned to '${property.name}' in $thisRef."
-            memory[s] = float(value)
+            children = mutableListOf(LiteralNode(value))
+            needsAssignment = true
         }
 
-        companion object {
-            val memory = mutableMapOf<String, float>()
+        override fun render(): String {
+            val child = children[0]
+            return child.render()
         }
     }
 
@@ -114,8 +150,17 @@ class KShader {
     inner class samplerCube
     inner class shaderVoid
 
-    class FunctionNode(val name: String): ShaderNode()
-    class OperatorNode(val name: String): ShaderNode()
+    inner class FunctionNode(val name: String): ShaderNode() {
+        override fun render(): String {
+            return "$name(${children.render()})"
+        }
+    }
+
+    inner class OperatorNode(val name: String): ShaderNode() {
+        override fun render(): String {
+            return "${children[0].render()}$name${children[1].render()}"
+        }
+    }
 
     fun <T: genFType> radians(degrees: T): T {
         val fnode = FunctionNode("radians")

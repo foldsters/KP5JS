@@ -6,8 +6,10 @@ import p5.kshader.KShader.*
 
 fun shader() = Sketch {
     KShader().apply {
-        val q = float(12.0) + radians(float(13.0))
-        val s = q + q
-        console.log(s)
+        val q by float(12.1) + radians(float(13.0))
+        var s by q + q
+        s = s + q
+        s
+        console.log(lines.)
     }
 }
