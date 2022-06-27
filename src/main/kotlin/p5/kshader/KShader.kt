@@ -1,44 +1,41 @@
 package p5.kshader
 
 import p5.util.ifTrue
-import kotlin.math.exp
 import kotlin.reflect.KProperty
 
 @Suppress("UNCHECKED_CAST")
 class KShader {
 
-    var debug = true
+    var debug = false
     var uID = 0
 
     abstract inner class ShaderNode {
-        var children =  mutableListOf<ShaderNode>()
+        var children =  listOf<ShaderNode>()
         open fun render(): String = throw NotImplementedError()
-        open val typeName: String = ""
+        open val descriptor: String = ""
+        abstract val typeName: String
         abstract fun copy(): ShaderNode
         val id = uID++
     }
 
-    val declaredVariables = mutableSetOf<String>()
-
+    val declaredVariableNames = mutableSetOf<String>()
     val instructions = mutableListOf<ShaderNode>()
+
+    var indent = 0
+    fun ShaderNode.log() {
+        println(" ".repeat(indent) + descriptor + " ID:$id")
+        indent += 1
+        children.map { it.log() }
+        indent -= 1
+    }
 
     fun logInstructions() {
 
         debug.ifTrue { println("logInstructions") }
-
-        var indent = 0
-        fun ShaderNode.log() {
-            println(" ".repeat(indent) + typeName)
-            indent += 1
-            children.map { it.log() }
-            indent -= 1
-        }
-
         instructions.forEach {
             it.log()
         }
     }
-
 
 
     fun List<ShaderNode>.render(): String {
@@ -62,32 +59,39 @@ class KShader {
                 else -> "???"
             }
         }
-        override val typeName = "literalNode($literalValue)"
+        override val descriptor = "literalNode($literalValue)"
         override fun copy(): ShaderNode {
             return LiteralNode(literalValue)
         }
+
+        override val typeName: String
+            get() = throw IllegalStateException("Cannot Use LiteralNode as Shader Type")
     }
 
     inner class AssignmentNode(val name: String, val declare: Boolean, val expression: ShaderNode): ShaderNode() {
         init {
-            children.add(expression)
+            children = listOf(expression)
         }
         override fun render(): String {
             debug.ifTrue { println("Assignment Node Render") }
             return "$name = ${expression.render()}"
         }
-        override val typeName = "AssignmentNode($name)"
+        override val descriptor = "AssignmentNode($name)"
         override fun copy(): ShaderNode {
             return AssignmentNode(name, declare, expression.copy())
         }
+        override val typeName: String
+            get() = throw IllegalStateException("Cannot Use AssignmentNode as Shader Type")
     }
 
     inner class VariableNode(val name: String): ShaderNode() {
         override fun render() = name
-        override val typeName = "VariableNode($name)"
+        override val descriptor = "VariableNode($name)"
         override fun copy(): ShaderNode {
             return VariableNode(name)
         }
+        override val typeName: String
+            get() = throw IllegalStateException("Cannot Use VariableNode as Shader Type")
     }
 
     abstract inner class genBType: ShaderNode()
@@ -110,32 +114,38 @@ class KShader {
     inner class float(): genFType() {
 
         var needsAssignment = true
+        override val descriptor = "float"
         override val typeName = "float"
 
         override fun copy(): ShaderNode {
+            debug.ifTrue { println("Float Copy") }
             val result = float()
-            result.children = children.map { it.copy() }.toMutableList()
+            result.children = children.map { it.copy() }
+            debug.ifTrue {
+                this.log()
+                result.log()
+            }
             return result
         }
 
         constructor(initValue: Double): this() {
-            children.add(LiteralNode(initValue))
+            children = listOf(LiteralNode(initValue))
         }
 
         constructor(initValue: Float): this() {
-            children.add(LiteralNode(initValue.toDouble()))
+            children = listOf(LiteralNode(initValue.toDouble()))
         }
 
         constructor(initValue: Int): this() {
-            children.add(LiteralNode(initValue.toDouble()))
+            children = listOf(LiteralNode(initValue.toDouble()))
         }
 
         constructor(initValue: float): this() {
-            children.add(initValue)
+            children = listOf(initValue)
         }
 
         constructor(initValue: VariableNode): this() {
-            children.add(initValue)
+            children = listOf(initValue)
         }
 
         override fun copyType(): genFType {
@@ -145,29 +155,30 @@ class KShader {
         operator fun getValue(thisRef: Any?, property: KProperty<*>): float {
             val varName = property.name
             needsAssignment.ifTrue {
-                println("Get: property name: ${property.name}, id: $id, render: ${render()}")
-                instructions.add(AssignmentNode(varName, varName !in declaredVariables, this.copy()))
+                debug.ifTrue{ println("Get: property name: $varName, id: $id, render: ${render()}") }
+                instructions.add(AssignmentNode(varName, varName !in declaredVariableNames, this.copy()))
                 needsAssignment = false
-                declaredVariables.add(varName)
+                declaredVariableNames.add(varName)
             }
-            return this.copy() as float
+            children = listOf(VariableNode(varName))
+            return this
         }
 
         operator fun setValue(thisRef: Any?, property: KProperty<*>, value: Float) {
-            println("Set: property name: ${property.name}, id: $id, render: ${render()}")
-            children = mutableListOf(LiteralNode(value.toDouble()))
+            debug.ifTrue{ println("Set: property name: ${property.name}, id: $id, render: ${render()}") }
+            children = listOf(LiteralNode(value.toDouble()))
             needsAssignment = true
         }
 
         operator fun setValue(thisRef: Any?, property: KProperty<*>, value: float) {
-            println("Set: property name: ${property.name}, id: $id, render: ${render()}")
+            debug.ifTrue{ println("Set: property name: ${property.name}, id: $id, render: ${render()}") }
             children = value.copy().children
             needsAssignment = true
         }
 
         operator fun setValue(thisRef: Any?, property: KProperty<*>, value: Double) {
-            println("Set: property name: ${property.name}, id: $id, render: ${render()}")
-            children = mutableListOf(LiteralNode(value))
+            debug.ifTrue{ println("Set: property name: ${property.name}, id: $id, render: ${render()}") }
+            children = listOf(LiteralNode(value))
             needsAssignment = true
         }
 
@@ -176,6 +187,24 @@ class KShader {
             require(children.isNotEmpty()) {"Error Rendering Float: Not Enough Children"}
             val child = children[0]
             return child.render()
+        }
+
+        operator fun plus(other: float): float {
+            debug.ifTrue { println("plus: ${this.id}, ${other.id}") }
+            val oNode = OperatorNode("+")
+            oNode.children = listOf(this.copy(), other.copy())
+            val result = float()
+            result.children = listOf(oNode)
+            return result
+        }
+
+        operator fun minus(other: float): float {
+            debug.ifTrue { println("minus: ${this.id}, ${other.id}") }
+            val oNode = OperatorNode("-")
+            oNode.children = listOf(this.copy(), other.copy())
+            val result = float()
+            result.children = listOf(oNode)
+            return result
         }
     }
 
@@ -189,11 +218,20 @@ class KShader {
 //            return vec3()
 //        }
 //    }
-//    class vec4: genFType() {
-//        override fun copyType(): genFType {
-//            return vec4()
-//        }
-//    }
+    inner class vec4(): genFType() {
+        override fun copyType(): genFType {
+            return vec4()
+        }
+        override val typeName = "vec4"
+
+        constructor(x: float, y: float, z: float, w: float): this() {
+            children = listOf(x, y, z, w)
+        }
+
+        override fun copy(): ShaderNode {
+            TODO("Not yet implemented")
+        }
+}
 
     inner class mat2
     inner class mat3
@@ -205,42 +243,52 @@ class KShader {
 
     inner class FunctionNode(val name: String): ShaderNode() {
         override fun render(): String {
-            debug.ifTrue { println("Function Node Render") }
+            debug.ifTrue { println("Function Node Render: ${children.render()}") }
             return "$name(${children.render()})"
         }
-        override val typeName = name
+        override val descriptor = name
         override fun copy(): ShaderNode {
-            return FunctionNode(name)
+            val result = FunctionNode(name)
+            result.children = children.map { it.copy() }
+            return result
         }
+        override val typeName: String
+            get() = throw IllegalStateException("Cannot Use FunctionNode as Shader Type")
     }
 
     inner class OperatorNode(val name: String): ShaderNode() {
         override fun render(): String {
             debug.ifTrue { println("Operator Node Render") }
             require(children.size > 1) {"Error in rendering Operator Node: Not Enough Children ($children)"}
-            return "${children[0].render()}$name${children[1].render()}"
+            return "(${children[0].render()}$name${children[1].render()})"
         }
-        override val typeName = name
+        override val descriptor = name
         override fun copy(): ShaderNode {
-            return OperatorNode(name)
+            val result =  OperatorNode(name)
+            result.children = children.map { it.copy() }
+            return result
         }
+        override val typeName: String
+            get() = throw IllegalStateException("Cannot Use OperatorNode as Shader Type")
     }
 
     fun <T: genFType> radians(degrees: T): T {
         val fNode = FunctionNode("radians")
-        fNode.children.add(degrees)
+        fNode.children = listOf(degrees)
         val result = degrees.copyType() as T
-        result.children.add(fNode)
+        result.children = listOf(fNode)
         return result
     }
 
-    operator fun float.plus(other: float): float {
-        debug.ifTrue { println("plus: ${this.id}, ${other.id}") }
-        val oNode = OperatorNode("+")
-        oNode.children.add(this.copy())
-        oNode.children.add(other.copy())
-        return float().apply { children.add(oNode) }
+    operator fun float.times(other: float): float {
+        debug.ifTrue { println("times: ${this.id}, ${other.id}") }
+        val oNode = OperatorNode("*")
+        oNode.children = listOf(this.copy(), other.copy())
+        val result = float()
+        result.children = listOf(oNode)
+        return result
     }
+
 
     // Trig Functions
     /*
@@ -310,7 +358,7 @@ class KShader {
         genFType ldexp(highp genFType x, highp genIType exp)
     */
 
-    fun fragment(block: KShader.()->Unit): String {
+    fun fragment(block: KShader.()->vec4): String {
         block()
         return instructions.joinToString("\n") { it.render() }
     }
