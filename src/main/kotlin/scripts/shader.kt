@@ -2,14 +2,22 @@ package scripts
 
 import p5.Sketch
 import p5.kshader.KShader
-import p5.kshader.KShader.*
 
 fun shader() = Sketch {
-    KShader().apply {
-        val q by float(12.1) + radians(float(13.0))
+    val shader = KShader()
+    val fragment = shader.fragment {
+        var q by float(12.1) + radians(float(13.0))
+        println(1)
         var s by q + q
+        println(2)
         s = s + q
+        println(3)
+        q = q + s
+        println(4)
         s
-        console.log(lines.)
+        println(5)
     }
+    console.log(fragment)
+    shader.logInstructions()
+
 }
