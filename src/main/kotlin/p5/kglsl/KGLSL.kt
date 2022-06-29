@@ -1,10 +1,11 @@
-package p5.kshader
+package p5.kglsl
 
+import p5.util.appendAll
 import p5.util.ifTrue
 import kotlin.reflect.KProperty
 
 @Suppress("UNCHECKED_CAST")
-class KShader {
+class KGLSL {
 
     var debug = false
     var uID = 0
@@ -15,7 +16,17 @@ class KShader {
         }
     }
 
-    val queuedAssignments: MutableMap<Int, Assignable<*>> = mutableMapOf()
+    val seenVariableNames = mutableSetOf<String>()
+
+    val queuedAssignments: MutableMap<String, AssignmentNode> = mutableMapOf()
+    fun pushQueuedAssignments() {
+        queuedAssignments.forEach { (name: String, it: AssignmentNode) ->
+            it.apply {
+                queuedAssignments.remove(name)
+                instructions.add(this.copy())
+            }
+        }
+    }
 
     // Base class for all shader types
     abstract inner class ShaderNode(vararg cs: ShaderNode) {
@@ -28,11 +39,11 @@ class KShader {
         // Logging
         open val descriptor: String = "ShaderNode"
         val id = uID++
-    }
 
-    // Allows us to check whether a variable has been declared
-    val declaredVariableNames = mutableSetOf<String>()
-    fun needsDeclaration(varName: String): Boolean = declaredVariableNames.add(varName)
+        init {
+            pushQueuedAssignments()
+        }
+    }
 
     // Line by line nodes to be rendered
     var instructionIndent = 0
@@ -97,15 +108,26 @@ class KShader {
             get() = throw IllegalStateException("Cannot Use LiteralNode as Shader Type")
     }
 
-    inner class AssignmentNode(val name: String, val declare: Boolean, val expression: ShaderNode): ShaderNode(expression) {
+    inner class AssignmentNode(
+        val name: String,
+        val expression: Assignable<*>,
+        val declare: Boolean = false,
+        val assign: Boolean = true,
+        val modifiers: List<String> = listOf()
+    ): ShaderNode(expression) {
         override fun render(): String {
             debugPrint { "Assignment Node Render" }
-            val declaration = if (declare) expression.nativeTypeName + " " else ""
-            return "$declaration$name = ${expression.render()};"
+            return buildString {
+                appendAll(modifiers, " ")
+                if(declare) append(expression.nativeTypeName, " ")
+                append(name)
+                if(assign) append(" = ", expression.render())
+                append(";")
+            }
         }
         override val descriptor = "AssignmentNode($name)"
-        override fun copy(): ShaderNode {
-            return AssignmentNode(name, declare, expression.copy())
+        override fun copy(): AssignmentNode {
+            return AssignmentNode(name, expression.copy() as Assignable<*>, declare)
         }
         override val nativeTypeName: String
             get() = throw IllegalStateException("Cannot Use AssignmentNode as Shader Type")
@@ -123,36 +145,50 @@ class KShader {
 
     abstract inner class Assignable<T: ShaderNode>(vararg cs: ShaderNode): ShaderNode(*cs) {
 
-        private var needsAssignment = true
         var name: String? = null
+        var assign = true
+        var modifiers = listOf<String>()
+
+        abstract fun new(vararg cs: ShaderNode): Assignable<T>
 
         operator fun getValue(thisRef: Any?, property: KProperty<*>): T {
+            pushQueuedAssignments()
             val varName = property.name
             name = varName
-            needsAssignment.ifTrue {
-                debugPrint { "Get: property name: $varName, id: $id, render: ${render()}" }
-                instructions.add(AssignmentNode(varName, needsDeclaration(varName), this.copy()))
-                needsAssignment = false
+            println("getting var $name")
+            seenVariableNames.add(name!!).ifTrue {
+                debugPrint { "Get: property name: $name, id: $id, render: ${render()}" }
+                instructions.add(AssignmentNode(varName, this.copy() as Assignable<*>, true, assign, modifiers))
             }
             children = listOf(VariableNode(varName))
             return this as T
         }
 
         operator fun setValue(thisRef: Any?, property: KProperty<*>, value: T) {
+            pushQueuedAssignments()
             debugPrint { "Set: property name: ${property.name}, id: $id, render: ${render()}" }
             name = property.name
             children = value.children.copy()
-            needsAssignment = true
+            println("pushing $name for assignment")
+            queuedAssignments[name!!] = AssignmentNode(name!!, this, name!! !in seenVariableNames, assign, modifiers)
         }
 
         operator fun rangeTo(other: T): BoolNode {
             debugPrint { "equals: ${this.id}, ${other.id}" }
             return BoolNode(OperatorNode("==", this.copy(), other.copy()))
         }
+
     }
 
+    fun <T: Assignable<T>> equalTo(left: T, right: T): BoolNode {
+        debugPrint { "equals: ${left.id}, ${right.id}" }
+        return BoolNode(OperatorNode("==", left.copy(), right.copy()))
+    }
+
+    infix fun <T: Assignable<T>> T.EQ(other: T) = equalTo(this, other)
+
     abstract inner class GenBType<T: GenBType<T>>(vararg cs: ShaderNode): Assignable<T>(*cs) {
-        abstract fun new(vararg cs: ShaderNode): GenBType<T>
+        //abstract override fun new(vararg cs: ShaderNode): GenBType<T>
 
 //        operator fun plus(other: T): T {
 //            debugPrint { "plus: ${this.id}, ${other.id}" }
@@ -205,7 +241,7 @@ class KShader {
 //    inner class ivec4: genIType()
 
     abstract inner class GenFType<T: GenFType<T>>(vararg cs: ShaderNode): Assignable<T>(*cs) {
-        abstract fun new(vararg cs: ShaderNode): GenFType<T>
+        //abstract fun new(vararg cs: ShaderNode): GenFType<T>
 
         operator fun plus(other: T): T {
             debugPrint { "plus: ${this.id}, ${other.id}" }
@@ -254,13 +290,29 @@ class KShader {
 
         operator fun minus(other: FloatNode): FloatNode {
             debugPrint { "minus: ${this.id}, ${other.id}" }
-            val oNode = OperatorNode("-")
-            oNode.children = listOf(this.copy(), other.copy())
-            val result = FloatNode()
-            result.children = listOf(oNode)
-            return result
+            return FloatNode(OperatorNode("-", this.copy(), other.copy()))
         }
 
+    }
+
+    infix fun FloatNode.LT(other: FloatNode): BoolNode {
+        debugPrint { "<: ${this.id}, ${other.id}" }
+        return BoolNode(OperatorNode("<", this.copy(), other.copy()))
+    }
+
+    infix fun FloatNode.GT(other: FloatNode): BoolNode {
+        debugPrint { ">: ${this.id}, ${other.id}" }
+        return BoolNode(OperatorNode(">", this.copy(), other.copy()))
+    }
+
+    infix fun FloatNode.LE(other: FloatNode): BoolNode {
+        debugPrint { "<=: ${this.id}, ${other.id}" }
+        return BoolNode(OperatorNode("<=", this.copy(), other.copy()))
+    }
+
+    infix fun FloatNode.GE(other: FloatNode): BoolNode {
+        debugPrint { ">=: ${this.id}, ${other.id}" }
+        return BoolNode(OperatorNode(">=", this.copy(), other.copy()))
     }
 
     abstract inner class VecType<T: VecType<T>>(vararg cs: ShaderNode): GenFType<T>(*cs) {
@@ -269,13 +321,13 @@ class KShader {
             get() { return FloatNode(ComponentNode("x", this.copy())) }
             set(value) {
                 val varName = name ?: throw IllegalStateException("Unable to Determine Name of Vector")
-                instructions.add(AssignmentNode("${varName}.x", false, value.copy()))
+                instructions.add(AssignmentNode("${varName}.x", value, false))
             }
         var y: FloatNode
             get() { return FloatNode(ComponentNode("y", this.copy())) }
             set(value) {
                 val varName = name ?: throw IllegalStateException("Unable to Determine Name of Vector")
-                instructions.add(AssignmentNode("${varName}.y", false, value.copy()))
+                instructions.add(AssignmentNode("${varName}.y", value, false))
             }
 //        val xx: Vec2Node
 //            get() { return Vec2Node(ComponentNode("xx", this.copy())) }
@@ -305,7 +357,7 @@ class KShader {
 
         override fun render(): String {
             debugPrint { "vec2 Render, $id" }
-            if (children.size == 1 && children[0] is VariableNode) {
+            if (children.size == 1) {
                 return children[0].render()
             }
             require(children.size == 2) {"Error Rendering Vec2: Wrong Number of Children: ${children.render()}"}
@@ -342,17 +394,20 @@ class KShader {
         }
 
         override fun render(): String {
-            TODO("Not yet implemented")
+            debugPrint { "vec4 Render, $id" }
+            if (children.size == 1) {
+                return children[0].render()
+            }
+            require(children.size == 4) {"Error Rendering Vec4: Wrong Number of Children: ${children.render()}"}
+            return "vec4(${children.render()})"
         }
 
         override val nativeTypeName = "vec4"
 
-        constructor(x: FloatNode, y: FloatNode, z: FloatNode, w: FloatNode): this() {
-            children = listOf(x, y, z, w)
-        }
-
         override fun copy(): ShaderNode {
-            TODO("Vec4 Copy Not yet implemented")
+            val result = Vec4Node(*children.copy().toTypedArray())
+            result.name = name
+            return result
         }
 }
 
@@ -503,10 +558,62 @@ class KShader {
         genFType ldexp(highp genFType x, highp genIType exp)
     */
 
+//    inner class UniformNode<T: Assignable<T>>: Assignable<T>() {
+//        override fun render(): String {
+//            TODO("Not yet implemented")
+//        }
+//
+//        override val nativeTypeName = "uniform"
+//
+//        override fun copy(): ShaderNode {
+//            TODO("Not yet implemented")
+//        }
+//    }
+
+    inline fun <reified T: Assignable<T>> new(vararg cs: ShaderNode): T {
+        return when(T::class) {
+            FloatNode::class -> FloatNode(*cs)
+            Vec2Node::class -> Vec2Node(*cs)
+            Vec3Node::class -> Vec3Node(*cs)
+            Vec4Node::class -> Vec4Node(*cs)
+            BoolNode::class -> BoolNode(*cs)
+            else -> throw IllegalStateException("Unable to make type ${T::class.simpleName}")
+        } as T
+    }
+
+    inline fun <reified T: Assignable<T>> Uniform(): T {
+        val result = new<T>(LiteralNode("?"))
+        result.modifiers = listOf("uniform")
+        result.assign = false
+        return result
+    }
+
+    inline fun <reified T: Assignable<T>> Out(): T {
+        val result = new<T>(LiteralNode("?"))
+        result.modifiers = listOf("out")
+        result.assign = false
+        return result
+    }
+
+    inline fun <reified T: Assignable<T>> In(): T {
+        val result = new<T>(LiteralNode("?"))
+        result.modifiers = listOf("in")
+        result.assign = false
+        return result
+    }
+
+
+    operator fun String.unaryPlus() {
+        instructions.add(LiteralNode(this))
+    }
+
 
     fun Main(block: ()->Vec4Node) {
+        var fragColor by Out<Vec4Node>()
+        fragColor
         instructions.add(LiteralNode("void main(){"))
-        block()
+        val result = block()
+        fragColor = result
         instructions.add(LiteralNode("}"))
     }
 
@@ -516,12 +623,27 @@ class KShader {
         instructions.add(LiteralNode("}"))
     }
 
-    fun fragment(block: KShader.()->Unit): String {
+    val Break: Unit get() {
+        instructions.add(LiteralNode("break"))
+    }
+
+    val Continue: Unit get() {
+        instructions.add(LiteralNode("continue"))
+    }
+
+    fun fragment(block: KGLSL.()->Unit): String {
         block()
         return instructions.joinToString("\n") { it.render() }
     }
 
 }
+
+
+typealias float = KGLSL.FloatNode
+typealias vec2  = KGLSL.Vec2Node
+typealias vec3  = KGLSL.Vec3Node
+typealias vec4  = KGLSL.Vec4Node
+typealias bool  = KGLSL.BoolNode
 
 
 

@@ -66,3 +66,13 @@ inline fun Any?.ifNull(block: ()->Unit) {
         block()
     }
 }
+
+inline fun Any?.ifNotNull(block: ()->Unit) {
+    if (this != null) {
+        block()
+    }
+}
+
+fun StringBuilder.appendAll(iterable: Iterable<String>, sep: String="") {
+    iterable.forEach { append(it, sep) }
+}
