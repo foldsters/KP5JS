@@ -2,25 +2,23 @@ package p5.kglsl
 
 import p5.util.appendAll
 import p5.util.ifTrue
+import kotlin.reflect.KClass
 import kotlin.reflect.KProperty
 
 @Suppress("UNCHECKED_CAST")
 class KGLSL {
 
-    var debug = false
     var uID = 0
 
-    fun debugPrint(lazyMessage: ()->String) {
-        debug.ifTrue {
-            println(lazyMessage())
-        }
-    }
+    // Instructions to be Rendered at the End
+    var instructionIndent = 0
+    val instructions = mutableListOf<ShaderNode>()
 
+    // Tracking variables for assignment
     val seenVariableNames = mutableSetOf<String>()
-
-    val queuedAssignments: MutableMap<String, AssignmentNode> = mutableMapOf()
+    val queuedAssignments: MutableMap<String, AssignmentStatement> = mutableMapOf()
     fun pushQueuedAssignments() {
-        queuedAssignments.forEach { (name: String, it: AssignmentNode) ->
+        queuedAssignments.forEach { (name: String, it: AssignmentStatement) ->
             it.apply {
                 queuedAssignments.remove(name)
                 instructions.add(this.copy())
@@ -28,7 +26,14 @@ class KGLSL {
         }
     }
 
-    // Base class for all shader types
+//     _   _           _        _____
+//    | \ | | ___   __| | ___  |_   _|   _ _ __   ___  ___
+//    |  \| |/ _ \ / _` |/ _ \   | || | | | '_ \ / _ \/ __|
+//    | |\  | (_) | (_| |  __/   | || |_| | |_) |  __/\__ \
+//    |_| \_|\___/ \__,_|\___|   |_| \__, | .__/ \___||___/
+//                                   |___/|_|
+
+    // SHADER NODE: Base class for all shader types
     abstract inner class ShaderNode(vararg cs: ShaderNode) {
 
         open var children: List<ShaderNode> = cs.toList()
@@ -45,17 +50,1046 @@ class KGLSL {
         }
     }
 
-    // Line by line nodes to be rendered
-    var instructionIndent = 0
-    val instructions = mutableListOf<ShaderNode>()
+    // LITERAL EXPR: Holds kotlin float, int, bool
+    inner class LiteralExpr<T>(val literalValue: T): ShaderNode() {
+        override fun render(): String {
+            debugPrint { "Literal Node Render" }
+            return when(literalValue) {
+                is Double -> {
+                    val result = literalValue.toString()
+                    if ("." !in result) {
+                        "$literalValue."
+                    } else result
+                }
+                is String -> literalValue
+                is Boolean -> literalValue.toString()
+                else -> "???"
+            }
+        }
+        override val descriptor = "literalNode($literalValue)"
+        override fun copy(): ShaderNode {
+            return LiteralExpr(literalValue)
+        }
+
+        override val nativeTypeName: String
+            get() = throw IllegalStateException("Cannot Use LiteralNode as Shader Type")
+    }
+
+    // ASSIGNMENT STATEMENT: Renders to an assignment/declaration statement
+    inner class AssignmentStatement(
+        val name: String,
+        val expression: GenExpr<*>,
+        val declare: Boolean = false,
+        val assign: Boolean = true,
+        val modifiers: List<String> = listOf()
+    ): ShaderNode(expression) {
+        override fun render(): String {
+            debugPrint { "Assignment Node Render" }
+            return buildString {
+                appendAll(modifiers, " ")
+                if(declare) append(expression.nativeTypeName, " ")
+                append(name)
+                if(assign) append(" = ", expression.render())
+                append(";")
+            }
+        }
+        override val descriptor = "AssignmentNode($name)"
+        override fun copy(): AssignmentStatement {
+            return AssignmentStatement(name, expression.copy() as GenExpr<*>, declare)
+        }
+        override val nativeTypeName: String
+            get() = throw IllegalStateException("Cannot Use AssignmentNode as Shader Type")
+    }
+
+    // VARIABLE EXPR: Expressions that are just variable names
+    inner class VariableExpr(val name: String): ShaderNode() {
+        override fun render() = name
+        override val descriptor = "VariableNode($name)"
+        override fun copy(): ShaderNode {
+            return VariableExpr(name)
+        }
+        override val nativeTypeName: String
+            get() = throw IllegalStateException("Cannot Use VariableNode as Shader Type")
+    }
+
+    inner class FunctionExpr(val name: String, vararg cs: ShaderNode): ShaderNode(*cs) {
+        override fun render(): String {
+            debugPrint { "Function Node Render: ${children.render()}" }
+            return "$name(${children.render()})"
+        }
+        override val descriptor = name
+        override fun copy(): ShaderNode {
+            val result = FunctionExpr(name)
+            result.children = children.copy()
+            return result
+        }
+        override val nativeTypeName: String
+            get() = throw IllegalStateException("Cannot Use FunctionNode as Shader Type")
+    }
+
+    inner class OperatorExpr(val name: String, vararg cs: ShaderNode): ShaderNode(*cs) {
+        override fun render(): String {
+            debugPrint { "Operator Node Render: $name" }
+            require(children.size > 1) {"Error in rendering Operator Node: Not Enough Children ($children)"}
+            val child0 = children[0]
+            val child1 = children[1]
+            val c0 = if(child0.children.isNotEmpty() && child0.children[0] is OperatorExpr) {
+                "(${child0.render()})"
+            } else {
+                child0.render()
+            }
+            val c1 = if(child1.children.isNotEmpty() && child1.children[0] is OperatorExpr) {
+                "(${child1.render()})"
+            } else {
+                child1.render()
+            }
+            return "$c0$name$c1"
+        }
+        override val descriptor = name
+        override fun copy(): ShaderNode {
+            val result =  OperatorExpr(name)
+            result.children = children.copy()
+            return result
+        }
+        override val nativeTypeName: String
+            get() = throw IllegalStateException("Cannot Use OperatorNode as Shader Type")
+    }
+
+    inner class ComponentExpr(val name: String, vararg cs: ShaderNode): ShaderNode(*cs) {
+        override fun render(): String {
+            debugPrint { "Component Node Render" }
+            require(children.isNotEmpty()) {"Error in rendering Component Node: Not Enough Children ($children)"}
+            if (children[0] is GenExpr<*>) {
+                return "${children[0].render()}.$name"
+            }
+            return "(${children[0].render()}).$name"
+        }
+        override val descriptor = name
+        override fun copy(): ShaderNode {
+            return ComponentExpr(name, *(children.copy().toTypedArray()))
+        }
+        override val nativeTypeName: String
+            get() = throw IllegalStateException("Cannot Use ComponentNode as Shader Type")
+    }
+
+//      ____            _____
+//     / ___| ___ _ __ | ____|_  ___ __  _ __
+//    | |  _ / _ \ '_ \|  _| \ \/ / '_ \| '__|
+//    | |_| |  __/ | | | |___ >  <| |_) | |
+//     \____|\___|_| |_|_____/_/\_\ .__/|_|
+//                                |_|
+
+    // GENEXPR: Any expression that can be assigned to a value
+    abstract inner class GenExpr<T: ShaderNode>(vararg cs: ShaderNode): ShaderNode(*cs) {
+
+        var name: String? = null
+        var assign = true
+        var modifiers = listOf<String>()
+
+        abstract fun new(vararg cs: ShaderNode): GenExpr<T>
+
+        operator fun getValue(thisRef: Any?, property: KProperty<*>): T {
+            pushQueuedAssignments()
+            val varName = property.name
+            name = varName
+            println("getting var $name")
+            seenVariableNames.add(name!!).ifTrue {
+                debugPrint { "Get: property name: $name, id: $id, render: ${render()}" }
+                instructions.add(AssignmentStatement(varName, this.copy() as GenExpr<*>, true, assign, modifiers))
+            }
+            children = listOf(VariableExpr(varName))
+            return this as T
+        }
+
+        operator fun setValue(thisRef: Any?, property: KProperty<*>, value: T) {
+            pushQueuedAssignments()
+            debugPrint { "Set: property name: ${property.name}, id: $id, render: ${render()}" }
+            name = property.name
+            children = value.children.copy()
+            println("pushing $name for assignment")
+            queuedAssignments[name!!] = AssignmentStatement(name!!, this, name!! !in seenVariableNames, assign, modifiers)
+        }
+
+        override fun copy(): ShaderNode {
+            val result = new(*children.toTypedArray())
+            result.name = name
+            return result
+        }
+
+        override fun render(): String {
+            debugPrint { "Primitive Expr Render: $name of type $nativeTypeName" }
+            require(children.isNotEmpty()) {"Error Rendering Primitive Expr $name of type $nativeTypeName: No Children"}
+            return children[0].render()
+        }
+
+    }
+
+    fun <T: GenExpr<T>> equalTo(left: T, right: T): BoolExpr {
+        debugPrint { "equals: ${left.id}, ${right.id}" }
+        return BoolExpr(OperatorExpr("==", left.copy(), right.copy()))
+    }
+
+    infix fun <T: GenExpr<T>> T.EQ(other: T) = equalTo(this, other)
+
+//     ____              _
+//    | __ )  ___   ___ | | ___  __ _ _ __  ___
+//    |  _ \ / _ \ / _ \| |/ _ \/ _` | '_ \/ __|
+//    | |_) | (_) | (_) | |  __/ (_| | | | \__ \
+//    |____/ \___/ \___/|_|\___|\__,_|_| |_|___/
+
+    // GENBEXPR: Base class of boolean and boolean vector expressions
+    abstract inner class GenBExpr<T: GenBExpr<T>>(vararg cs: ShaderNode): GenExpr<T>(*cs)
+
+    fun bool(b: Boolean): BoolExpr {
+        return BoolExpr(LiteralExpr(b))
+    }
+
+    // BOOLEXPR: Expression of type bool
+    inner class BoolExpr(vararg cs: ShaderNode): GenBExpr<BoolExpr>(*cs) {
+        override fun new(vararg cs: ShaderNode) = BoolExpr(*cs)
+        override val nativeTypeName = "bool"
+    }
+
+    operator fun BoolExpr.not() = BoolExpr(FunctionExpr("!", this.copy()))
+    infix fun BoolExpr.AND(other: BoolExpr) = BoolExpr(FunctionExpr("&&", this.copy(), other.copy()))
+    infix fun BoolExpr.XOR(other: BoolExpr) = BoolExpr(FunctionExpr("^^", this.copy(), other.copy()))
+    infix fun BoolExpr.OR(other: BoolExpr) = BoolExpr(FunctionExpr("||", this.copy(), other.copy()))
+
+    // BVECEXPR: Abstract base class of float vector expressions
+    abstract inner class BVecExpr<T: BVecExpr<T>>(vararg cs: ShaderNode): GenBExpr<T>(*cs) {
+
+        abstract val numComponents: Int
+
+        inner class ComponentProvider<R: GenExpr<R>>(val clazz: KClass<R>) {
+            operator fun getValue(thisRef: Any?, property: KProperty<*>): R {
+                return newByClass(clazz, ComponentExpr(property.name, this@BVecExpr.copy())) as R
+            }
+
+            operator fun setValue(thisRef: Any?, property: KProperty<*>, value: R) {
+                val varName = name ?: throw IllegalStateException("Unable to Determine Name of Vector")
+                instructions.add(AssignmentStatement("${varName}.${property.name}", value, false))
+            }
+        }
+
+        val C1 = ComponentProvider(BoolExpr::class)
+        val C2 = ComponentProvider(BVec2Expr::class)
+        val C3 = ComponentProvider(BVec3Expr::class)
+        val C4 = ComponentProvider(BVec4Expr::class)
+
+        var x    by C1; var y    by C1; var xy   by C2; var yx   by C2; val xx   by C2; val yy   by C2
+        val xxx  by C3; val xxy  by C3; val xyx  by C3; val xyy  by C3; val yxx  by C3; val yxy  by C3
+        val yyx  by C3; val yyy  by C3; val xxxx by C4; val xxxy by C4; val xxyx by C4; val xxyy by C4
+        val xyxx by C4; val xyxy by C4; val xyyx by C4; val xyyy by C4; val yxxx by C4; val yxxy by C4
+        val yxyx by C4; val yxyy by C4; val yyxx by C4; val yyxy by C4; val yyyx by C4; val yyyy by C4
+
+        override fun render(): String {
+            if (children.size == 1) { return super.render() }
+            require(children.size == numComponents) {"Error Rendering $name of type $nativeTypeName: Wrong Number of Children"}
+            return "$nativeTypeName(${children.render()})"
+        }
+    }
+
+    inner class BVec2Expr(vararg cs: ShaderNode): BVecExpr<BVec2Expr>(*cs) {
+        override fun new(vararg cs: ShaderNode) = BVec2Expr(*cs)
+        override val nativeTypeName = "bvec2"
+        override val numComponents = 2
+    }
+
+    inner class BVec3Expr(vararg cs: ShaderNode): BVecExpr<BVec3Expr>(*cs) {
+        override fun new(vararg cs: ShaderNode) = BVec3Expr(*cs)
+        override val nativeTypeName = "bvec3"
+        override val numComponents = 3
+
+        // Components and Swizzling
+        var z    by C1; var xz   by C2; var yz   by C2; var zx   by C2; var zy   by C2; val zz   by C2
+        var xyz  by C3; var xzy  by C3; var yxz  by C3; var yzx  by C3; var zxy  by C3; var zyx  by C3
+        val xxz  by C3; val xzx  by C3; val xzz  by C3; val yyz  by C3; val yzy  by C3; val yzz  by C3
+        val zxx  by C3; val zxz  by C3; val zyy  by C3; val zyz  by C3; val zzx  by C3; val zzy  by C3
+        val zzz  by C3; val xxxz by C4; val xxyz by C4; val xxzx by C4; val xxzy by C4; val xxzz by C4
+        val xyxz by C4; val xyyz by C4; val xyzx by C4; val xyzy by C4; val xyzz by C4; val xzxx by C4
+        val xzxy by C4; val xzxz by C4; val xzyx by C4; val xzyy by C4; val xzyz by C4; val xzzx by C4
+        val xzzy by C4; val xzzz by C4; val yxxz by C4; val yxyz by C4; val yxzx by C4; val yxzy by C4
+        val yxzz by C4; val yyxz by C4; val yyyz by C4; val yyzx by C4; val yyzy by C4; val yyzz by C4
+        val yzxx by C4; val yzxy by C4; val yzxz by C4; val yzyx by C4; val yzyy by C4; val yzyz by C4
+        val yzzx by C4; val yzzy by C4; val yzzz by C4; val zxxx by C4; val zxxy by C4; val zxxz by C4
+        val zxyx by C4; val zxyy by C4; val zxyz by C4; val zxzx by C4; val zxzy by C4; val zxzz by C4
+        val zyxx by C4; val zyxy by C4; val zyxz by C4; val zyyx by C4; val zyyy by C4; val zyyz by C4
+        val zyzx by C4; val zyzy by C4; val zyzz by C4; val zzxx by C4; val zzxy by C4; val zzxz by C4
+        val zzyx by C4; val zzyy by C4; val zzyz by C4; val zzzx by C4; val zzzy by C4; val zzzz by C4
+
+        var r    by C1; var g    by C1; var b    by C1; var rg   by C2; var rb   by C2; var gr   by C2
+        var gb   by C2; var br   by C2; var bg   by C2; val rr   by C2; val gg   by C2; val bb   by C2
+        var rgb  by C3; var rbg  by C3; var grb  by C3; var gbr  by C3; var brg  by C3; var bgr  by C3
+        val rrr  by C3; val rrg  by C3; val rrb  by C3; val rgr  by C3; val rgg  by C3; val rbr  by C3
+        val rbb  by C3; val grr  by C3; val grg  by C3; val ggr  by C3; val ggg  by C3; val ggb  by C3
+        val gbg  by C3; val gbb  by C3; val brr  by C3; val brb  by C3; val bgg  by C3; val bgb  by C3
+        val bbr  by C3; val bbg  by C3; val bbb  by C3; val rrrr by C4; val rrrg by C4; val rrrb by C4
+        val rrgr by C4; val rrgg by C4; val rrgb by C4; val rrbr by C4; val rrbg by C4; val rrbb by C4
+        val rgrr by C4; val rgrg by C4; val rgrb by C4; val rggr by C4; val rggg by C4; val rggb by C4
+        val rgbr by C4; val rgbg by C4; val rgbb by C4; val rbrr by C4; val rbrg by C4; val rbrb by C4
+        val rbgr by C4; val rbgg by C4; val rbgb by C4; val rbbr by C4; val rbbg by C4; val rbbb by C4
+        val grrr by C4; val grrg by C4; val grrb by C4; val grgr by C4; val grgg by C4; val grgb by C4
+        val grbr by C4; val grbg by C4; val grbb by C4; val ggrr by C4; val ggrg by C4; val ggrb by C4
+        val gggr by C4; val gggg by C4; val gggb by C4; val ggbr by C4; val ggbg by C4; val ggbb by C4
+        val gbrr by C4; val gbrg by C4; val gbrb by C4; val gbgr by C4; val gbgg by C4; val gbgb by C4
+        val gbbr by C4; val gbbg by C4; val gbbb by C4; val brrr by C4; val brrg by C4; val brrb by C4
+        val brgr by C4; val brgg by C4; val brgb by C4; val brbr by C4; val brbg by C4; val brbb by C4
+        val bgrr by C4; val bgrg by C4; val bgrb by C4; val bggr by C4; val bggg by C4; val bggb by C4
+        val bgbr by C4; val bgbg by C4; val bgbb by C4; val bbrr by C4; val bbrg by C4; val bbrb by C4
+        val bbgr by C4; val bbgg by C4; val bbgb by C4; val bbbr by C4; val bbbg by C4; val bbbb by C4
+    }
+
+    inner class BVec4Expr(vararg cs: ShaderNode): BVecExpr<BVec4Expr>(*cs) {
+        override fun new(vararg cs: ShaderNode) = BVec4Expr(*cs)
+        override val nativeTypeName = "bvec4"
+        override val numComponents = 4
+
+        // Components and Swizzling
+        var z    by C1; var w    by C1; var xz   by C2; var xw   by C2; var yz   by C2; var yw   by C2
+        var zx   by C2; var zy   by C2; var zw   by C2; var wx   by C2; var wy   by C2; var wz   by C2
+        val zz   by C2; val ww   by C2; var xyz  by C3; var xyw  by C3; var xzy  by C3; var xzw  by C3
+        var xwy  by C3; var xwz  by C3; var yxz  by C3; var yxw  by C3; var yzx  by C3; var yzw  by C3
+        var ywx  by C3; var ywz  by C3; var zxy  by C3; var zxw  by C3; var zyx  by C3; var zyw  by C3
+        var zwx  by C3; var zwy  by C3; var wxy  by C3; var wxz  by C3; var wyx  by C3; var wyz  by C3
+        var wzx  by C3; var wzy  by C3; val xxz  by C3; val xxw  by C3; val xzx  by C3; val xzz  by C3
+        val xwx  by C3; val xww  by C3; val yyz  by C3; val yyw  by C3; val yzy  by C3; val yzz  by C3
+        val ywy  by C3; val yww  by C3; val zxx  by C3; val zxz  by C3; val zyy  by C3; val zyz  by C3
+        val zzx  by C3; val zzy  by C3; val zzz  by C3; val zzw  by C3; val zwz  by C3; val zww  by C3
+        val wxx  by C3; val wxw  by C3; val wyy  by C3; val wyw  by C3; val wzz  by C3; val wzw  by C3
+        val wwx  by C3; val wwy  by C3; val wwz  by C3; val www  by C3; var xyzw by C4; var xywz by C4
+        var xzyw by C4; var xzwy by C4; var xwyz by C4; var xwzy by C4; var yxzw by C4; var yxwz by C4
+        var yzxw by C4; var yzwx by C4; var ywxz by C4; var ywzx by C4; var zxyw by C4; var zxwy by C4
+        var zyxw by C4; var zywx by C4; var zwxy by C4; var zwyx by C4; var wxyz by C4; var wxzy by C4
+        var wyxz by C4; var wyzx by C4; var wzxy by C4; var wzyx by C4; val xxxz by C4; val xxxw by C4
+        val xxyz by C4; val xxyw by C4; val xxzx by C4; val xxzy by C4; val xxzz by C4; val xxzw by C4
+        val xxwx by C4; val xxwy by C4; val xxwz by C4; val xxww by C4; val xyxz by C4; val xyxw by C4
+        val xyyz by C4; val xyyw by C4; val xyzx by C4; val xyzy by C4; val xyzz by C4; val xywx by C4
+        val xywy by C4; val xyww by C4; val xzxx by C4; val xzxy by C4; val xzxz by C4; val xzxw by C4
+        val xzyx by C4; val xzyy by C4; val xzyz by C4; val xzzx by C4; val xzzy by C4; val xzzz by C4
+        val xzzw by C4; val xzwx by C4; val xzwz by C4; val xzww by C4; val xwxx by C4; val xwxy by C4
+        val xwxz by C4; val xwxw by C4; val xwyx by C4; val xwyy by C4; val xwyw by C4; val xwzx by C4
+        val xwzz by C4; val xwzw by C4; val xwwx by C4; val xwwy by C4; val xwwz by C4; val xwww by C4
+        val yxxz by C4; val yxxw by C4; val yxyz by C4; val yxyw by C4; val yxzx by C4; val yxzy by C4
+        val yxzz by C4; val yxwx by C4; val yxwy by C4; val yxww by C4; val yyxz by C4; val yyxw by C4
+        val yyyz by C4; val yyyw by C4; val yyzx by C4; val yyzy by C4; val yyzz by C4; val yyzw by C4
+        val yywx by C4; val yywy by C4; val yywz by C4; val yyww by C4; val yzxx by C4; val yzxy by C4
+        val yzxz by C4; val yzyx by C4; val yzyy by C4; val yzyz by C4; val yzyw by C4; val yzzx by C4
+        val yzzy by C4; val yzzz by C4; val yzzw by C4; val yzwy by C4; val yzwz by C4; val yzww by C4
+        val ywxx by C4; val ywxy by C4; val ywxw by C4; val ywyx by C4; val ywyy by C4; val ywyz by C4
+        val ywyw by C4; val ywzy by C4; val ywzz by C4; val ywzw by C4; val ywwx by C4; val ywwy by C4
+        val ywwz by C4; val ywww by C4; val zxxx by C4; val zxxy by C4; val zxxz by C4; val zxxw by C4
+        val zxyx by C4; val zxyy by C4; val zxyz by C4; val zxzx by C4; val zxzy by C4; val zxzz by C4
+        val zxzw by C4; val zxwx by C4; val zxwz by C4; val zxww by C4; val zyxx by C4; val zyxy by C4
+        val zyxz by C4; val zyyx by C4; val zyyy by C4; val zyyz by C4; val zyyw by C4; val zyzx by C4
+        val zyzy by C4; val zyzz by C4; val zyzw by C4; val zywy by C4; val zywz by C4; val zyww by C4
+        val zzxx by C4; val zzxy by C4; val zzxz by C4; val zzxw by C4; val zzyx by C4; val zzyy by C4
+        val zzyz by C4; val zzyw by C4; val zzzx by C4; val zzzy by C4; val zzzz by C4; val zzzw by C4
+        val zzwx by C4; val zzwy by C4; val zzwz by C4; val zzww by C4; val zwxx by C4; val zwxz by C4
+        val zwxw by C4; val zwyy by C4; val zwyz by C4; val zwyw by C4; val zwzx by C4; val zwzy by C4
+        val zwzz by C4; val zwzw by C4; val zwwx by C4; val zwwy by C4; val zwwz by C4; val zwww by C4
+        val wxxx by C4; val wxxy by C4; val wxxz by C4; val wxxw by C4; val wxyx by C4; val wxyy by C4
+        val wxyw by C4; val wxzx by C4; val wxzz by C4; val wxzw by C4; val wxwx by C4; val wxwy by C4
+        val wxwz by C4; val wxww by C4; val wyxx by C4; val wyxy by C4; val wyxw by C4; val wyyx by C4
+        val wyyy by C4; val wyyz by C4; val wyyw by C4; val wyzy by C4; val wyzz by C4; val wyzw by C4
+        val wywx by C4; val wywy by C4; val wywz by C4; val wyww by C4; val wzxx by C4; val wzxz by C4
+        val wzxw by C4; val wzyy by C4; val wzyz by C4; val wzyw by C4; val wzzx by C4; val wzzy by C4
+        val wzzz by C4; val wzzw by C4; val wzwx by C4; val wzwy by C4; val wzwz by C4; val wzww by C4
+        val wwxx by C4; val wwxy by C4; val wwxz by C4; val wwxw by C4; val wwyx by C4; val wwyy by C4
+        val wwyz by C4; val wwyw by C4; val wwzx by C4; val wwzy by C4; val wwzz by C4; val wwzw by C4
+        val wwwx by C4; val wwwy by C4; val wwwz by C4; val wwww by C4;
+
+        var r    by C1; var g    by C1; var b    by C1; var a    by C1; var rg   by C2; var rb   by C2
+        var ra   by C2; var gr   by C2; var gb   by C2; var ga   by C2; var br   by C2; var bg   by C2
+        var ba   by C2; var ar   by C2; var ag   by C2; var ab   by C2; val rr   by C2; val gg   by C2
+        val bb   by C2; val aa   by C2; var rgb  by C3; var rga  by C3; var rbg  by C3; var rba  by C3
+        var rag  by C3; var rab  by C3; var grb  by C3; var gra  by C3; var gbr  by C3; var gba  by C3
+        var gar  by C3; var gab  by C3; var brg  by C3; var bra  by C3; var bgr  by C3; var bga  by C3
+        var bar  by C3; var bag  by C3; var arg  by C3; var arb  by C3; var agr  by C3; var agb  by C3
+        var abr  by C3; var abg  by C3; val rrr  by C3; val rrg  by C3; val rrb  by C3; val rra  by C3
+        val rgr  by C3; val rgg  by C3; val rbr  by C3; val rbb  by C3; val rar  by C3; val raa  by C3
+        val grr  by C3; val grg  by C3; val ggr  by C3; val ggg  by C3; val ggb  by C3; val gga  by C3
+        val gbg  by C3; val gbb  by C3; val gag  by C3; val gaa  by C3; val brr  by C3; val brb  by C3
+        val bgg  by C3; val bgb  by C3; val bbr  by C3; val bbg  by C3; val bbb  by C3; val bba  by C3
+        val bab  by C3; val baa  by C3; val arr  by C3; val ara  by C3; val agg  by C3; val aga  by C3
+        val abb  by C3; val aba  by C3; val aar  by C3; val aag  by C3; val aab  by C3; val aaa  by C3
+        var rgba by C4; var rgab by C4; var rbga by C4; var rbag by C4; var ragb by C4; var rabg by C4
+        var grba by C4; var grab by C4; var gbra by C4; var gbar by C4; var garb by C4; var gabr by C4
+        var brga by C4; var brag by C4; var bgra by C4; var bgar by C4; var barg by C4; var bagr by C4
+        var argb by C4; var arbg by C4; var agrb by C4; var agbr by C4; var abrg by C4; var abgr by C4
+        val rrrr by C4; val rrrg by C4; val rrrb by C4; val rrra by C4; val rrgr by C4; val rrgg by C4
+        val rrgb by C4; val rrga by C4; val rrbr by C4; val rrbg by C4; val rrbb by C4; val rrba by C4
+        val rrar by C4; val rrag by C4; val rrab by C4; val rraa by C4; val rgrr by C4; val rgrg by C4
+        val rgrb by C4; val rgra by C4; val rggr by C4; val rggg by C4; val rggb by C4; val rgga by C4
+        val rgbr by C4; val rgbg by C4; val rgbb by C4; val rgar by C4; val rgag by C4; val rgaa by C4
+        val rbrr by C4; val rbrg by C4; val rbrb by C4; val rbra by C4; val rbgr by C4; val rbgg by C4
+        val rbgb by C4; val rbbr by C4; val rbbg by C4; val rbbb by C4; val rbba by C4; val rbar by C4
+        val rbab by C4; val rbaa by C4; val rarr by C4; val rarg by C4; val rarb by C4; val rara by C4
+        val ragr by C4; val ragg by C4; val raga by C4; val rabr by C4; val rabb by C4; val raba by C4
+        val raar by C4; val raag by C4; val raab by C4; val raaa by C4; val grrr by C4; val grrg by C4
+        val grrb by C4; val grra by C4; val grgr by C4; val grgg by C4; val grgb by C4; val grga by C4
+        val grbr by C4; val grbg by C4; val grbb by C4; val grar by C4; val grag by C4; val graa by C4
+        val ggrr by C4; val ggrg by C4; val ggrb by C4; val ggra by C4; val gggr by C4; val gggg by C4
+        val gggb by C4; val ggga by C4; val ggbr by C4; val ggbg by C4; val ggbb by C4; val ggba by C4
+        val ggar by C4; val ggag by C4; val ggab by C4; val ggaa by C4; val gbrr by C4; val gbrg by C4
+        val gbrb by C4; val gbgr by C4; val gbgg by C4; val gbgb by C4; val gbga by C4; val gbbr by C4
+        val gbbg by C4; val gbbb by C4; val gbba by C4; val gbag by C4; val gbab by C4; val gbaa by C4
+        val garr by C4; val garg by C4; val gara by C4; val gagr by C4; val gagg by C4; val gagb by C4
+        val gaga by C4; val gabg by C4; val gabb by C4; val gaba by C4; val gaar by C4; val gaag by C4
+        val gaab by C4; val gaaa by C4; val brrr by C4; val brrg by C4; val brrb by C4; val brra by C4
+        val brgr by C4; val brgg by C4; val brgb by C4; val brbr by C4; val brbg by C4; val brbb by C4
+        val brba by C4; val brar by C4; val brab by C4; val braa by C4; val bgrr by C4; val bgrg by C4
+        val bgrb by C4; val bggr by C4; val bggg by C4; val bggb by C4; val bgga by C4; val bgbr by C4
+        val bgbg by C4; val bgbb by C4; val bgba by C4; val bgag by C4; val bgab by C4; val bgaa by C4
+        val bbrr by C4; val bbrg by C4; val bbrb by C4; val bbra by C4; val bbgr by C4; val bbgg by C4
+        val bbgb by C4; val bbga by C4; val bbbr by C4; val bbbg by C4; val bbbb by C4; val bbba by C4
+        val bbar by C4; val bbag by C4; val bbab by C4; val bbaa by C4; val barr by C4; val barb by C4
+        val bara by C4; val bagg by C4; val bagb by C4; val baga by C4; val babr by C4; val babg by C4
+        val babb by C4; val baba by C4; val baar by C4; val baag by C4; val baab by C4; val baaa by C4
+        val arrr by C4; val arrg by C4; val arrb by C4; val arra by C4; val argr by C4; val argg by C4
+        val arga by C4; val arbr by C4; val arbb by C4; val arba by C4; val arar by C4; val arag by C4
+        val arab by C4; val araa by C4; val agrr by C4; val agrg by C4; val agra by C4; val aggr by C4
+        val aggg by C4; val aggb by C4; val agga by C4; val agbg by C4; val agbb by C4; val agba by C4
+        val agar by C4; val agag by C4; val agab by C4; val agaa by C4; val abrr by C4; val abrb by C4
+        val abra by C4; val abgg by C4; val abgb by C4; val abga by C4; val abbr by C4; val abbg by C4
+        val abbb by C4; val abba by C4; val abar by C4; val abag by C4; val abab by C4; val abaa by C4
+        val aarr by C4; val aarg by C4; val aarb by C4; val aara by C4; val aagr by C4; val aagg by C4
+        val aagb by C4; val aaga by C4; val aabr by C4; val aabg by C4; val aabb by C4; val aaba by C4
+        val aaar by C4; val aaag by C4; val aaab by C4; val aaaa by C4;
+    }
+
+//     ___       _
+//    |_ _|_ __ | |_ ___  __ _  ___ _ __ ___
+//     | || '_ \| __/ _ \/ _` |/ _ \ '__/ __|
+//     | || | | | ||  __/ (_| |  __/ |  \__ \
+//    |___|_| |_|\__\___|\__, |\___|_|  |___/
+//                       |___/
+
+    // GENIEXPR: Base class of float and float vector expressions
+    abstract inner class GenIExpr<T: GenIExpr<T>>(vararg cs: ShaderNode): GenExpr<T>(*cs) {
+
+        operator fun plus(other: T): T {
+            return new(OperatorExpr("+", this.copy(), other.copy())) as T
+        }
+    }
+
+    // INTEXPR: Expression of type int
+    inner class IntExpr(vararg cs: ShaderNode): GenIExpr<IntExpr>(*cs) {
+        override val nativeTypeName = "int"
+        override fun new(vararg cs: ShaderNode) = IntExpr(*cs)
+    }
+
+    // External Int Constructors
+    fun int(x: Double) = IntExpr(LiteralExpr(x.toInt()))
+    fun int(x: Float) = float(x.toInt())
+    fun int(x: Int) = float(x.toInt())
+    fun int(x: FloatExpr) = x.copy()
+    fun int(x: VariableExpr) = IntExpr(x)
+
+    // Int Operators
+    infix fun IntExpr.LT(other: IntExpr) = BoolExpr(OperatorExpr("<", this.copy(), other.copy()))
+    infix fun IntExpr.GT(other: IntExpr) = BoolExpr(OperatorExpr(">", this.copy(), other.copy()))
+    infix fun IntExpr.LE(other: IntExpr) = BoolExpr(OperatorExpr("<=", this.copy(), other.copy()))
+    infix fun IntExpr.GE(other: IntExpr) = BoolExpr(OperatorExpr(">=", this.copy(), other.copy()))
+
+    operator fun <T: IVecExpr<*>> IntExpr.plus(other: T) = new(OperatorExpr("+", this.copy(), other.copy())) as T
+    operator fun <T: IVecExpr<*>> IntExpr.minus(other: T) = new(OperatorExpr("-", this.copy(), other.copy())) as T
 
 
-    // fun pushAssignment
-    // fun pushWhile
-    // fun pushFor
+    // IVECEXPR: Abstract base class of float vector expressions
+    abstract inner class IVecExpr<T: IVecExpr<T>>(vararg cs: ShaderNode): GenIExpr<T>(*cs) {
+
+        abstract val numComponents: Int
+
+        inner class ComponentProvider<R: GenExpr<R>>(val clazz: KClass<R>) {
+            operator fun getValue(thisRef: Any?, property: KProperty<*>): R {
+                return newByClass(clazz, ComponentExpr(property.name, this@IVecExpr.copy())) as R
+            }
+
+            operator fun setValue(thisRef: Any?, property: KProperty<*>, value: R) {
+                val varName = name ?: throw IllegalStateException("Unable to Determine Name of Vector")
+                instructions.add(AssignmentStatement("${varName}.${property.name}", value, false))
+            }
+        }
+
+        // See swizzle.kt for components
+
+        val C1 = ComponentProvider(IntExpr::class)
+        val C2 = ComponentProvider(IVec2Expr::class)
+        val C3 = ComponentProvider(IVec3Expr::class)
+        val C4 = ComponentProvider(IVec4Expr::class)
+
+        var x    by C1; var y    by C1; var xy   by C2; var yx   by C2; val xx   by C2; val yy   by C2
+        val xxx  by C3; val xxy  by C3; val xyx  by C3; val xyy  by C3; val yxx  by C3; val yxy  by C3
+        val yyx  by C3; val yyy  by C3; val xxxx by C4; val xxxy by C4; val xxyx by C4; val xxyy by C4
+        val xyxx by C4; val xyxy by C4; val xyyx by C4; val xyyy by C4; val yxxx by C4; val yxxy by C4
+        val yxyx by C4; val yxyy by C4; val yyxx by C4; val yyxy by C4; val yyyx by C4; val yyyy by C4
+
+        override fun render(): String {
+            if (children.size == 1) { return super.render() }
+            require(children.size == numComponents) {"Error Rendering $name of type $nativeTypeName: Wrong Number of Children"}
+            return "$nativeTypeName(${children.render()})"
+        }
+
+    }
+
+    inner class IVec2Expr(vararg cs: ShaderNode): IVecExpr<IVec2Expr>(*cs) {
+        override fun new(vararg cs: ShaderNode) = IVec2Expr(*cs)
+        override val nativeTypeName = "ivec2"
+        override val numComponents = 2
+    }
+
+    inner class IVec3Expr(vararg cs: ShaderNode): IVecExpr<IVec3Expr>(*cs) {
+        override fun new(vararg cs: ShaderNode) = IVec3Expr(*cs)
+        override val nativeTypeName = "ivec3"
+        override val numComponents = 3
+
+        // Components and Swizzling
+        var z    by C1; var xz   by C2; var yz   by C2; var zx   by C2; var zy   by C2; val zz   by C2
+        var xyz  by C3; var xzy  by C3; var yxz  by C3; var yzx  by C3; var zxy  by C3; var zyx  by C3
+        val xxz  by C3; val xzx  by C3; val xzz  by C3; val yyz  by C3; val yzy  by C3; val yzz  by C3
+        val zxx  by C3; val zxz  by C3; val zyy  by C3; val zyz  by C3; val zzx  by C3; val zzy  by C3
+        val zzz  by C3; val xxxz by C4; val xxyz by C4; val xxzx by C4; val xxzy by C4; val xxzz by C4
+        val xyxz by C4; val xyyz by C4; val xyzx by C4; val xyzy by C4; val xyzz by C4; val xzxx by C4
+        val xzxy by C4; val xzxz by C4; val xzyx by C4; val xzyy by C4; val xzyz by C4; val xzzx by C4
+        val xzzy by C4; val xzzz by C4; val yxxz by C4; val yxyz by C4; val yxzx by C4; val yxzy by C4
+        val yxzz by C4; val yyxz by C4; val yyyz by C4; val yyzx by C4; val yyzy by C4; val yyzz by C4
+        val yzxx by C4; val yzxy by C4; val yzxz by C4; val yzyx by C4; val yzyy by C4; val yzyz by C4
+        val yzzx by C4; val yzzy by C4; val yzzz by C4; val zxxx by C4; val zxxy by C4; val zxxz by C4
+        val zxyx by C4; val zxyy by C4; val zxyz by C4; val zxzx by C4; val zxzy by C4; val zxzz by C4
+        val zyxx by C4; val zyxy by C4; val zyxz by C4; val zyyx by C4; val zyyy by C4; val zyyz by C4
+        val zyzx by C4; val zyzy by C4; val zyzz by C4; val zzxx by C4; val zzxy by C4; val zzxz by C4
+        val zzyx by C4; val zzyy by C4; val zzyz by C4; val zzzx by C4; val zzzy by C4; val zzzz by C4
+
+        var r    by C1; var g    by C1; var b    by C1; var rg   by C2; var rb   by C2; var gr   by C2
+        var gb   by C2; var br   by C2; var bg   by C2; val rr   by C2; val gg   by C2; val bb   by C2
+        var rgb  by C3; var rbg  by C3; var grb  by C3; var gbr  by C3; var brg  by C3; var bgr  by C3
+        val rrr  by C3; val rrg  by C3; val rrb  by C3; val rgr  by C3; val rgg  by C3; val rbr  by C3
+        val rbb  by C3; val grr  by C3; val grg  by C3; val ggr  by C3; val ggg  by C3; val ggb  by C3
+        val gbg  by C3; val gbb  by C3; val brr  by C3; val brb  by C3; val bgg  by C3; val bgb  by C3
+        val bbr  by C3; val bbg  by C3; val bbb  by C3; val rrrr by C4; val rrrg by C4; val rrrb by C4
+        val rrgr by C4; val rrgg by C4; val rrgb by C4; val rrbr by C4; val rrbg by C4; val rrbb by C4
+        val rgrr by C4; val rgrg by C4; val rgrb by C4; val rggr by C4; val rggg by C4; val rggb by C4
+        val rgbr by C4; val rgbg by C4; val rgbb by C4; val rbrr by C4; val rbrg by C4; val rbrb by C4
+        val rbgr by C4; val rbgg by C4; val rbgb by C4; val rbbr by C4; val rbbg by C4; val rbbb by C4
+        val grrr by C4; val grrg by C4; val grrb by C4; val grgr by C4; val grgg by C4; val grgb by C4
+        val grbr by C4; val grbg by C4; val grbb by C4; val ggrr by C4; val ggrg by C4; val ggrb by C4
+        val gggr by C4; val gggg by C4; val gggb by C4; val ggbr by C4; val ggbg by C4; val ggbb by C4
+        val gbrr by C4; val gbrg by C4; val gbrb by C4; val gbgr by C4; val gbgg by C4; val gbgb by C4
+        val gbbr by C4; val gbbg by C4; val gbbb by C4; val brrr by C4; val brrg by C4; val brrb by C4
+        val brgr by C4; val brgg by C4; val brgb by C4; val brbr by C4; val brbg by C4; val brbb by C4
+        val bgrr by C4; val bgrg by C4; val bgrb by C4; val bggr by C4; val bggg by C4; val bggb by C4
+        val bgbr by C4; val bgbg by C4; val bgbb by C4; val bbrr by C4; val bbrg by C4; val bbrb by C4
+        val bbgr by C4; val bbgg by C4; val bbgb by C4; val bbbr by C4; val bbbg by C4; val bbbb by C4
+    }
+
+
+    inner class IVec4Expr(vararg cs: ShaderNode): IVecExpr<IVec4Expr>(*cs) {
+        override fun new(vararg cs: ShaderNode) = IVec4Expr(*cs)
+        override val nativeTypeName = "ivec4"
+        override val numComponents = 4
+
+        // Components and Swizzling
+        var z    by C1; var w    by C1; var xz   by C2; var xw   by C2; var yz   by C2; var yw   by C2
+        var zx   by C2; var zy   by C2; var zw   by C2; var wx   by C2; var wy   by C2; var wz   by C2
+        val zz   by C2; val ww   by C2; var xyz  by C3; var xyw  by C3; var xzy  by C3; var xzw  by C3
+        var xwy  by C3; var xwz  by C3; var yxz  by C3; var yxw  by C3; var yzx  by C3; var yzw  by C3
+        var ywx  by C3; var ywz  by C3; var zxy  by C3; var zxw  by C3; var zyx  by C3; var zyw  by C3
+        var zwx  by C3; var zwy  by C3; var wxy  by C3; var wxz  by C3; var wyx  by C3; var wyz  by C3
+        var wzx  by C3; var wzy  by C3; val xxz  by C3; val xxw  by C3; val xzx  by C3; val xzz  by C3
+        val xwx  by C3; val xww  by C3; val yyz  by C3; val yyw  by C3; val yzy  by C3; val yzz  by C3
+        val ywy  by C3; val yww  by C3; val zxx  by C3; val zxz  by C3; val zyy  by C3; val zyz  by C3
+        val zzx  by C3; val zzy  by C3; val zzz  by C3; val zzw  by C3; val zwz  by C3; val zww  by C3
+        val wxx  by C3; val wxw  by C3; val wyy  by C3; val wyw  by C3; val wzz  by C3; val wzw  by C3
+        val wwx  by C3; val wwy  by C3; val wwz  by C3; val www  by C3; var xyzw by C4; var xywz by C4
+        var xzyw by C4; var xzwy by C4; var xwyz by C4; var xwzy by C4; var yxzw by C4; var yxwz by C4
+        var yzxw by C4; var yzwx by C4; var ywxz by C4; var ywzx by C4; var zxyw by C4; var zxwy by C4
+        var zyxw by C4; var zywx by C4; var zwxy by C4; var zwyx by C4; var wxyz by C4; var wxzy by C4
+        var wyxz by C4; var wyzx by C4; var wzxy by C4; var wzyx by C4; val xxxz by C4; val xxxw by C4
+        val xxyz by C4; val xxyw by C4; val xxzx by C4; val xxzy by C4; val xxzz by C4; val xxzw by C4
+        val xxwx by C4; val xxwy by C4; val xxwz by C4; val xxww by C4; val xyxz by C4; val xyxw by C4
+        val xyyz by C4; val xyyw by C4; val xyzx by C4; val xyzy by C4; val xyzz by C4; val xywx by C4
+        val xywy by C4; val xyww by C4; val xzxx by C4; val xzxy by C4; val xzxz by C4; val xzxw by C4
+        val xzyx by C4; val xzyy by C4; val xzyz by C4; val xzzx by C4; val xzzy by C4; val xzzz by C4
+        val xzzw by C4; val xzwx by C4; val xzwz by C4; val xzww by C4; val xwxx by C4; val xwxy by C4
+        val xwxz by C4; val xwxw by C4; val xwyx by C4; val xwyy by C4; val xwyw by C4; val xwzx by C4
+        val xwzz by C4; val xwzw by C4; val xwwx by C4; val xwwy by C4; val xwwz by C4; val xwww by C4
+        val yxxz by C4; val yxxw by C4; val yxyz by C4; val yxyw by C4; val yxzx by C4; val yxzy by C4
+        val yxzz by C4; val yxwx by C4; val yxwy by C4; val yxww by C4; val yyxz by C4; val yyxw by C4
+        val yyyz by C4; val yyyw by C4; val yyzx by C4; val yyzy by C4; val yyzz by C4; val yyzw by C4
+        val yywx by C4; val yywy by C4; val yywz by C4; val yyww by C4; val yzxx by C4; val yzxy by C4
+        val yzxz by C4; val yzyx by C4; val yzyy by C4; val yzyz by C4; val yzyw by C4; val yzzx by C4
+        val yzzy by C4; val yzzz by C4; val yzzw by C4; val yzwy by C4; val yzwz by C4; val yzww by C4
+        val ywxx by C4; val ywxy by C4; val ywxw by C4; val ywyx by C4; val ywyy by C4; val ywyz by C4
+        val ywyw by C4; val ywzy by C4; val ywzz by C4; val ywzw by C4; val ywwx by C4; val ywwy by C4
+        val ywwz by C4; val ywww by C4; val zxxx by C4; val zxxy by C4; val zxxz by C4; val zxxw by C4
+        val zxyx by C4; val zxyy by C4; val zxyz by C4; val zxzx by C4; val zxzy by C4; val zxzz by C4
+        val zxzw by C4; val zxwx by C4; val zxwz by C4; val zxww by C4; val zyxx by C4; val zyxy by C4
+        val zyxz by C4; val zyyx by C4; val zyyy by C4; val zyyz by C4; val zyyw by C4; val zyzx by C4
+        val zyzy by C4; val zyzz by C4; val zyzw by C4; val zywy by C4; val zywz by C4; val zyww by C4
+        val zzxx by C4; val zzxy by C4; val zzxz by C4; val zzxw by C4; val zzyx by C4; val zzyy by C4
+        val zzyz by C4; val zzyw by C4; val zzzx by C4; val zzzy by C4; val zzzz by C4; val zzzw by C4
+        val zzwx by C4; val zzwy by C4; val zzwz by C4; val zzww by C4; val zwxx by C4; val zwxz by C4
+        val zwxw by C4; val zwyy by C4; val zwyz by C4; val zwyw by C4; val zwzx by C4; val zwzy by C4
+        val zwzz by C4; val zwzw by C4; val zwwx by C4; val zwwy by C4; val zwwz by C4; val zwww by C4
+        val wxxx by C4; val wxxy by C4; val wxxz by C4; val wxxw by C4; val wxyx by C4; val wxyy by C4
+        val wxyw by C4; val wxzx by C4; val wxzz by C4; val wxzw by C4; val wxwx by C4; val wxwy by C4
+        val wxwz by C4; val wxww by C4; val wyxx by C4; val wyxy by C4; val wyxw by C4; val wyyx by C4
+        val wyyy by C4; val wyyz by C4; val wyyw by C4; val wyzy by C4; val wyzz by C4; val wyzw by C4
+        val wywx by C4; val wywy by C4; val wywz by C4; val wyww by C4; val wzxx by C4; val wzxz by C4
+        val wzxw by C4; val wzyy by C4; val wzyz by C4; val wzyw by C4; val wzzx by C4; val wzzy by C4
+        val wzzz by C4; val wzzw by C4; val wzwx by C4; val wzwy by C4; val wzwz by C4; val wzww by C4
+        val wwxx by C4; val wwxy by C4; val wwxz by C4; val wwxw by C4; val wwyx by C4; val wwyy by C4
+        val wwyz by C4; val wwyw by C4; val wwzx by C4; val wwzy by C4; val wwzz by C4; val wwzw by C4
+        val wwwx by C4; val wwwy by C4; val wwwz by C4; val wwww by C4;
+
+        var r    by C1; var g    by C1; var b    by C1; var a    by C1; var rg   by C2; var rb   by C2
+        var ra   by C2; var gr   by C2; var gb   by C2; var ga   by C2; var br   by C2; var bg   by C2
+        var ba   by C2; var ar   by C2; var ag   by C2; var ab   by C2; val rr   by C2; val gg   by C2
+        val bb   by C2; val aa   by C2; var rgb  by C3; var rga  by C3; var rbg  by C3; var rba  by C3
+        var rag  by C3; var rab  by C3; var grb  by C3; var gra  by C3; var gbr  by C3; var gba  by C3
+        var gar  by C3; var gab  by C3; var brg  by C3; var bra  by C3; var bgr  by C3; var bga  by C3
+        var bar  by C3; var bag  by C3; var arg  by C3; var arb  by C3; var agr  by C3; var agb  by C3
+        var abr  by C3; var abg  by C3; val rrr  by C3; val rrg  by C3; val rrb  by C3; val rra  by C3
+        val rgr  by C3; val rgg  by C3; val rbr  by C3; val rbb  by C3; val rar  by C3; val raa  by C3
+        val grr  by C3; val grg  by C3; val ggr  by C3; val ggg  by C3; val ggb  by C3; val gga  by C3
+        val gbg  by C3; val gbb  by C3; val gag  by C3; val gaa  by C3; val brr  by C3; val brb  by C3
+        val bgg  by C3; val bgb  by C3; val bbr  by C3; val bbg  by C3; val bbb  by C3; val bba  by C3
+        val bab  by C3; val baa  by C3; val arr  by C3; val ara  by C3; val agg  by C3; val aga  by C3
+        val abb  by C3; val aba  by C3; val aar  by C3; val aag  by C3; val aab  by C3; val aaa  by C3
+        var rgba by C4; var rgab by C4; var rbga by C4; var rbag by C4; var ragb by C4; var rabg by C4
+        var grba by C4; var grab by C4; var gbra by C4; var gbar by C4; var garb by C4; var gabr by C4
+        var brga by C4; var brag by C4; var bgra by C4; var bgar by C4; var barg by C4; var bagr by C4
+        var argb by C4; var arbg by C4; var agrb by C4; var agbr by C4; var abrg by C4; var abgr by C4
+        val rrrr by C4; val rrrg by C4; val rrrb by C4; val rrra by C4; val rrgr by C4; val rrgg by C4
+        val rrgb by C4; val rrga by C4; val rrbr by C4; val rrbg by C4; val rrbb by C4; val rrba by C4
+        val rrar by C4; val rrag by C4; val rrab by C4; val rraa by C4; val rgrr by C4; val rgrg by C4
+        val rgrb by C4; val rgra by C4; val rggr by C4; val rggg by C4; val rggb by C4; val rgga by C4
+        val rgbr by C4; val rgbg by C4; val rgbb by C4; val rgar by C4; val rgag by C4; val rgaa by C4
+        val rbrr by C4; val rbrg by C4; val rbrb by C4; val rbra by C4; val rbgr by C4; val rbgg by C4
+        val rbgb by C4; val rbbr by C4; val rbbg by C4; val rbbb by C4; val rbba by C4; val rbar by C4
+        val rbab by C4; val rbaa by C4; val rarr by C4; val rarg by C4; val rarb by C4; val rara by C4
+        val ragr by C4; val ragg by C4; val raga by C4; val rabr by C4; val rabb by C4; val raba by C4
+        val raar by C4; val raag by C4; val raab by C4; val raaa by C4; val grrr by C4; val grrg by C4
+        val grrb by C4; val grra by C4; val grgr by C4; val grgg by C4; val grgb by C4; val grga by C4
+        val grbr by C4; val grbg by C4; val grbb by C4; val grar by C4; val grag by C4; val graa by C4
+        val ggrr by C4; val ggrg by C4; val ggrb by C4; val ggra by C4; val gggr by C4; val gggg by C4
+        val gggb by C4; val ggga by C4; val ggbr by C4; val ggbg by C4; val ggbb by C4; val ggba by C4
+        val ggar by C4; val ggag by C4; val ggab by C4; val ggaa by C4; val gbrr by C4; val gbrg by C4
+        val gbrb by C4; val gbgr by C4; val gbgg by C4; val gbgb by C4; val gbga by C4; val gbbr by C4
+        val gbbg by C4; val gbbb by C4; val gbba by C4; val gbag by C4; val gbab by C4; val gbaa by C4
+        val garr by C4; val garg by C4; val gara by C4; val gagr by C4; val gagg by C4; val gagb by C4
+        val gaga by C4; val gabg by C4; val gabb by C4; val gaba by C4; val gaar by C4; val gaag by C4
+        val gaab by C4; val gaaa by C4; val brrr by C4; val brrg by C4; val brrb by C4; val brra by C4
+        val brgr by C4; val brgg by C4; val brgb by C4; val brbr by C4; val brbg by C4; val brbb by C4
+        val brba by C4; val brar by C4; val brab by C4; val braa by C4; val bgrr by C4; val bgrg by C4
+        val bgrb by C4; val bggr by C4; val bggg by C4; val bggb by C4; val bgga by C4; val bgbr by C4
+        val bgbg by C4; val bgbb by C4; val bgba by C4; val bgag by C4; val bgab by C4; val bgaa by C4
+        val bbrr by C4; val bbrg by C4; val bbrb by C4; val bbra by C4; val bbgr by C4; val bbgg by C4
+        val bbgb by C4; val bbga by C4; val bbbr by C4; val bbbg by C4; val bbbb by C4; val bbba by C4
+        val bbar by C4; val bbag by C4; val bbab by C4; val bbaa by C4; val barr by C4; val barb by C4
+        val bara by C4; val bagg by C4; val bagb by C4; val baga by C4; val babr by C4; val babg by C4
+        val babb by C4; val baba by C4; val baar by C4; val baag by C4; val baab by C4; val baaa by C4
+        val arrr by C4; val arrg by C4; val arrb by C4; val arra by C4; val argr by C4; val argg by C4
+        val arga by C4; val arbr by C4; val arbb by C4; val arba by C4; val arar by C4; val arag by C4
+        val arab by C4; val araa by C4; val agrr by C4; val agrg by C4; val agra by C4; val aggr by C4
+        val aggg by C4; val aggb by C4; val agga by C4; val agbg by C4; val agbb by C4; val agba by C4
+        val agar by C4; val agag by C4; val agab by C4; val agaa by C4; val abrr by C4; val abrb by C4
+        val abra by C4; val abgg by C4; val abgb by C4; val abga by C4; val abbr by C4; val abbg by C4
+        val abbb by C4; val abba by C4; val abar by C4; val abag by C4; val abab by C4; val abaa by C4
+        val aarr by C4; val aarg by C4; val aarb by C4; val aara by C4; val aagr by C4; val aagg by C4
+        val aagb by C4; val aaga by C4; val aabr by C4; val aabg by C4; val aabb by C4; val aaba by C4
+        val aaar by C4; val aaag by C4; val aaab by C4; val aaaa by C4;
+    }
+
+    fun ivec2(x: IntExpr, y: IntExpr) = IVec2Expr(x, y)
+
+    fun ivec3(x: IntExpr, y: IntExpr, z: IntExpr) = IVec3Expr(x, y, z)
+    fun ivec3(xy: IVec2Expr, z: IntExpr) = IVec3Expr(xy.x, xy.y, z)
+    fun ivec3(x: IntExpr, yz: IVec2Expr) = IVec4Expr(x, yz.x, yz.y)
+    fun ivec3(xyz: IVec3Expr) = IVec3Expr(xyz.x, xyz.y, xyz.z)
+
+    fun ivec4(x: IntExpr, y: IntExpr, z: IntExpr, w: IntExpr) = IVec4Expr(x, y, z, w)
+    fun ivec4(xy: IVec2Expr, z: IntExpr, w: IntExpr) = IVec4Expr(xy.x, xy.y, z, w)
+    fun ivec4(x: IntExpr, yz: IVec2Expr, w: IntExpr) = IVec4Expr(x, yz.x, yz.y, w)
+    fun ivec4(x: IntExpr, y: IntExpr, zw: IVec2Expr) = IVec4Expr(x, y, zw.x, zw.y)
+    fun ivec4(xyz: IVec3Expr, w: IntExpr) = IVec4Expr(xyz.x, xyz.y, xyz.z, w)
+    fun ivec4(x: IntExpr, yzw: IVec3Expr) = IVec4Expr(x, yzw.x, yzw.y, yzw.z)
+    fun ivec4(xyzw: IVec4Expr) = IVec4Expr(xyzw.x, xyzw.y, xyzw.z, xyzw.w)
+
+//     _____ _             _
+//    |  ___| | ___   __ _| |_ ___
+//    | |_  | |/ _ \ / _` | __/ __|
+//    |  _| | | (_) | (_| | |_\__ \
+//    |_|   |_|\___/ \__,_|\__|___/
+
+    // GENFEXPR: Base class of float and float vector expressions
+    abstract inner class GenFExpr<T: GenFExpr<T>>(vararg cs: ShaderNode): GenExpr<T>(*cs) {
+
+        operator fun plus(other: T): T {
+            debugPrint { "plus: ${this.id}, ${other.id}" }
+            return new(OperatorExpr("+", this.copy(), other.copy())) as T
+        }
+    }
+
+    // FLOATEXPR: Expression of type float
+    inner class FloatExpr(vararg cs: ShaderNode): GenFExpr<FloatExpr>(*cs) {
+        override val nativeTypeName = "float"
+        override fun new(vararg cs: ShaderNode) = FloatExpr(*cs)
+    }
+
+    // External Float Constructors
+    fun float(x: Double) = FloatExpr(LiteralExpr(x))
+    fun float(x: Float) = float(x.toDouble())
+    fun float(x: Int) = float(x.toDouble())
+    fun float(x: FloatExpr) = x.copy()
+    fun float(x: VariableExpr) = FloatExpr(x)
+
+    // Float Operators
+    infix fun FloatExpr.LT(other: FloatExpr) = BoolExpr(OperatorExpr("<", this.copy(), other.copy()))
+    infix fun FloatExpr.GT(other: FloatExpr) = BoolExpr(OperatorExpr(">", this.copy(), other.copy()))
+    infix fun FloatExpr.LE(other: FloatExpr) = BoolExpr(OperatorExpr("<=", this.copy(), other.copy()))
+    infix fun FloatExpr.GE(other: FloatExpr) = BoolExpr(OperatorExpr(">=", this.copy(), other.copy()))
+
+    operator fun <T: VecExpr<*>> FloatExpr.plus(other: T) = new(OperatorExpr("+", this.copy(), other.copy())) as T
+    operator fun <T: VecExpr<*>> FloatExpr.minus(other: T) = new(OperatorExpr("-", this.copy(), other.copy())) as T
+
+
+    // VECEXPR: Abstract base class of float vector expressions
+    abstract inner class VecExpr<T: VecExpr<T>>(vararg cs: ShaderNode): GenFExpr<T>(*cs) {
+
+        abstract val numComponents: Int
+
+        inner class ComponentProvider<R: GenExpr<R>>(val clazz: KClass<R>) {
+            operator fun getValue(thisRef: Any?, property: KProperty<*>): R {
+                return newByClass(clazz, ComponentExpr(property.name, this@VecExpr.copy())) as R
+            }
+
+            operator fun setValue(thisRef: Any?, property: KProperty<*>, value: R) {
+                val varName = name ?: throw IllegalStateException("Unable to Determine Name of Vector")
+                instructions.add(AssignmentStatement("${varName}.${property.name}", value, false))
+            }
+        }
+
+        // See swizzle.kt for components
+
+        val C1 = ComponentProvider(FloatExpr::class)
+        val C2 = ComponentProvider(Vec2Expr::class)
+        val C3 = ComponentProvider(Vec3Expr::class)
+        val C4 = ComponentProvider(Vec4Expr::class)
+
+        var x    by C1; var y    by C1; var xy   by C2; var yx   by C2; val xx   by C2; val yy   by C2
+        val xxx  by C3; val xxy  by C3; val xyx  by C3; val xyy  by C3; val yxx  by C3; val yxy  by C3
+        val yyx  by C3; val yyy  by C3; val xxxx by C4; val xxxy by C4; val xxyx by C4; val xxyy by C4
+        val xyxx by C4; val xyxy by C4; val xyyx by C4; val xyyy by C4; val yxxx by C4; val yxxy by C4
+        val yxyx by C4; val yxyy by C4; val yyxx by C4; val yyxy by C4; val yyyx by C4; val yyyy by C4
+
+        override fun render(): String {
+            if (children.size == 1) { return super.render() }
+            require(children.size == numComponents) {"Error Rendering $name of type $nativeTypeName: Wrong Number of Children"}
+            return "$nativeTypeName(${children.render()})"
+        }
+
+    }
+
+    inner class Vec2Expr(vararg cs: ShaderNode): VecExpr<Vec2Expr>(*cs) {
+        override fun new(vararg cs: ShaderNode) = Vec2Expr(*cs)
+        override val nativeTypeName = "vec2"
+        override val numComponents = 2
+    }
+
+    inner class Vec3Expr(vararg cs: ShaderNode): VecExpr<Vec3Expr>(*cs) {
+        override fun new(vararg cs: ShaderNode) = Vec3Expr(*cs)
+        override val nativeTypeName = "vec3"
+        override val numComponents = 3
+
+        // Components and Swizzling
+        var z    by C1; var xz   by C2; var yz   by C2; var zx   by C2; var zy   by C2; val zz   by C2
+        var xyz  by C3; var xzy  by C3; var yxz  by C3; var yzx  by C3; var zxy  by C3; var zyx  by C3
+        val xxz  by C3; val xzx  by C3; val xzz  by C3; val yyz  by C3; val yzy  by C3; val yzz  by C3
+        val zxx  by C3; val zxz  by C3; val zyy  by C3; val zyz  by C3; val zzx  by C3; val zzy  by C3
+        val zzz  by C3; val xxxz by C4; val xxyz by C4; val xxzx by C4; val xxzy by C4; val xxzz by C4
+        val xyxz by C4; val xyyz by C4; val xyzx by C4; val xyzy by C4; val xyzz by C4; val xzxx by C4
+        val xzxy by C4; val xzxz by C4; val xzyx by C4; val xzyy by C4; val xzyz by C4; val xzzx by C4
+        val xzzy by C4; val xzzz by C4; val yxxz by C4; val yxyz by C4; val yxzx by C4; val yxzy by C4
+        val yxzz by C4; val yyxz by C4; val yyyz by C4; val yyzx by C4; val yyzy by C4; val yyzz by C4
+        val yzxx by C4; val yzxy by C4; val yzxz by C4; val yzyx by C4; val yzyy by C4; val yzyz by C4
+        val yzzx by C4; val yzzy by C4; val yzzz by C4; val zxxx by C4; val zxxy by C4; val zxxz by C4
+        val zxyx by C4; val zxyy by C4; val zxyz by C4; val zxzx by C4; val zxzy by C4; val zxzz by C4
+        val zyxx by C4; val zyxy by C4; val zyxz by C4; val zyyx by C4; val zyyy by C4; val zyyz by C4
+        val zyzx by C4; val zyzy by C4; val zyzz by C4; val zzxx by C4; val zzxy by C4; val zzxz by C4
+        val zzyx by C4; val zzyy by C4; val zzyz by C4; val zzzx by C4; val zzzy by C4; val zzzz by C4
+
+        var r    by C1; var g    by C1; var b    by C1; var rg   by C2; var rb   by C2; var gr   by C2
+        var gb   by C2; var br   by C2; var bg   by C2; val rr   by C2; val gg   by C2; val bb   by C2
+        var rgb  by C3; var rbg  by C3; var grb  by C3; var gbr  by C3; var brg  by C3; var bgr  by C3
+        val rrr  by C3; val rrg  by C3; val rrb  by C3; val rgr  by C3; val rgg  by C3; val rbr  by C3
+        val rbb  by C3; val grr  by C3; val grg  by C3; val ggr  by C3; val ggg  by C3; val ggb  by C3
+        val gbg  by C3; val gbb  by C3; val brr  by C3; val brb  by C3; val bgg  by C3; val bgb  by C3
+        val bbr  by C3; val bbg  by C3; val bbb  by C3; val rrrr by C4; val rrrg by C4; val rrrb by C4
+        val rrgr by C4; val rrgg by C4; val rrgb by C4; val rrbr by C4; val rrbg by C4; val rrbb by C4
+        val rgrr by C4; val rgrg by C4; val rgrb by C4; val rggr by C4; val rggg by C4; val rggb by C4
+        val rgbr by C4; val rgbg by C4; val rgbb by C4; val rbrr by C4; val rbrg by C4; val rbrb by C4
+        val rbgr by C4; val rbgg by C4; val rbgb by C4; val rbbr by C4; val rbbg by C4; val rbbb by C4
+        val grrr by C4; val grrg by C4; val grrb by C4; val grgr by C4; val grgg by C4; val grgb by C4
+        val grbr by C4; val grbg by C4; val grbb by C4; val ggrr by C4; val ggrg by C4; val ggrb by C4
+        val gggr by C4; val gggg by C4; val gggb by C4; val ggbr by C4; val ggbg by C4; val ggbb by C4
+        val gbrr by C4; val gbrg by C4; val gbrb by C4; val gbgr by C4; val gbgg by C4; val gbgb by C4
+        val gbbr by C4; val gbbg by C4; val gbbb by C4; val brrr by C4; val brrg by C4; val brrb by C4
+        val brgr by C4; val brgg by C4; val brgb by C4; val brbr by C4; val brbg by C4; val brbb by C4
+        val bgrr by C4; val bgrg by C4; val bgrb by C4; val bggr by C4; val bggg by C4; val bggb by C4
+        val bgbr by C4; val bgbg by C4; val bgbb by C4; val bbrr by C4; val bbrg by C4; val bbrb by C4
+        val bbgr by C4; val bbgg by C4; val bbgb by C4; val bbbr by C4; val bbbg by C4; val bbbb by C4
+    }
+
+
+    inner class Vec4Expr(vararg cs: ShaderNode): VecExpr<Vec4Expr>(*cs) {
+        override fun new(vararg cs: ShaderNode) = Vec4Expr(*cs)
+        override val nativeTypeName = "vec4"
+        override val numComponents = 4
+
+        // Components and Swizzling
+        var z    by C1; var w    by C1; var xz   by C2; var xw   by C2; var yz   by C2; var yw   by C2
+        var zx   by C2; var zy   by C2; var zw   by C2; var wx   by C2; var wy   by C2; var wz   by C2
+        val zz   by C2; val ww   by C2; var xyz  by C3; var xyw  by C3; var xzy  by C3; var xzw  by C3
+        var xwy  by C3; var xwz  by C3; var yxz  by C3; var yxw  by C3; var yzx  by C3; var yzw  by C3
+        var ywx  by C3; var ywz  by C3; var zxy  by C3; var zxw  by C3; var zyx  by C3; var zyw  by C3
+        var zwx  by C3; var zwy  by C3; var wxy  by C3; var wxz  by C3; var wyx  by C3; var wyz  by C3
+        var wzx  by C3; var wzy  by C3; val xxz  by C3; val xxw  by C3; val xzx  by C3; val xzz  by C3
+        val xwx  by C3; val xww  by C3; val yyz  by C3; val yyw  by C3; val yzy  by C3; val yzz  by C3
+        val ywy  by C3; val yww  by C3; val zxx  by C3; val zxz  by C3; val zyy  by C3; val zyz  by C3
+        val zzx  by C3; val zzy  by C3; val zzz  by C3; val zzw  by C3; val zwz  by C3; val zww  by C3
+        val wxx  by C3; val wxw  by C3; val wyy  by C3; val wyw  by C3; val wzz  by C3; val wzw  by C3
+        val wwx  by C3; val wwy  by C3; val wwz  by C3; val www  by C3; var xyzw by C4; var xywz by C4
+        var xzyw by C4; var xzwy by C4; var xwyz by C4; var xwzy by C4; var yxzw by C4; var yxwz by C4
+        var yzxw by C4; var yzwx by C4; var ywxz by C4; var ywzx by C4; var zxyw by C4; var zxwy by C4
+        var zyxw by C4; var zywx by C4; var zwxy by C4; var zwyx by C4; var wxyz by C4; var wxzy by C4
+        var wyxz by C4; var wyzx by C4; var wzxy by C4; var wzyx by C4; val xxxz by C4; val xxxw by C4
+        val xxyz by C4; val xxyw by C4; val xxzx by C4; val xxzy by C4; val xxzz by C4; val xxzw by C4
+        val xxwx by C4; val xxwy by C4; val xxwz by C4; val xxww by C4; val xyxz by C4; val xyxw by C4
+        val xyyz by C4; val xyyw by C4; val xyzx by C4; val xyzy by C4; val xyzz by C4; val xywx by C4
+        val xywy by C4; val xyww by C4; val xzxx by C4; val xzxy by C4; val xzxz by C4; val xzxw by C4
+        val xzyx by C4; val xzyy by C4; val xzyz by C4; val xzzx by C4; val xzzy by C4; val xzzz by C4
+        val xzzw by C4; val xzwx by C4; val xzwz by C4; val xzww by C4; val xwxx by C4; val xwxy by C4
+        val xwxz by C4; val xwxw by C4; val xwyx by C4; val xwyy by C4; val xwyw by C4; val xwzx by C4
+        val xwzz by C4; val xwzw by C4; val xwwx by C4; val xwwy by C4; val xwwz by C4; val xwww by C4
+        val yxxz by C4; val yxxw by C4; val yxyz by C4; val yxyw by C4; val yxzx by C4; val yxzy by C4
+        val yxzz by C4; val yxwx by C4; val yxwy by C4; val yxww by C4; val yyxz by C4; val yyxw by C4
+        val yyyz by C4; val yyyw by C4; val yyzx by C4; val yyzy by C4; val yyzz by C4; val yyzw by C4
+        val yywx by C4; val yywy by C4; val yywz by C4; val yyww by C4; val yzxx by C4; val yzxy by C4
+        val yzxz by C4; val yzyx by C4; val yzyy by C4; val yzyz by C4; val yzyw by C4; val yzzx by C4
+        val yzzy by C4; val yzzz by C4; val yzzw by C4; val yzwy by C4; val yzwz by C4; val yzww by C4
+        val ywxx by C4; val ywxy by C4; val ywxw by C4; val ywyx by C4; val ywyy by C4; val ywyz by C4
+        val ywyw by C4; val ywzy by C4; val ywzz by C4; val ywzw by C4; val ywwx by C4; val ywwy by C4
+        val ywwz by C4; val ywww by C4; val zxxx by C4; val zxxy by C4; val zxxz by C4; val zxxw by C4
+        val zxyx by C4; val zxyy by C4; val zxyz by C4; val zxzx by C4; val zxzy by C4; val zxzz by C4
+        val zxzw by C4; val zxwx by C4; val zxwz by C4; val zxww by C4; val zyxx by C4; val zyxy by C4
+        val zyxz by C4; val zyyx by C4; val zyyy by C4; val zyyz by C4; val zyyw by C4; val zyzx by C4
+        val zyzy by C4; val zyzz by C4; val zyzw by C4; val zywy by C4; val zywz by C4; val zyww by C4
+        val zzxx by C4; val zzxy by C4; val zzxz by C4; val zzxw by C4; val zzyx by C4; val zzyy by C4
+        val zzyz by C4; val zzyw by C4; val zzzx by C4; val zzzy by C4; val zzzz by C4; val zzzw by C4
+        val zzwx by C4; val zzwy by C4; val zzwz by C4; val zzww by C4; val zwxx by C4; val zwxz by C4
+        val zwxw by C4; val zwyy by C4; val zwyz by C4; val zwyw by C4; val zwzx by C4; val zwzy by C4
+        val zwzz by C4; val zwzw by C4; val zwwx by C4; val zwwy by C4; val zwwz by C4; val zwww by C4
+        val wxxx by C4; val wxxy by C4; val wxxz by C4; val wxxw by C4; val wxyx by C4; val wxyy by C4
+        val wxyw by C4; val wxzx by C4; val wxzz by C4; val wxzw by C4; val wxwx by C4; val wxwy by C4
+        val wxwz by C4; val wxww by C4; val wyxx by C4; val wyxy by C4; val wyxw by C4; val wyyx by C4
+        val wyyy by C4; val wyyz by C4; val wyyw by C4; val wyzy by C4; val wyzz by C4; val wyzw by C4
+        val wywx by C4; val wywy by C4; val wywz by C4; val wyww by C4; val wzxx by C4; val wzxz by C4
+        val wzxw by C4; val wzyy by C4; val wzyz by C4; val wzyw by C4; val wzzx by C4; val wzzy by C4
+        val wzzz by C4; val wzzw by C4; val wzwx by C4; val wzwy by C4; val wzwz by C4; val wzww by C4
+        val wwxx by C4; val wwxy by C4; val wwxz by C4; val wwxw by C4; val wwyx by C4; val wwyy by C4
+        val wwyz by C4; val wwyw by C4; val wwzx by C4; val wwzy by C4; val wwzz by C4; val wwzw by C4
+        val wwwx by C4; val wwwy by C4; val wwwz by C4; val wwww by C4;
+
+        var r    by C1; var g    by C1; var b    by C1; var a    by C1; var rg   by C2; var rb   by C2
+        var ra   by C2; var gr   by C2; var gb   by C2; var ga   by C2; var br   by C2; var bg   by C2
+        var ba   by C2; var ar   by C2; var ag   by C2; var ab   by C2; val rr   by C2; val gg   by C2
+        val bb   by C2; val aa   by C2; var rgb  by C3; var rga  by C3; var rbg  by C3; var rba  by C3
+        var rag  by C3; var rab  by C3; var grb  by C3; var gra  by C3; var gbr  by C3; var gba  by C3
+        var gar  by C3; var gab  by C3; var brg  by C3; var bra  by C3; var bgr  by C3; var bga  by C3
+        var bar  by C3; var bag  by C3; var arg  by C3; var arb  by C3; var agr  by C3; var agb  by C3
+        var abr  by C3; var abg  by C3; val rrr  by C3; val rrg  by C3; val rrb  by C3; val rra  by C3
+        val rgr  by C3; val rgg  by C3; val rbr  by C3; val rbb  by C3; val rar  by C3; val raa  by C3
+        val grr  by C3; val grg  by C3; val ggr  by C3; val ggg  by C3; val ggb  by C3; val gga  by C3
+        val gbg  by C3; val gbb  by C3; val gag  by C3; val gaa  by C3; val brr  by C3; val brb  by C3
+        val bgg  by C3; val bgb  by C3; val bbr  by C3; val bbg  by C3; val bbb  by C3; val bba  by C3
+        val bab  by C3; val baa  by C3; val arr  by C3; val ara  by C3; val agg  by C3; val aga  by C3
+        val abb  by C3; val aba  by C3; val aar  by C3; val aag  by C3; val aab  by C3; val aaa  by C3
+        var rgba by C4; var rgab by C4; var rbga by C4; var rbag by C4; var ragb by C4; var rabg by C4
+        var grba by C4; var grab by C4; var gbra by C4; var gbar by C4; var garb by C4; var gabr by C4
+        var brga by C4; var brag by C4; var bgra by C4; var bgar by C4; var barg by C4; var bagr by C4
+        var argb by C4; var arbg by C4; var agrb by C4; var agbr by C4; var abrg by C4; var abgr by C4
+        val rrrr by C4; val rrrg by C4; val rrrb by C4; val rrra by C4; val rrgr by C4; val rrgg by C4
+        val rrgb by C4; val rrga by C4; val rrbr by C4; val rrbg by C4; val rrbb by C4; val rrba by C4
+        val rrar by C4; val rrag by C4; val rrab by C4; val rraa by C4; val rgrr by C4; val rgrg by C4
+        val rgrb by C4; val rgra by C4; val rggr by C4; val rggg by C4; val rggb by C4; val rgga by C4
+        val rgbr by C4; val rgbg by C4; val rgbb by C4; val rgar by C4; val rgag by C4; val rgaa by C4
+        val rbrr by C4; val rbrg by C4; val rbrb by C4; val rbra by C4; val rbgr by C4; val rbgg by C4
+        val rbgb by C4; val rbbr by C4; val rbbg by C4; val rbbb by C4; val rbba by C4; val rbar by C4
+        val rbab by C4; val rbaa by C4; val rarr by C4; val rarg by C4; val rarb by C4; val rara by C4
+        val ragr by C4; val ragg by C4; val raga by C4; val rabr by C4; val rabb by C4; val raba by C4
+        val raar by C4; val raag by C4; val raab by C4; val raaa by C4; val grrr by C4; val grrg by C4
+        val grrb by C4; val grra by C4; val grgr by C4; val grgg by C4; val grgb by C4; val grga by C4
+        val grbr by C4; val grbg by C4; val grbb by C4; val grar by C4; val grag by C4; val graa by C4
+        val ggrr by C4; val ggrg by C4; val ggrb by C4; val ggra by C4; val gggr by C4; val gggg by C4
+        val gggb by C4; val ggga by C4; val ggbr by C4; val ggbg by C4; val ggbb by C4; val ggba by C4
+        val ggar by C4; val ggag by C4; val ggab by C4; val ggaa by C4; val gbrr by C4; val gbrg by C4
+        val gbrb by C4; val gbgr by C4; val gbgg by C4; val gbgb by C4; val gbga by C4; val gbbr by C4
+        val gbbg by C4; val gbbb by C4; val gbba by C4; val gbag by C4; val gbab by C4; val gbaa by C4
+        val garr by C4; val garg by C4; val gara by C4; val gagr by C4; val gagg by C4; val gagb by C4
+        val gaga by C4; val gabg by C4; val gabb by C4; val gaba by C4; val gaar by C4; val gaag by C4
+        val gaab by C4; val gaaa by C4; val brrr by C4; val brrg by C4; val brrb by C4; val brra by C4
+        val brgr by C4; val brgg by C4; val brgb by C4; val brbr by C4; val brbg by C4; val brbb by C4
+        val brba by C4; val brar by C4; val brab by C4; val braa by C4; val bgrr by C4; val bgrg by C4
+        val bgrb by C4; val bggr by C4; val bggg by C4; val bggb by C4; val bgga by C4; val bgbr by C4
+        val bgbg by C4; val bgbb by C4; val bgba by C4; val bgag by C4; val bgab by C4; val bgaa by C4
+        val bbrr by C4; val bbrg by C4; val bbrb by C4; val bbra by C4; val bbgr by C4; val bbgg by C4
+        val bbgb by C4; val bbga by C4; val bbbr by C4; val bbbg by C4; val bbbb by C4; val bbba by C4
+        val bbar by C4; val bbag by C4; val bbab by C4; val bbaa by C4; val barr by C4; val barb by C4
+        val bara by C4; val bagg by C4; val bagb by C4; val baga by C4; val babr by C4; val babg by C4
+        val babb by C4; val baba by C4; val baar by C4; val baag by C4; val baab by C4; val baaa by C4
+        val arrr by C4; val arrg by C4; val arrb by C4; val arra by C4; val argr by C4; val argg by C4
+        val arga by C4; val arbr by C4; val arbb by C4; val arba by C4; val arar by C4; val arag by C4
+        val arab by C4; val araa by C4; val agrr by C4; val agrg by C4; val agra by C4; val aggr by C4
+        val aggg by C4; val aggb by C4; val agga by C4; val agbg by C4; val agbb by C4; val agba by C4
+        val agar by C4; val agag by C4; val agab by C4; val agaa by C4; val abrr by C4; val abrb by C4
+        val abra by C4; val abgg by C4; val abgb by C4; val abga by C4; val abbr by C4; val abbg by C4
+        val abbb by C4; val abba by C4; val abar by C4; val abag by C4; val abab by C4; val abaa by C4
+        val aarr by C4; val aarg by C4; val aarb by C4; val aara by C4; val aagr by C4; val aagg by C4
+        val aagb by C4; val aaga by C4; val aabr by C4; val aabg by C4; val aabb by C4; val aaba by C4
+        val aaar by C4; val aaag by C4; val aaab by C4; val aaaa by C4;
+    }
+
+    fun vec2(x: FloatExpr, y: FloatExpr) = Vec2Expr(x, y)
+
+    fun vec3(x: FloatExpr, y: FloatExpr, z: FloatExpr) = Vec3Expr(x, y, z)
+    fun vec3(xy: Vec2Expr, z: FloatExpr) = Vec3Expr(xy.x, xy.y, z)
+    fun vec3(x: FloatExpr, yz: Vec2Expr) = Vec4Expr(x, yz.x, yz.y)
+    fun vec3(xyz: Vec3Expr) = Vec3Expr(xyz.x, xyz.y, xyz.z)
+
+    fun vec4(x: FloatExpr, y: FloatExpr, z: FloatExpr, w: FloatExpr) = Vec4Expr(x, y, z, w)
+    fun vec4(xy: Vec2Expr, z: FloatExpr, w: FloatExpr) = Vec4Expr(xy.x, xy.y, z, w)
+    fun vec4(x: FloatExpr, yz: Vec2Expr, w: FloatExpr) = Vec4Expr(x, yz.x, yz.y, w)
+    fun vec4(x: FloatExpr, y: FloatExpr, zw: Vec2Expr) = Vec4Expr(x, y, zw.x, zw.y)
+    fun vec4(xyz: Vec3Expr, w: FloatExpr) = Vec4Expr(xyz.x, xyz.y, xyz.z, w)
+    fun vec4(x: FloatExpr, yzw: Vec3Expr) = Vec4Expr(x, yzw.x, yzw.y, yzw.z)
+    fun vec4(xyzw: Vec4Expr) = Vec4Expr(xyzw.x, xyzw.y, xyzw.z, xyzw.w)
+
+//     __  __       _        _
+//    |  \/  | __ _| |_ _ __(_)_  __
+//    | |\/| |/ _` | __| '__| \ \/ /
+//    | |  | | (_| | |_| |  | |>  <
+//    |_|  |_|\__,_|\__|_|  |_/_/\_\
+
+    inner class Mat2Expr
+    inner class Mat3Expr
+    inner class Mat4Expr
+
+//    inner class sampler2D
+//    inner class samplerCube
+
+    operator fun FloatExpr.times(other: FloatExpr) = FloatExpr(OperatorExpr("*", this.copy(), other.copy()))
+
+
+    inline fun <reified T: GenExpr<*>> new(vararg cs: ShaderNode): T {
+        return when(T::class) {
+            FloatExpr::class -> FloatExpr(*cs)
+            Vec2Expr::class -> Vec2Expr(*cs)
+            Vec3Expr::class -> Vec3Expr(*cs)
+            Vec4Expr::class -> Vec4Expr(*cs)
+            BoolExpr::class -> BoolExpr(*cs)
+            BVec2Expr::class -> BVec2Expr(*cs)
+            BVec3Expr::class -> BVec3Expr(*cs)
+            BVec4Expr::class -> BVec4Expr(*cs)
+            IntExpr::class -> IntExpr(*cs)
+            IVec2Expr::class -> IVec2Expr(*cs)
+            IVec3Expr::class -> IVec3Expr(*cs)
+            IVec4Expr::class -> IVec4Expr(*cs)
+            else -> throw IllegalStateException("Unable to make type ${T::class.simpleName}")
+        } as T
+    }
+
+    fun <T: GenExpr<*>> newByClass(clazz: KClass<T>, vararg cs: ShaderNode): T {
+        return when(clazz) {
+            FloatExpr::class -> FloatExpr(*cs)
+            Vec2Expr::class -> Vec2Expr(*cs)
+            Vec3Expr::class -> Vec3Expr(*cs)
+            Vec4Expr::class -> Vec4Expr(*cs)
+            BoolExpr::class -> BoolExpr(*cs)
+            BVec2Expr::class -> BVec2Expr(*cs)
+            BVec3Expr::class -> BVec3Expr(*cs)
+            BVec4Expr::class -> BVec4Expr(*cs)
+            IntExpr::class -> IntExpr(*cs)
+            IVec2Expr::class -> IVec2Expr(*cs)
+            IVec3Expr::class -> IVec3Expr(*cs)
+            IVec4Expr::class -> IVec4Expr(*cs)
+            else -> throw IllegalStateException("Unable to make type ${clazz.simpleName}")
+        } as T
+    }
+
+    inline fun <reified T: GenExpr<*>> Uniform(): T {
+        val result = new<T>(LiteralExpr("?"))
+        result.modifiers = listOf("uniform")
+        result.assign = false
+        return result
+    }
+
+    inline fun <reified T: GenExpr<*>> Out(): T {
+        val result = new<T>(LiteralExpr("?"))
+        result.modifiers = listOf("out")
+        result.assign = false
+        return result
+    }
+
+    inline fun <reified T: GenExpr<*>> In(): T {
+        val result = new<T>(LiteralExpr("?"))
+        result.modifiers = listOf("in")
+        result.assign = false
+        return result
+    }
+
+    operator fun String.unaryPlus() {
+        instructions.add(LiteralExpr(this))
+    }
+
+
+    fun Main(block: ()->Vec4Expr) {
+        var fragColor by Out<Vec4Expr>()
+        fragColor
+        instructions.add(LiteralExpr("void main(){"))
+        val result = block()
+        fragColor = result
+        instructions.add(LiteralExpr("}"))
+    }
+
+    fun While(cond: BoolExpr, block: ()->Unit) {
+        instructions.add(LiteralExpr("while(${cond.render()}){"))
+        block()
+        instructions.add(LiteralExpr("}"))
+    }
+
+    val Break: Unit get() {
+        instructions.add(LiteralExpr("break"))
+    }
+
+    val Continue: Unit get() {
+        instructions.add(LiteralExpr("continue"))
+    }
+
+    fun fragment(block: KGLSL.()->Unit): String {
+        block()
+        return instructions.joinToString("\n") { it.render() }
+    }
+
 
     // Logging
+    var debug = false
     var logIndent = 0
+    fun debugPrint(lazyMessage: ()->String) {
+        debug.ifTrue {
+            println(lazyMessage())
+        }
+    }
     fun ShaderNode.log() {
         println(" ".repeat(logIndent) + descriptor + " ID:$id")
         logIndent += 1
@@ -78,574 +1112,191 @@ class KGLSL {
         return joinToString(separator = ", ") { it.render() }
     }
 
+    // Used for Rendering
     fun List<ShaderNode>.copy(): List<ShaderNode> {
         debugPrint { "List Copy" }
         return map { it.copy() }
     }
 
-    // Holds Literal Values (Int, Bool, Double)
-    inner class LiteralNode<T>(val literalValue: T): ShaderNode() {
-        override fun render(): String {
-            debugPrint { "Literal Node Render" }
-            return when(literalValue) {
-                is Double -> {
-                    val result = literalValue.toString()
-                    if ("." !in result) {
-                        "$literalValue."
-                    } else result
-                }
-                is String -> literalValue
-                is Boolean -> literalValue.toString()
-                else -> "???"
-            }
-        }
-        override val descriptor = "literalNode($literalValue)"
-        override fun copy(): ShaderNode {
-            return LiteralNode(literalValue)
-        }
+//     ____        _ _ _       ___
+//    | __ ) _   _(_) | |_    |_ _|_ __
+//    |  _ \| | | | | | __|____| || '_ \
+//    | |_) | |_| | | | ||_____| || | | |
+//    |____/ \__,_|_|_|\__|   |___|_| |_|
+//
+//     _____                 _   _
+//    |  ___|   _ _ __   ___| |_(_) ___  _ __  ___
+//    | |_ | | | | '_ \ / __| __| |/ _ \| '_ \/ __|
+//    |  _|| |_| | | | | (__| |_| | (_) | | | \__ \
+//    |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
 
-        override val nativeTypeName: String
-            get() = throw IllegalStateException("Cannot Use LiteralNode as Shader Type")
+    inline fun <reified T: GenExpr<*>> functionOf(name: String, vararg cs: ShaderNode): T {
+        return new(FunctionExpr(name, *(cs.map { it.copy() }).toTypedArray()))
     }
 
-    inner class AssignmentNode(
-        val name: String,
-        val expression: Assignable<*>,
-        val declare: Boolean = false,
-        val assign: Boolean = true,
-        val modifiers: List<String> = listOf()
-    ): ShaderNode(expression) {
-        override fun render(): String {
-            debugPrint { "Assignment Node Render" }
-            return buildString {
-                appendAll(modifiers, " ")
-                if(declare) append(expression.nativeTypeName, " ")
-                append(name)
-                if(assign) append(" = ", expression.render())
-                append(";")
-            }
-        }
-        override val descriptor = "AssignmentNode($name)"
-        override fun copy(): AssignmentNode {
-            return AssignmentNode(name, expression.copy() as Assignable<*>, declare)
-        }
-        override val nativeTypeName: String
-            get() = throw IllegalStateException("Cannot Use AssignmentNode as Shader Type")
-    }
+    // Trig
+    inline fun <reified T: GenFExpr<*>> radians(degrees: T): T     = functionOf("radians", degrees)
+    inline fun <reified T: GenFExpr<*>> degrees(radians: T): T     = functionOf("degrees", radians)
+    inline fun <reified T: GenFExpr<*>> sin(angle: T): T           = functionOf("sin", angle)
+    inline fun <reified T: GenFExpr<*>> cos(angle: T): T           = functionOf("cos", angle)
+    inline fun <reified T: GenFExpr<*>> tan(angle: T): T           = functionOf("tan", angle)
+    inline fun <reified T: GenFExpr<*>> asin(x: T): T              = functionOf("asin", x)
+    inline fun <reified T: GenFExpr<*>> acos(x: T): T              = functionOf("acos", x)
+    inline fun <reified T: GenFExpr<*>> atan(y_over_x: T): T       = functionOf("atan", y_over_x)
+    inline fun <reified T: GenFExpr<*>> atan(y: T, x: T): T        = functionOf("atan", y, x)
+    inline fun <reified T: GenFExpr<*>> sinh(x: T): T              = functionOf("sinh", x)
+    inline fun <reified T: GenFExpr<*>> cosh(x: T): T              = functionOf("cosh", x)
+    inline fun <reified T: GenFExpr<*>> tanh(x: T): T              = functionOf("tanh", x)
+    inline fun <reified T: GenFExpr<*>> asinh(x: T): T             = functionOf("asinh", x)
+    inline fun <reified T: GenFExpr<*>> acosh(x: T): T             = functionOf("acosh", x)
+    inline fun <reified T: GenFExpr<*>> atanh(y_over_x: T): T      = functionOf("atanh", y_over_x)
+    inline fun <reified T: GenFExpr<*>> atanh(y: T, x: T): T       = functionOf("atanh", y, x)
 
-    inner class VariableNode(val name: String): ShaderNode() {
-        override fun render() = name
-        override val descriptor = "VariableNode($name)"
-        override fun copy(): ShaderNode {
-            return VariableNode(name)
-        }
-        override val nativeTypeName: String
-            get() = throw IllegalStateException("Cannot Use VariableNode as Shader Type")
-    }
+    // Common
+    inline fun <reified T: GenFExpr<*>> abs(x: T): T               = functionOf("abs", x)
+    inline fun <reified T: GenIExpr<*>> abs(x: T): T               = functionOf("abs", x)
+    inline fun <reified T: GenFExpr<*>> sign(x: T): T              = functionOf("sign", x)
+    inline fun <reified T: GenIExpr<*>> sign(x: T): T              = functionOf("sign", x)
+    inline fun <reified T: GenFExpr<*>> floor(x: T): T             = functionOf("floor", x)
+    inline fun <reified T: GenIExpr<*>> floor(x: T): T             = functionOf("floor", x)
+    inline fun <reified T: GenFExpr<*>> trunc(x: T): T             = functionOf("trunc", x)
+    inline fun <reified T: GenFExpr<*>> round(x: T): T             = functionOf("round", x)
+    inline fun <reified T: GenFExpr<*>> roundEven(x: T): T         = functionOf("roundEven", x)
+    inline fun <reified T: GenFExpr<*>> ceil(x: T): T              = functionOf("ceil", x)
+    inline fun <reified T: GenIExpr<*>> fract(x: T): T             = functionOf("fract", x)
 
-    abstract inner class Assignable<T: ShaderNode>(vararg cs: ShaderNode): ShaderNode(*cs) {
+    inline fun <reified T: VecExpr<*>>  mod(x: T, y: FloatExpr): T = functionOf("mod", x, y)
+    inline fun <reified T: GenFExpr<*>> mod(x: T, y: T): T         = functionOf("mod", x, y)
+    inline fun <reified T: GenFExpr<*>> fmod(x: T, i: T): T        = functionOf("fmod", x, i)
 
-        var name: String? = null
-        var assign = true
-        var modifiers = listOf<String>()
+    inline fun <reified T: VecExpr<*>>  min(x: T, y: FloatExpr): T = functionOf("min", x, y)
+    inline fun <reified T: GenFExpr<*>> min(x: T, y: T): T         = functionOf("min", x, y)
+    inline fun <reified T: IVecExpr<*>> min(x: T, y: IntExpr): T   = functionOf("min", x, y)
+    inline fun <reified T: GenIExpr<*>> min(x: T, y: T): T         = functionOf("min", x, y)
+    inline fun <reified T: VecExpr<*>>  max(x: T, y: FloatExpr): T = functionOf("max", x, y)
+    inline fun <reified T: GenFExpr<*>> max(x: T, y: T): T         = functionOf("max", x, y)
+    inline fun <reified T: IVecExpr<*>> max(x: T, y: IntExpr): T   = functionOf("max", x, y)
+    inline fun <reified T: GenIExpr<*>> max(x: T, y: T): T         = functionOf("max", x, y)
 
-        abstract fun new(vararg cs: ShaderNode): Assignable<T>
+    inline fun <reified T: GenFExpr<*>> clamp(x: T, minVal: T, maxVal: T): T                 = functionOf("clamp", x)
+    inline fun <reified T: VecExpr<*>>  clamp(x: T, minVal: FloatExpr, maxVal: FloatExpr): T = functionOf("clamp", x)
+    inline fun <reified T: GenIExpr<*>> clamp(x: T, minVal: T, maxVal: T): T                 = functionOf("clamp", x)
+    inline fun <reified T: IVecExpr<*>> clamp(x: T, minVal: IntExpr, maxVal: IntExpr): T     = functionOf("clamp", x)
 
-        operator fun getValue(thisRef: Any?, property: KProperty<*>): T {
-            pushQueuedAssignments()
-            val varName = property.name
-            name = varName
-            println("getting var $name")
-            seenVariableNames.add(name!!).ifTrue {
-                debugPrint { "Get: property name: $name, id: $id, render: ${render()}" }
-                instructions.add(AssignmentNode(varName, this.copy() as Assignable<*>, true, assign, modifiers))
-            }
-            children = listOf(VariableNode(varName))
-            return this as T
-        }
+    inline fun <reified T: GenFExpr<*>> mix(x: T, y: T, a: T): T        = functionOf("mix", x, y, a)
+    inline fun <reified T: VecExpr<*>> mix(x: T, y: T, a: FloatExpr): T = functionOf("mix", x, y, a)
+    fun mix(x: FloatExpr, y: FloatExpr, a: BoolExpr): FloatExpr         = functionOf("mix", x, y, a)
+    fun mix(x: Vec2Expr, y: Vec2Expr, a: BVec2Expr): Vec2Expr           = functionOf("mix", x, y, a)
+    fun mix(x: Vec3Expr, y: Vec3Expr, a: BVec3Expr): Vec3Expr           = functionOf("mix", x, y, a)
+    fun mix(x: Vec4Expr, y: Vec4Expr, a: BVec4Expr): Vec4Expr           = functionOf("mix", x, y, a)
+    fun mix(x: IntExpr, y: IntExpr, a: BoolExpr): IntExpr               = functionOf("mix", x, y, a)
+    fun mix(x: IVec2Expr, y: IVec2Expr, a: BVec2Expr): IVec2Expr        = functionOf("mix", x, y, a)
+    fun mix(x: IVec3Expr, y: IVec3Expr, a: BVec3Expr): IVec3Expr        = functionOf("mix", x, y, a)
+    fun mix(x: IVec4Expr, y: IVec4Expr, a: BVec4Expr): IVec4Expr        = functionOf("mix", x, y, a)
+    fun mix(x: BoolExpr, y: BoolExpr, a: BoolExpr): BoolExpr            = functionOf("mix", x, y, a)
+    fun mix(x: BVec2Expr, y: BVec2Expr, a: BVec2Expr): BVec2Expr        = functionOf("mix", x, y, a)
+    fun mix(x: BVec3Expr, y: BVec3Expr, a: BVec3Expr): BVec3Expr        = functionOf("mix", x, y, a)
+    fun mix(x: BVec4Expr, y: BVec4Expr, a: BVec4Expr): BVec4Expr        = functionOf("mix", x, y, a)
 
-        operator fun setValue(thisRef: Any?, property: KProperty<*>, value: T) {
-            pushQueuedAssignments()
-            debugPrint { "Set: property name: ${property.name}, id: $id, render: ${render()}" }
-            name = property.name
-            children = value.children.copy()
-            println("pushing $name for assignment")
-            queuedAssignments[name!!] = AssignmentNode(name!!, this, name!! !in seenVariableNames, assign, modifiers)
-        }
+    inline fun <reified T: GenFExpr<*>> dFdx(p: T): T = functionOf("dFdx", p)
+    inline fun <reified T: GenFExpr<*>> dFdy(p: T): T = functionOf("dFdy", p)
 
-        operator fun rangeTo(other: T): BoolNode {
-            debugPrint { "equals: ${this.id}, ${other.id}" }
-            return BoolNode(OperatorNode("==", this.copy(), other.copy()))
-        }
+    inline fun <reified T: GenFExpr<*>> step(edge: T, x: T): T = functionOf("step", edge, x)
+    inline fun <reified T: VecExpr<*>> step(edge: FloatExpr, x: T): T = functionOf("step", edge, x)
+    inline fun <reified T: GenFExpr<*>> smoothstep(edge0: T, edge1: T, x: T): T = functionOf("step", edge0, edge1, x)
+    inline fun <reified T: VecExpr<*>> smoothstep(edge0: FloatExpr, edge1: FloatExpr, x: T): T = functionOf("step", edge0, edge1, x)
 
-    }
+    fun isnan(x: FloatExpr): BoolExpr = functionOf("isnan", x)
+    fun isnan(x: Vec2Expr): BVec2Expr = functionOf("isnan", x)
+    fun isnan(x: Vec3Expr): BVec3Expr = functionOf("isnan", x)
+    fun isnan(x: Vec4Expr): BVec4Expr = functionOf("isnan", x)
+    fun isinf(x: FloatExpr): BoolExpr = functionOf("isinf", x)
+    fun isinf(x: Vec2Expr): BVec2Expr = functionOf("isinf", x)
+    fun isinf(x: Vec3Expr): BVec3Expr = functionOf("isinf", x)
+    fun isinf(x: Vec4Expr): BVec4Expr = functionOf("isinf", x)
 
-    fun <T: Assignable<T>> equalTo(left: T, right: T): BoolNode {
-        debugPrint { "equals: ${left.id}, ${right.id}" }
-        return BoolNode(OperatorNode("==", left.copy(), right.copy()))
-    }
+    inline fun <reified T: GenFExpr<T>> exp(x: T): T = functionOf("exp", x)
+    inline fun <reified T: GenFExpr<T>> exp2(x: T): T = functionOf("exp2", x)
 
-    infix fun <T: Assignable<T>> T.EQ(other: T) = equalTo(this, other)
-
-    abstract inner class GenBType<T: GenBType<T>>(vararg cs: ShaderNode): Assignable<T>(*cs) {
-        //abstract override fun new(vararg cs: ShaderNode): GenBType<T>
-
-//        operator fun plus(other: T): T {
-//            debugPrint { "plus: ${this.id}, ${other.id}" }
-//            return new(OperatorNode("+", this.copy(), other.copy())) as T
-//        }
-        // Negation (!)
-        // AND (&&)
-        // XOR (^^)
-        // OR (||)
-
-    }
-
-    fun bool(b: Boolean): BoolNode {
-        return BoolNode(LiteralNode(b))
-    }
-
-    inner class BoolNode(vararg cs: ShaderNode): GenBType<BoolNode>(*cs) {
-        operator fun not(): BoolNode {
-            debugPrint { "not: ${this.id}"}
-            return BoolNode(FunctionNode("!", this.copy()))
-        }
-
-        override fun new(vararg cs: ShaderNode): GenBType<BoolNode> {
-            return BoolNode(*cs)
-        }
-
-        override val nativeTypeName = "bool"
-
-        override fun copy(): ShaderNode {
-            val result = BoolNode(*children.toTypedArray())
-            result.name = name
-            return result
-        }
-
-        override fun render(): String {
-            debugPrint { "bool Render, $id, $name" }
-            require(children.isNotEmpty()) {"Error Rendering BoolNode: Not Enough Children; $name; ${log()}"}
-            return children[0].render()
-        }
-    }
-//    inner class bvec2: genBType()
-//    inner class bvec3: genBType()
-//    inner class bvec4: genBType()
-
-
-    interface genIType
-//    inner class int: genIType()
-//    inner class ivec2: genIType()
-//    inner class ivec3: genIType()
-//    inner class ivec4: genIType()
-
-    abstract inner class GenFType<T: GenFType<T>>(vararg cs: ShaderNode): Assignable<T>(*cs) {
-        //abstract fun new(vararg cs: ShaderNode): GenFType<T>
-
-        operator fun plus(other: T): T {
-            debugPrint { "plus: ${this.id}, ${other.id}" }
-            return new(OperatorNode("+", this.copy(), other.copy())) as T
-        }
-    }
-
-
-    // External Float Constructors
-    fun float(x: Double) = FloatNode().apply { children = listOf(LiteralNode(x)) }
-    fun float(x: Float) = float(x.toDouble())
-    fun float(x: Int) = float(x.toDouble())
-    fun float(x: FloatNode) = x.copy()
-    fun float(x: VariableNode) = FloatNode().apply { children = listOf(x) }
-
-    inner class FloatNode(vararg cs: ShaderNode): GenFType<FloatNode>(*cs) {
-
-        override val descriptor = "float"
-        override val nativeTypeName = "float"
-
-        override fun copy(): ShaderNode {
-            debugPrint { "Float Copy" }
-            val childrenCopy = children.copy().toTypedArray()
-            val result = FloatNode(*childrenCopy)
-            result.name = name
-            debug.ifTrue {
-                println("breakDown")
-                this.log()
-                result.log()
-            }
-            return result
-        }
-
-        override fun new(vararg cs: ShaderNode) = FloatNode(*cs)
-
-        override fun render(): String {
-            debugPrint { "float Render, $id" }
-            require(children.isNotEmpty()) {"Error Rendering Float: Not Enough Children"}
-            return children[0].render()
-        }
-
-        operator fun <T: VecType<*>> plus(other: T): T {
-            debugPrint { "plus: ${this.id}, ${other.id}" }
-            return new(OperatorNode("+", this.copy(), other.copy())) as T
-        }
-
-        operator fun minus(other: FloatNode): FloatNode {
-            debugPrint { "minus: ${this.id}, ${other.id}" }
-            return FloatNode(OperatorNode("-", this.copy(), other.copy()))
-        }
-
-    }
-
-    infix fun FloatNode.LT(other: FloatNode): BoolNode {
-        debugPrint { "<: ${this.id}, ${other.id}" }
-        return BoolNode(OperatorNode("<", this.copy(), other.copy()))
-    }
-
-    infix fun FloatNode.GT(other: FloatNode): BoolNode {
-        debugPrint { ">: ${this.id}, ${other.id}" }
-        return BoolNode(OperatorNode(">", this.copy(), other.copy()))
-    }
-
-    infix fun FloatNode.LE(other: FloatNode): BoolNode {
-        debugPrint { "<=: ${this.id}, ${other.id}" }
-        return BoolNode(OperatorNode("<=", this.copy(), other.copy()))
-    }
-
-    infix fun FloatNode.GE(other: FloatNode): BoolNode {
-        debugPrint { ">=: ${this.id}, ${other.id}" }
-        return BoolNode(OperatorNode(">=", this.copy(), other.copy()))
-    }
-
-    abstract inner class VecType<T: VecType<T>>(vararg cs: ShaderNode): GenFType<T>(*cs) {
-
-        var x: FloatNode
-            get() { return FloatNode(ComponentNode("x", this.copy())) }
-            set(value) {
-                val varName = name ?: throw IllegalStateException("Unable to Determine Name of Vector")
-                instructions.add(AssignmentNode("${varName}.x", value, false))
-            }
-        var y: FloatNode
-            get() { return FloatNode(ComponentNode("y", this.copy())) }
-            set(value) {
-                val varName = name ?: throw IllegalStateException("Unable to Determine Name of Vector")
-                instructions.add(AssignmentNode("${varName}.y", value, false))
-            }
-//        val xx: Vec2Node
-//            get() { return Vec2Node(ComponentNode("xx", this.copy())) }
-//        val yy: Vec2Node
-//            get() { return Vec2Node(ComponentNode("yy", this.copy())) }
-//        var xy: Vec2Node
-//            get() { return Vec2Node(ComponentNode("xy", this.copy())) }
-//            set(value) { components[1] = value }
-
-    }
-
-    fun vec2(x: FloatNode, y: FloatNode): Vec2Node {
-        return Vec2Node(x, y)
-    }
-
-    inner class Vec2Node(vararg cs: ShaderNode): VecType<Vec2Node>(*cs) {
-
-        override fun new(vararg cs: ShaderNode): GenFType<Vec2Node> {
-            return Vec2Node(*cs)
-        }
-        override val nativeTypeName = "vec2"
-        override fun copy(): ShaderNode {
-            val result = Vec2Node(*children.copy().toTypedArray())
-            result.name = name
-            return result
-        }
-
-        override fun render(): String {
-            debugPrint { "vec2 Render, $id" }
-            if (children.size == 1) {
-                return children[0].render()
-            }
-            require(children.size == 2) {"Error Rendering Vec2: Wrong Number of Children: ${children.render()}"}
-            return "vec2(${children.render()})"
-        }
-    }
-
-    inner class Vec3Node(vararg cs: ShaderNode): VecType<Vec3Node>(*cs) {
-        override fun new(vararg cs: ShaderNode): GenFType<Vec3Node> {
-            return Vec3Node(*cs)
-        }
-
-        override fun render(): String {
-            TODO("Not yet implemented")
-        }
-
-        override val nativeTypeName = "vec3"
-        override fun copy(): ShaderNode {
-            TODO("Vec3 Copy Not yet implemented")
-        }
-    }
-
-    fun vec4(x: FloatNode, y: FloatNode, z: FloatNode, w: FloatNode) = Vec4Node().apply { children = listOf(x, y, z, w) }
-    fun vec4(xy: Vec2Node, z: FloatNode, w: FloatNode) {}
-    fun vec4(x: FloatNode, yz: Vec2Node, w: FloatNode) {}
-    fun vec4(x: FloatNode, y: FloatNode, zw: Vec2Node) {}
-    fun vec4(xyz: Vec3Node, w: FloatNode) {}
-    fun vec4(x: FloatNode, yzw: Vec3Node) {}
-    fun vec4(xyzw: Vec3Node) = xyzw
-
-    inner class Vec4Node(vararg cs: ShaderNode): VecType<Vec4Node>(*cs) {
-        override fun new(vararg cs: ShaderNode): GenFType<Vec4Node> {
-            return Vec4Node(*cs)
-        }
-
-        override fun render(): String {
-            debugPrint { "vec4 Render, $id" }
-            if (children.size == 1) {
-                return children[0].render()
-            }
-            require(children.size == 4) {"Error Rendering Vec4: Wrong Number of Children: ${children.render()}"}
-            return "vec4(${children.render()})"
-        }
-
-        override val nativeTypeName = "vec4"
-
-        override fun copy(): ShaderNode {
-            val result = Vec4Node(*children.copy().toTypedArray())
-            result.name = name
-            return result
-        }
+    //inline fun <reified T: GenExpr<T>> fma(a: T, b: T, c: T) = functionOf("")
 }
 
-    inner class mat2
-    inner class mat3
-    inner class mat4
-
-    inner class sampler2D
-    inner class samplerCube
-
-    inner class FunctionNode(val name: String, vararg cs: ShaderNode): ShaderNode(*cs) {
-        override fun render(): String {
-            debugPrint { "Function Node Render: ${children.render()}" }
-            return "$name(${children.render()})"
-        }
-        override val descriptor = name
-        override fun copy(): ShaderNode {
-            val result = FunctionNode(name)
-            result.children = children.copy()
-            return result
-        }
-        override val nativeTypeName: String
-            get() = throw IllegalStateException("Cannot Use FunctionNode as Shader Type")
-    }
-
-    inner class OperatorNode(val name: String, vararg cs: ShaderNode): ShaderNode(*cs) {
-        override fun render(): String {
-            debugPrint { "Operator Node Render: $name" }
-            require(children.size > 1) {"Error in rendering Operator Node: Not Enough Children ($children)"}
-            val child0 = children[0]
-            val child1 = children[1]
-            val c0 = if(child0.children.isNotEmpty() && child0.children[0] is OperatorNode) {
-                "(${child0.render()})"
-            } else {
-                child0.render()
-            }
-            val c1 = if(child1.children.isNotEmpty() && child1.children[0] is OperatorNode) {
-                "(${child1.render()})"
-            } else {
-                child1.render()
-            }
-            return "$c0$name$c1"
-        }
-        override val descriptor = name
-        override fun copy(): ShaderNode {
-            val result =  OperatorNode(name)
-            result.children = children.copy()
-            return result
-        }
-        override val nativeTypeName: String
-            get() = throw IllegalStateException("Cannot Use OperatorNode as Shader Type")
-    }
-
-    inner class ComponentNode(val name: String, vararg cs: ShaderNode): ShaderNode(*cs) {
-        override fun render(): String {
-            debugPrint { "Component Node Render" }
-            require(children.isNotEmpty()) {"Error in rendering Component Node: Not Enough Children ($children)"}
-            if (children[0] is Assignable<*>) {
-                return "${children[0].render()}.$name"
-            }
-            return "(${children[0].render()}).$name"
-        }
-        override val descriptor = name
-        override fun copy(): ShaderNode {
-            return ComponentNode(name, *(children.copy().toTypedArray()))
-        }
-        override val nativeTypeName: String
-            get() = throw IllegalStateException("Cannot Use ComponentNode as Shader Type")
-    }
-
-    fun <T: GenFType<*>> radians(degrees: T): T {
-        val fNode = FunctionNode("radians")
-        fNode.children = listOf(degrees)
-        val result = degrees.new() as T
-        result.children = listOf(fNode)
-        return result
-    }
-
-    operator fun FloatNode.times(other: FloatNode) = FloatNode(OperatorNode("*", this.copy(), other.copy()))
+typealias float = KGLSL.FloatExpr
+typealias vec2  = KGLSL.Vec2Expr
+typealias vec3  = KGLSL.Vec3Expr
+typealias vec4  = KGLSL.Vec4Expr
+typealias bool  = KGLSL.BoolExpr
+typealias bvec2 = KGLSL.BVec2Expr
+typealias bvec3 = KGLSL.BVec3Expr
+typealias bvec4 = KGLSL.BVec4Expr
+typealias int   = KGLSL.IntExpr
+typealias ivec2 = KGLSL.IVec2Expr
+typealias ivec3 = KGLSL.IVec3Expr
+typealias ivec4 = KGLSL.IVec4Expr
 
 
+// Common Functions
+/*
 
-    // Trig Functions
-    /*
-        class radians(genFType: degrees): genFType
-        fun degrees(genFType: radians): genFType
-        fun sin(genFType: angle): genFType
-        fun cos(genFType: angle): genFType
-        fun tan(genFType: angle): genFType
-        fun asin(genFType: x): genFType
-        fun acos(genFType: x): genFType
-        fun atan(genFType y, genFType x): genFType
-        fun atan(genFType y_over_x): genFType
-        fun sinh(genFType: x): genFType
-        fun cosh(genFType: x): genFType
-        fun tanh(genFType y, genFType x): genFType
-        fun asinh(genFType: x): genFType
-        fun acosh(genFType: x): genFType
-        fun atanh(genFType y, genFType x): genFType
-     */
+Mathematics
+    exp
+    exp2
+    fma
+    fwidth
+    inversesqrt
+    log
+    log2
+    pow
+    sqrt
 
-    // Common Functions
-    /*
-        abs(genFType x): genFType
-        abs(genIType x): genIType
-        sign(genFType x): genFType
-        sign(genIType x): genIType
-        floor(genFType x): genFType
-        trunc(genFType x): genFType
-        round(genFType x): genFType
-        roundEven(genFType x): genFType
-        ceil(genFType x): genFType
-        fract(genFType x): genFType
-        mod(genFType x, float y): genFType
-        mod(genFType x, genFType y): genFType
-        modf(genFType x, out genFType i): genFType
-        min(genFType x, genFType y): genFType
-        min(genFType x, float y): genFType
-        genIType min(genIType x, genIType y): genIType
-        genIType min(genIType x, int y): genIType
-        max(genFType x, genFType y): genFType
-        max(genFType x, float y): genFType
-        max(genIType x, genIType y): genIType
-        max(genIType x, int y): genIType
-        clamp(genFType x, genFType minVal, genFType maxVal):
-        clamp(genFType x, float minVal, float maxVal)
-        clamp(genIType x, genIType minVal, genIType maxVal)
-        clamp(genIType x, int minVal, int maxVal)
-        mix(genFType x, genFType y, genFType a)
-        mix(genFType x, genFType y, float a)
-        mix(genFType x, genFType y, genBType a)
-        mix(genDType x, genDType y, genBType a)
-        mix(genIType x, genIType y, genBType a)
-        mix(genBType x, genBType y, genBType a)
+Vector
+    cross
+    distance
+    dot
+    equal
+    faceforward
+    length
+    normalize
+    notEqual
+    reflect
+    refract
 
-        genFType step(genFType edge, genFType x)
-        genFType step(float edge, genFType x)
-        genFType smoothstep(genFType edge0, genFType edge1, genFType x)
-        genFType smoothstep(float edge0, float edge1, genFType x)
-        genBType isnan(genFType x)
-        genBType isnan(genDType x)
-        genBType isinf(genFType x)
-        genBType isinf(genDType x)
-        genIType floatBitsToInt(highp genFType value)
-        genFType intBitsToFloat(highp genIType value)
-        genFType fma(genFType a, genFType b, genFType c)
-        genFType frexp(highp genFType x, out highp genIType exp)
-        genFType ldexp(highp genFType x, highp genIType exp)
-    */
+Component Comparison
+    all
+    any
+    greaterThan
+    greaterThanEqual
+    lessThan
+    lessThanEqual
+    not
 
-//    inner class UniformNode<T: Assignable<T>>: Assignable<T>() {
-//        override fun render(): String {
-//            TODO("Not yet implemented")
-//        }
-//
-//        override val nativeTypeName = "uniform"
-//
-//        override fun copy(): ShaderNode {
-//            TODO("Not yet implemented")
-//        }
-//    }
+Texture Sampling
+    texelFetch
+    texelFetchOffset
+    texture
+    textureGather
+    textureGatherOffset
+    textureGrad
+    textureGradOffset
+    textureLod
+    textureLodOffset
+    textureOffset
+    textureProj
+    textureProjGrad
+    textureProjGradOffset
+    textureProjLod
+    textureProjLodOffset
+    textureProjOffset
+    textureSize
 
-    inline fun <reified T: Assignable<T>> new(vararg cs: ShaderNode): T {
-        return when(T::class) {
-            FloatNode::class -> FloatNode(*cs)
-            Vec2Node::class -> Vec2Node(*cs)
-            Vec3Node::class -> Vec3Node(*cs)
-            Vec4Node::class -> Vec4Node(*cs)
-            BoolNode::class -> BoolNode(*cs)
-            else -> throw IllegalStateException("Unable to make type ${T::class.simpleName}")
-        } as T
-    }
-
-    inline fun <reified T: Assignable<T>> Uniform(): T {
-        val result = new<T>(LiteralNode("?"))
-        result.modifiers = listOf("uniform")
-        result.assign = false
-        return result
-    }
-
-    inline fun <reified T: Assignable<T>> Out(): T {
-        val result = new<T>(LiteralNode("?"))
-        result.modifiers = listOf("out")
-        result.assign = false
-        return result
-    }
-
-    inline fun <reified T: Assignable<T>> In(): T {
-        val result = new<T>(LiteralNode("?"))
-        result.modifiers = listOf("in")
-        result.assign = false
-        return result
-    }
-
-
-    operator fun String.unaryPlus() {
-        instructions.add(LiteralNode(this))
-    }
-
-
-    fun Main(block: ()->Vec4Node) {
-        var fragColor by Out<Vec4Node>()
-        fragColor
-        instructions.add(LiteralNode("void main(){"))
-        val result = block()
-        fragColor = result
-        instructions.add(LiteralNode("}"))
-    }
-
-    fun While(cond: BoolNode, block: ()->Unit) {
-        instructions.add(LiteralNode("while(${cond.render()}){"))
-        block()
-        instructions.add(LiteralNode("}"))
-    }
-
-    val Break: Unit get() {
-        instructions.add(LiteralNode("break"))
-    }
-
-    val Continue: Unit get() {
-        instructions.add(LiteralNode("continue"))
-    }
-
-    fun fragment(block: KGLSL.()->Unit): String {
-        block()
-        return instructions.joinToString("\n") { it.render() }
-    }
-
-}
-
-
-typealias float = KGLSL.FloatNode
-typealias vec2  = KGLSL.Vec2Node
-typealias vec3  = KGLSL.Vec3Node
-typealias vec4  = KGLSL.Vec4Node
-typealias bool  = KGLSL.BoolNode
-
-
+Matrix
+    determinant
+    groupMemoryBarrier
+    inverse
+    matrixCompMult
+    outerProduct
+    transpose
+*/
 
 
 
@@ -699,37 +1350,4 @@ imageCube iimageCube uimageCube
 imageCubeArray iimageCubeArray uimageCubeArray
 imageBuffer iimageBuffer uimageBuffer
 struct
-
-VULKAN ONLY
-
-texture1D texture1DArray
-itexture1D itexture1DArray utexture1D utexture1DArray
-texture2D texture2DArray
-itexture2D itexture2DArray utexture2D utexture2DArray
-texture2DRect itexture2DRect utexture2DRect
-texture2DMS itexture2DMS utexture2DMS
-texture2DMSArray itexture2DMSArray utexture2DMSArray
-texture3D itexture3D utexture3D
-textureCube itextureCube utextureCube
-textureCubeArray itextureCubeArray utextureCubeArray
-textureBuffer itextureBuffer utextureBuffer
-sampler samplerShadow
-subpassInput isubpassInput usubpassInput
-subpassInputMS isubpassInputMS usubpassInputMS
-
-FUTURE USE
-
-common partition active
-asm
-class union enum typedef template this
-resource
-goto
-inline noinline public static extern external interface
-long short half fixed unsigned superp
-input output
-hvec2 hvec3 hvec4 fvec2 fvec3 fvec4
-filter
-sizeof cast
-namespace using
-sampler3DRect
 */

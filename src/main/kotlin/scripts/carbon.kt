@@ -15,6 +15,8 @@ fun carbon(filename: String, scaleFactor: Double=1.0) = Sketch {
 
     setup {
 
+        img.resize(img.width/2, img.height/2)
+
         val border = 400*scaleFactor
         val cornerRadius = 80*scaleFactor
         val barHeight = 120*scaleFactor
