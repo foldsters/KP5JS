@@ -1,3 +1,6 @@
+@file:Suppress("BOUNDS_NOT_ALLOWED_IF_BOUNDED_BY_TYPE_PARAMETER")
+
+
 package p5.kglsl
 
 import p5.util.appendAll
@@ -217,8 +220,8 @@ class KGLSL {
         }
 
         override fun render(): String {
-            debugPrint { "Primitive Expr Render: $name of type $nativeTypeName" }
-            require(children.isNotEmpty()) {"Error Rendering Primitive Expr $name of type $nativeTypeName: No Children"}
+            debugPrint { "Gen Expr Render: $name of type $nativeTypeName" }
+            require(children.isNotEmpty()) {"Error Rendering Gen Expr $name of type $nativeTypeName: No Children"}
             return children[0].render()
         }
 
@@ -230,6 +233,14 @@ class KGLSL {
     }
 
     infix fun <T: GenExpr<T>> T.EQ(other: T) = equalTo(this, other)
+
+    //
+
+    interface ExprLen
+    interface ExprLen1: ExprLen
+    interface ExprLen2: ExprLen
+    interface ExprLen3: ExprLen
+    interface ExprLen4: ExprLen
 
 //     ____              _
 //    | __ )  ___   ___ | | ___  __ _ _ __  ___
@@ -245,7 +256,7 @@ class KGLSL {
     }
 
     // BOOLEXPR: Expression of type bool
-    inner class BoolExpr(vararg cs: ShaderNode): GenBExpr<BoolExpr>(*cs) {
+    inner class BoolExpr(vararg cs: ShaderNode): GenBExpr<BoolExpr>(*cs), ExprLen1 {
         override fun new(vararg cs: ShaderNode) = BoolExpr(*cs)
         override val nativeTypeName = "bool"
     }
@@ -289,13 +300,13 @@ class KGLSL {
         }
     }
 
-    inner class BVec2Expr(vararg cs: ShaderNode): BVecExpr<BVec2Expr>(*cs) {
+    inner class BVec2Expr(vararg cs: ShaderNode): BVecExpr<BVec2Expr>(*cs), ExprLen2 {
         override fun new(vararg cs: ShaderNode) = BVec2Expr(*cs)
         override val nativeTypeName = "bvec2"
         override val numComponents = 2
     }
 
-    inner class BVec3Expr(vararg cs: ShaderNode): BVecExpr<BVec3Expr>(*cs) {
+    inner class BVec3Expr(vararg cs: ShaderNode): BVecExpr<BVec3Expr>(*cs), ExprLen3 {
         override fun new(vararg cs: ShaderNode) = BVec3Expr(*cs)
         override val nativeTypeName = "bvec3"
         override val numComponents = 3
@@ -339,7 +350,7 @@ class KGLSL {
         val bbgr by C4; val bbgg by C4; val bbgb by C4; val bbbr by C4; val bbbg by C4; val bbbb by C4
     }
 
-    inner class BVec4Expr(vararg cs: ShaderNode): BVecExpr<BVec4Expr>(*cs) {
+    inner class BVec4Expr(vararg cs: ShaderNode): BVecExpr<BVec4Expr>(*cs), ExprLen4 {
         override fun new(vararg cs: ShaderNode) = BVec4Expr(*cs)
         override val nativeTypeName = "bvec4"
         override val numComponents = 4
@@ -457,6 +468,8 @@ class KGLSL {
         val aaar by C4; val aaag by C4; val aaab by C4; val aaaa by C4;
     }
 
+    interface NonBool
+
 //     ___       _
 //    |_ _|_ __ | |_ ___  __ _  ___ _ __ ___
 //     | || '_ \| __/ _ \/ _` |/ _ \ '__/ __|
@@ -465,7 +478,7 @@ class KGLSL {
 //                       |___/
 
     // GENIEXPR: Base class of float and float vector expressions
-    abstract inner class GenIExpr<T: GenIExpr<T>>(vararg cs: ShaderNode): GenExpr<T>(*cs) {
+    abstract inner class GenIExpr<T: GenIExpr<T>>(vararg cs: ShaderNode): GenExpr<T>(*cs), NonBool {
 
         operator fun plus(other: T): T {
             return new(OperatorExpr("+", this.copy(), other.copy())) as T
@@ -473,16 +486,16 @@ class KGLSL {
     }
 
     // INTEXPR: Expression of type int
-    inner class IntExpr(vararg cs: ShaderNode): GenIExpr<IntExpr>(*cs) {
+    inner class IntExpr(vararg cs: ShaderNode): GenIExpr<IntExpr>(*cs), ExprLen1 {
         override val nativeTypeName = "int"
         override fun new(vararg cs: ShaderNode) = IntExpr(*cs)
     }
 
     // External Int Constructors
-    fun int(x: Double) = IntExpr(LiteralExpr(x.toInt()))
-    fun int(x: Float) = float(x.toInt())
-    fun int(x: Int) = float(x.toInt())
-    fun int(x: FloatExpr) = x.copy()
+    fun int(x: Double) = int(x.toInt())
+    fun int(x: Float) = int(x.toInt())
+    fun int(x: Int) = IntExpr(LiteralExpr(x))
+    fun int(x: IntExpr) = x.copy()
     fun int(x: VariableExpr) = IntExpr(x)
 
     // Int Operators
@@ -532,13 +545,13 @@ class KGLSL {
 
     }
 
-    inner class IVec2Expr(vararg cs: ShaderNode): IVecExpr<IVec2Expr>(*cs) {
+    inner class IVec2Expr(vararg cs: ShaderNode): IVecExpr<IVec2Expr>(*cs), ExprLen2 {
         override fun new(vararg cs: ShaderNode) = IVec2Expr(*cs)
         override val nativeTypeName = "ivec2"
         override val numComponents = 2
     }
 
-    inner class IVec3Expr(vararg cs: ShaderNode): IVecExpr<IVec3Expr>(*cs) {
+    inner class IVec3Expr(vararg cs: ShaderNode): IVecExpr<IVec3Expr>(*cs), ExprLen3 {
         override fun new(vararg cs: ShaderNode) = IVec3Expr(*cs)
         override val nativeTypeName = "ivec3"
         override val numComponents = 3
@@ -583,7 +596,7 @@ class KGLSL {
     }
 
 
-    inner class IVec4Expr(vararg cs: ShaderNode): IVecExpr<IVec4Expr>(*cs) {
+    inner class IVec4Expr(vararg cs: ShaderNode): IVecExpr<IVec4Expr>(*cs), ExprLen4 {
         override fun new(vararg cs: ShaderNode) = IVec4Expr(*cs)
         override val nativeTypeName = "ivec4"
         override val numComponents = 4
@@ -723,7 +736,7 @@ class KGLSL {
 //    |_|   |_|\___/ \__,_|\__|___/
 
     // GENFEXPR: Base class of float and float vector expressions
-    abstract inner class GenFExpr<T: GenFExpr<T>>(vararg cs: ShaderNode): GenExpr<T>(*cs) {
+    abstract inner class GenFExpr<T: GenFExpr<T>>(vararg cs: ShaderNode): GenExpr<T>(*cs), NonBool {
 
         operator fun plus(other: T): T {
             debugPrint { "plus: ${this.id}, ${other.id}" }
@@ -732,7 +745,7 @@ class KGLSL {
     }
 
     // FLOATEXPR: Expression of type float
-    inner class FloatExpr(vararg cs: ShaderNode): GenFExpr<FloatExpr>(*cs) {
+    inner class FloatExpr(vararg cs: ShaderNode): GenFExpr<FloatExpr>(*cs), ExprLen1 {
         override val nativeTypeName = "float"
         override fun new(vararg cs: ShaderNode) = FloatExpr(*cs)
     }
@@ -791,13 +804,13 @@ class KGLSL {
 
     }
 
-    inner class Vec2Expr(vararg cs: ShaderNode): VecExpr<Vec2Expr>(*cs) {
+    inner class Vec2Expr(vararg cs: ShaderNode): VecExpr<Vec2Expr>(*cs), ExprLen2 {
         override fun new(vararg cs: ShaderNode) = Vec2Expr(*cs)
         override val nativeTypeName = "vec2"
         override val numComponents = 2
     }
 
-    inner class Vec3Expr(vararg cs: ShaderNode): VecExpr<Vec3Expr>(*cs) {
+    inner class Vec3Expr(vararg cs: ShaderNode): VecExpr<Vec3Expr>(*cs), ExprLen3 {
         override fun new(vararg cs: ShaderNode) = Vec3Expr(*cs)
         override val nativeTypeName = "vec3"
         override val numComponents = 3
@@ -842,7 +855,7 @@ class KGLSL {
     }
 
 
-    inner class Vec4Expr(vararg cs: ShaderNode): VecExpr<Vec4Expr>(*cs) {
+    inner class Vec4Expr(vararg cs: ShaderNode): VecExpr<Vec4Expr>(*cs), ExprLen4 {
         override fun new(vararg cs: ShaderNode) = Vec4Expr(*cs)
         override val nativeTypeName = "vec4"
         override val numComponents = 4
@@ -990,6 +1003,22 @@ class KGLSL {
 
     operator fun FloatExpr.times(other: FloatExpr) = FloatExpr(OperatorExpr("*", this.copy(), other.copy()))
 
+//     ____                        _
+//    / ___|  __ _ _ __ ___  _ __ | | ___ _ __
+//    \___ \ / _` | '_ ` _ \| '_ \| |/ _ \ '__|
+//     ___) | (_| | | | | | | |_) | |  __/ |
+//    |____/ \__,_|_| |_| |_| .__/|_|\___|_|
+//                          |_|
+
+    inner class Sampler2D(vararg cs: ShaderNode): GenExpr<Sampler2D>(*cs) {
+        override val nativeTypeName = "sampler2D"
+        override fun new(vararg cs: ShaderNode) = Sampler2D(*cs)
+    }
+
+    fun texture(sampler: Sampler2D, P: Vec2Expr): Vec4Expr = functionOf("texture", sampler, P)
+    fun textureGrad(sampler: Sampler2D, P: Vec2Expr, dPdx: Vec2Expr, dPdy: Vec2Expr): Vec4Expr = functionOf("textureGrad", sampler, dPdx, dPdy)
+
+    ///
 
     inline fun <reified T: GenExpr<*>> new(vararg cs: ShaderNode): T {
         return when(T::class) {
@@ -1005,6 +1034,7 @@ class KGLSL {
             IVec2Expr::class -> IVec2Expr(*cs)
             IVec3Expr::class -> IVec3Expr(*cs)
             IVec4Expr::class -> IVec4Expr(*cs)
+            Sampler2D::class -> Sampler2D(*cs)
             else -> throw IllegalStateException("Unable to make type ${T::class.simpleName}")
         } as T
     }
@@ -1023,6 +1053,7 @@ class KGLSL {
             IVec2Expr::class -> IVec2Expr(*cs)
             IVec3Expr::class -> IVec3Expr(*cs)
             IVec4Expr::class -> IVec4Expr(*cs)
+            Sampler2D::class -> Sampler2D(*cs)
             else -> throw IllegalStateException("Unable to make type ${clazz.simpleName}")
         } as T
     }
@@ -1185,40 +1216,54 @@ class KGLSL {
 
     inline fun <reified T: GenFExpr<*>> mix(x: T, y: T, a: T): T        = functionOf("mix", x, y, a)
     inline fun <reified T: VecExpr<*>> mix(x: T, y: T, a: FloatExpr): T = functionOf("mix", x, y, a)
-    fun mix(x: FloatExpr, y: FloatExpr, a: BoolExpr): FloatExpr         = functionOf("mix", x, y, a)
-    fun mix(x: Vec2Expr, y: Vec2Expr, a: BVec2Expr): Vec2Expr           = functionOf("mix", x, y, a)
-    fun mix(x: Vec3Expr, y: Vec3Expr, a: BVec3Expr): Vec3Expr           = functionOf("mix", x, y, a)
-    fun mix(x: Vec4Expr, y: Vec4Expr, a: BVec4Expr): Vec4Expr           = functionOf("mix", x, y, a)
-    fun mix(x: IntExpr, y: IntExpr, a: BoolExpr): IntExpr               = functionOf("mix", x, y, a)
-    fun mix(x: IVec2Expr, y: IVec2Expr, a: BVec2Expr): IVec2Expr        = functionOf("mix", x, y, a)
-    fun mix(x: IVec3Expr, y: IVec3Expr, a: BVec3Expr): IVec3Expr        = functionOf("mix", x, y, a)
-    fun mix(x: IVec4Expr, y: IVec4Expr, a: BVec4Expr): IVec4Expr        = functionOf("mix", x, y, a)
-    fun mix(x: BoolExpr, y: BoolExpr, a: BoolExpr): BoolExpr            = functionOf("mix", x, y, a)
-    fun mix(x: BVec2Expr, y: BVec2Expr, a: BVec2Expr): BVec2Expr        = functionOf("mix", x, y, a)
-    fun mix(x: BVec3Expr, y: BVec3Expr, a: BVec3Expr): BVec3Expr        = functionOf("mix", x, y, a)
-    fun mix(x: BVec4Expr, y: BVec4Expr, a: BVec4Expr): BVec4Expr        = functionOf("mix", x, y, a)
+    inline fun <reified T, U, V: ExprLen> mix(x: T, y: T, a: U): T where T: GenExpr<*>, U : GenBExpr<*>, T: V, U: V = functionOf("mix", x, y, a)
 
     inline fun <reified T: GenFExpr<*>> dFdx(p: T): T = functionOf("dFdx", p)
     inline fun <reified T: GenFExpr<*>> dFdy(p: T): T = functionOf("dFdy", p)
+    inline fun <reified T: GenFExpr<*>> fwidth(p: T): T = functionOf("fwidth", p)
 
     inline fun <reified T: GenFExpr<*>> step(edge: T, x: T): T = functionOf("step", edge, x)
     inline fun <reified T: VecExpr<*>> step(edge: FloatExpr, x: T): T = functionOf("step", edge, x)
     inline fun <reified T: GenFExpr<*>> smoothstep(edge0: T, edge1: T, x: T): T = functionOf("step", edge0, edge1, x)
     inline fun <reified T: VecExpr<*>> smoothstep(edge0: FloatExpr, edge1: FloatExpr, x: T): T = functionOf("step", edge0, edge1, x)
 
-    fun isnan(x: FloatExpr): BoolExpr = functionOf("isnan", x)
-    fun isnan(x: Vec2Expr): BVec2Expr = functionOf("isnan", x)
-    fun isnan(x: Vec3Expr): BVec3Expr = functionOf("isnan", x)
-    fun isnan(x: Vec4Expr): BVec4Expr = functionOf("isnan", x)
-    fun isinf(x: FloatExpr): BoolExpr = functionOf("isinf", x)
-    fun isinf(x: Vec2Expr): BVec2Expr = functionOf("isinf", x)
-    fun isinf(x: Vec3Expr): BVec3Expr = functionOf("isinf", x)
-    fun isinf(x: Vec4Expr): BVec4Expr = functionOf("isinf", x)
+    inline fun <T, reified U, V: ExprLen> isnan(x: T): U where T: GenFExpr<*>, U: GenBExpr<*>, T: V, U: V = functionOf("isnan", x)
+    inline fun <T, reified U, V: ExprLen> isinf(x: T): U where T: GenFExpr<*>, U: GenBExpr<*>, T: V, U: V = functionOf("isinf", x)
 
     inline fun <reified T: GenFExpr<T>> exp(x: T): T = functionOf("exp", x)
     inline fun <reified T: GenFExpr<T>> exp2(x: T): T = functionOf("exp2", x)
+    inline fun <reified T: GenFExpr<T>> inversesqrt(x: T): T = functionOf("inversesqrt", x)
+    inline fun <reified T: GenFExpr<T>> log(x: T): T = functionOf("log", x)
+    inline fun <reified T: GenFExpr<T>> log2(x: T): T = functionOf("log2", x)
+    inline fun <reified T: GenFExpr<T>> sqrt(x: T): T = functionOf("sqrt", x)
 
-    //inline fun <reified T: GenExpr<T>> fma(a: T, b: T, c: T) = functionOf("")
+    //inline fun <reified T: GenFExpr<T>> fma(a: T, b: T, c: T): T = functionOf("fma", a, b, c)
+    inline fun <reified T: GenFExpr<T>> pow(x: T, y: T): T = functionOf("pow", x, y)
+
+    fun cross(x: Vec3Expr, y: Vec3Expr): Vec3Expr = functionOf("cross", x, y)
+    fun <T: GenFExpr<*>> distance(p0: T, p1: T): FloatExpr = functionOf("distance", p0, p1)
+    fun <T: GenFExpr<*>> dot(x: T, y: T): FloatExpr = functionOf("dot", x, y)
+    inline fun <T, reified U, V: ExprLen> equal(x: T, y: T): U where T: GenExpr<*>, U: GenBExpr<*>, T: V, U: V = functionOf("equal", x, y)
+    inline fun <T, reified U, V: ExprLen> notequal(x: T, y: T): U where T: GenExpr<*>, U: GenBExpr<*>, T: V, U: V = functionOf("notequal", x, y)
+    inline fun <reified T: GenFExpr<*>> faceforward(N: T, I: T, Nref: T): T = functionOf("faceforward", N, I, Nref)
+    inline fun <reified T: VecExpr<*>> normalize(v: T): T = functionOf("normalize", v)
+    inline fun <reified T: GenFExpr<*>> reflect(I: T, N: T): T = functionOf("reflect", I, N)
+    inline fun <reified T: GenFExpr<*>> distance(I: T, N: T, eta: FloatExpr): T = functionOf("distance", I, N, eta)
+
+    fun all(x: BVecExpr<*>): BoolExpr = functionOf("all", x)
+    fun any(x: BVecExpr<*>): BoolExpr = functionOf("any", x)
+    inline fun <reified T: BVecExpr<*>> not(x: T): T = functionOf("not", x)
+    inline fun <T, reified U, V: ExprLen> greaterThan(x: T, y: T): U where T: VecExpr<*>, U: BVecExpr<*>, T: V, U: V = functionOf("greaterThan", x, y)
+    inline fun <T, reified U, V: ExprLen> greaterThan(x: T, y: T): U where T: IVecExpr<*>, U: BVecExpr<*>, T: V, U: V = functionOf("greaterThan", x, y)
+    inline fun <T, reified U, V: ExprLen> greaterThanEqual(x: T, y: T): U where T: VecExpr<*>, U: BVecExpr<*>, T: V, U: V = functionOf("greaterThanEqual", x, y)
+    inline fun <T, reified U, V: ExprLen> greaterThanEqual(x: T, y: T): U where T: IVecExpr<*>, U: BVecExpr<*>, T: V, U: V = functionOf("greaterThanEqual", x, y)
+    inline fun <T, reified U, V: ExprLen> lessThan(x: T, y: T): U where T: VecExpr<*>, U: BVecExpr<*>, T: V, U: V = functionOf("lessThan", x, y)
+    inline fun <T, reified U, V: ExprLen> lessThan(x: T, y: T): U where T: IVecExpr<*>, U: BVecExpr<*>, T: V, U: V = functionOf("lessThan", x, y)
+    inline fun <T, reified U, V: ExprLen> lessThanEqual(x: T, y: T): U where T: VecExpr<*>, U: BVecExpr<*>, T: V, U: V = functionOf("lessThanEqual", x, y)
+    inline fun <T, reified U, V: ExprLen> lessThanEqual(x: T, y: T): U where T: IVecExpr<*>, U: BVecExpr<*>, T: V, U: V = functionOf("lessThanEqual", x, y)
+
+
+
 }
 
 typealias float = KGLSL.FloatExpr
@@ -1237,58 +1282,6 @@ typealias ivec4 = KGLSL.IVec4Expr
 
 // Common Functions
 /*
-
-Mathematics
-    exp
-    exp2
-    fma
-    fwidth
-    inversesqrt
-    log
-    log2
-    pow
-    sqrt
-
-Vector
-    cross
-    distance
-    dot
-    equal
-    faceforward
-    length
-    normalize
-    notEqual
-    reflect
-    refract
-
-Component Comparison
-    all
-    any
-    greaterThan
-    greaterThanEqual
-    lessThan
-    lessThanEqual
-    not
-
-Texture Sampling
-    texelFetch
-    texelFetchOffset
-    texture
-    textureGather
-    textureGatherOffset
-    textureGrad
-    textureGradOffset
-    textureLod
-    textureLodOffset
-    textureOffset
-    textureProj
-    textureProjGrad
-    textureProjGradOffset
-    textureProjLod
-    textureProjLodOffset
-    textureProjOffset
-    textureSize
-
 Matrix
     determinant
     groupMemoryBarrier
