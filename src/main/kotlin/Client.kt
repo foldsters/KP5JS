@@ -8,5 +8,5 @@ import scripts.pseudoPerlin.pseudoPerlin
 import scripts.shader
 import scripts.testing.perlinNoiseTesting
 
-fun main() = carbon("codeCaptures/img_7.png", 0.5)
+fun main() = shader()
 
