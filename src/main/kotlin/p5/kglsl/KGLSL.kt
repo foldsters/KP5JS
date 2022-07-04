@@ -53,6 +53,10 @@ class KGLSL {
     inner class Instruction(instructionNode: ShaderNode) {
         val id: Int = instructionNode.getSnapshotNum() ?: genSnapshotId()
         val text = instructionNode.render()
+
+        fun render(): String {
+            return "$text //$id"
+        }
     }
 
     // LITERAL EXPR: Holds kotlin float, int, bool
@@ -710,7 +714,7 @@ class KGLSL {
 
             operator fun setValue(thisRef: Any?, property: KProperty<*>, value: R) {
                 val varName = name ?: throw IllegalStateException("Unable to Determine Name of Vector")
-                instructions.add(AssignmentStatement("${varName}.${property.name}", value, false))
+                instructions.add(Instruction(AssignmentStatement("${varName}.${property.name}", value, false)))
             }
         }
 
@@ -957,7 +961,7 @@ class KGLSL {
 
     operator fun String.unaryPlus() {
         pushQueuedAssignments()
-        instructions.add(LiteralExpr(this))
+        instructions.add(Instruction(LiteralExpr(this)))
     }
 
     var iteratorCount = 0
@@ -1013,7 +1017,7 @@ class KGLSL {
 
     fun fragment(block: KGLSL.()->Unit): String {
         block()
-        return instructions.joinToString("\n") { it.render() }
+        return instructions.sortedBy { it.id }.joinToString("\n") { it.render() }
     }
 
     // List Helper Functions
