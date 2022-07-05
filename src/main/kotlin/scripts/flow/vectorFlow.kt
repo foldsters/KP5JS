@@ -4,11 +4,11 @@ import p5.Sketch
 
 fun vectorFlow() = Sketch {
 
-    setup {
+    Setup {
 
 
 
-        draw {
+        Draw {
 
         }
 

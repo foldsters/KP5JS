@@ -11,7 +11,7 @@ fun unapologeticShader() = Sketch {
     lateinit var pointFrameMap: MutableMap<Int, Array<Array<Number>>>
     lateinit var vid: NativeP5.MediaElement
 
-    preload {
+    Preload {
         pointFrameMap = mutableMapOf()
         outShader = loadShader("out.vert", "dancer/out.frag")
 
@@ -32,7 +32,7 @@ fun unapologeticShader() = Sketch {
 
     }
 
-    setup {
+    Setup {
         createCanvas(1920, 1080, P5.RenderMode.WEBGL2)
         noStroke()
         pixelDensity(1)
@@ -79,7 +79,7 @@ fun unapologeticShader() = Sketch {
         outShader["iHead"] = arrayOf(0.0, 0.0)
         outShader["iHand"] = arrayOf(0.0, 0.0)
 
-        draw {
+        Draw {
             vid.time((3400+frameCount).toDouble()/23.98)
             x.asDynamic().texture(vid.get())
             x.asDynamic().rect(-1920/2, -1080/2, 1920/2, 1080/2)
@@ -89,7 +89,7 @@ fun unapologeticShader() = Sketch {
                 pointFrameMap[3400+frameCount+k]?.forEachIndexed { i, p ->
                     points[i][0] += p[0].toDouble()/11.0
                     points[i][1] += p[1].toDouble()/11.0
-                } ?: return@draw
+                } ?: return@Draw
             }
             //val points = pointFrameMap[frameCount] ?: return@draw
 

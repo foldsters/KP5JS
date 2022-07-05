@@ -2,11 +2,10 @@ package scripts.huegene
 
 import p5.NativeP5
 import p5.Sketch
-import kotlin.math.sqrt
 
 fun huegene() = Sketch {
 
-    setup {
+    Setup {
         createCanvas(1024, 1024)
         background(0, 0, 0, 0)
 
@@ -67,7 +66,7 @@ fun huegene() = Sketch {
             }
         }
 
-        draw {
+        Draw {
 
             console.log("draw!", pointsAdded)
             val frameStartTime = millis()

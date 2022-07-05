@@ -20,47 +20,47 @@ class SketchScope(val p5: P5) {
         return { v -> f(p5, v) }
     }
 
-    fun preload       (block: P5.()->Unit) { p5.preload = wrap(block) }
-    fun setup         (block: P5.()->Unit) { p5.setup = wrap(block) }
-    fun draw          (block: P5.()->Unit) { p5.draw = wrap(block) }
-    fun windowResized (block: P5.()->Unit) { p5.windowResized = wrap(block) }
-    fun deviceMoved   (block: P5.()->Unit) { p5.deviceMoved = wrap(block) }
-    fun deviceTurned  (block: P5.()->Unit) { p5.deviceTurned = wrap(block) }
-    fun deviceShaken  (block: P5.()->Unit) { p5.deviceShaken = wrap(block) }
-    fun keyPressed    (block: P5.()->Unit) { p5.keyPressed = wrap(block) }
-    fun keyReleased   (block: P5.()->Unit) { p5.keyReleased = wrap(block) }
-    fun keyTyped      (block: P5.()->Unit) { p5.keyTyped = wrap(block) }
-    fun mouseMoved    (block: P5.()->Unit) { p5.mouseMoved = wrap(block) }
-    fun mouseDragged  (block: P5.()->Unit) { p5.mouseDragged = wrap(block) }
-    fun mousePressed  (block: P5.()->Unit) { p5.mousePressed = wrap(block) }
-    fun mouseReleased (block: P5.()->Unit) { p5.mouseReleased = wrap(block) }
-    fun mouseClicked  (block: P5.()->Unit) { p5.mouseClicked = wrap(block) }
-    fun doubleClicked (block: P5.()->Unit) { p5.doubleClicked = wrap(block) }
-    fun mouseWheel    (block: P5.(NativeP5.WheelEvent)->Unit) { p5.mouseWheel = wrap(block) }
-    fun touchStarted  (block: P5.()->Unit) { p5.touchStarted = wrap(block) }
-    fun touchMoved    (block: P5.()->Unit) { p5.touchMoved = wrap(block) }
-    fun touchEnded    (block: P5.()->Unit) { p5.touchEnded = wrap(block) }
+    fun Preload       (block: P5.()->Unit) { p5.preload = wrap(block) }
+    fun Setup         (block: P5.()->Unit) { p5.setup = wrap(block) }
+    fun Draw          (block: P5.()->Unit) { p5.draw = wrap(block) }
+    fun WindowResized (block: P5.()->Unit) { p5.windowResized = wrap(block) }
+    fun DeviceMoved   (block: P5.()->Unit) { p5.deviceMoved = wrap(block) }
+    fun DeviceTurned  (block: P5.()->Unit) { p5.deviceTurned = wrap(block) }
+    fun DeviceShaken  (block: P5.()->Unit) { p5.deviceShaken = wrap(block) }
+    fun KeyPressed    (block: P5.()->Unit) { p5.keyPressed = wrap(block) }
+    fun KeyReleased   (block: P5.()->Unit) { p5.keyReleased = wrap(block) }
+    fun KeyTyped      (block: P5.()->Unit) { p5.keyTyped = wrap(block) }
+    fun MouseMoved    (block: P5.()->Unit) { p5.mouseMoved = wrap(block) }
+    fun MouseDragged  (block: P5.()->Unit) { p5.mouseDragged = wrap(block) }
+    fun MousePressed  (block: P5.()->Unit) { p5.mousePressed = wrap(block) }
+    fun MouseReleased (block: P5.()->Unit) { p5.mouseReleased = wrap(block) }
+    fun MouseClicked  (block: P5.()->Unit) { p5.mouseClicked = wrap(block) }
+    fun DoubleClicked (block: P5.()->Unit) { p5.doubleClicked = wrap(block) }
+    fun MouseWheel    (block: P5.(NativeP5.WheelEvent)->Unit) { p5.mouseWheel = wrap(block) }
+    fun TouchStarted  (block: P5.()->Unit) { p5.touchStarted = wrap(block) }
+    fun TouchMoved    (block: P5.()->Unit) { p5.touchMoved = wrap(block) }
+    fun TouchEnded    (block: P5.()->Unit) { p5.touchEnded = wrap(block) }
 
     // New Scopes
 
-    fun drawWhile(cond: ()->Boolean, block: P5.()->Unit) {
+    fun DrawWhile(cond: ()->Boolean, block: P5.()->Unit) {
         p5.draw = wrap { if (cond()) block() else noLoop() }
     }
 
-    fun <T> drawFor(iter: Iterable<T>, block: P5.(T) -> Unit) {
+    fun <T> DrawFor(iter: Iterable<T>, block: P5.(T) -> Unit) {
         val itor = iter.iterator()
         p5.draw = wrap {
             if (itor.hasNext()) block(itor.next()) else noLoop()
         }
     }
 
-    fun <T> drawFor(itor: Iterator<T>, block: P5.(T) -> Unit) {
+    fun <T> DrawFor(itor: Iterator<T>, block: P5.(T) -> Unit) {
         p5.draw = wrap {
             if (itor.hasNext()) block(itor.next()) else noLoop()
         }
     }
 
-    fun <T> drawFor(iter: Iterable<T>, onLastFrame: ()->Unit, block: P5.(T) -> Unit) {
+    fun <T> DrawFor(iter: Iterable<T>, onLastFrame: ()->Unit, block: P5.(T) -> Unit) {
         val itor = iter.iterator()
         p5.draw = wrap {
             if (itor.hasNext()) block(itor.next()) else {
@@ -77,7 +77,7 @@ class SketchScope(val p5: P5) {
         //FRAME_ELAPSED
     }
 
-    fun drawFragment(drawFragmentMode: DrawFragmentMode=DrawFragmentMode.FRAME_COMPLETE,
+    fun DrawFragment(drawFragmentMode: DrawFragmentMode=DrawFragmentMode.FRAME_COMPLETE,
                      block: P5.(Number, Number, Number)->NativeP5.Color ) {
         p5.draw = wrap {
             val t = millis()/1000.0

@@ -2,11 +2,10 @@ package scripts.huegene
 
 import p5.NativeP5
 import p5.Sketch
-import kotlin.math.*
 
 fun huegeneFlow() = Sketch {
 
-    setup {
+    Setup {
         createCanvas(512, 512)
         background(0, 0, 0, 0)
 
@@ -104,7 +103,7 @@ fun huegeneFlow() = Sketch {
 
         data class Plant(val location: NativeP5.Vector, val color: NativeP5.Color)
 
-        draw {
+        Draw {
 
             console.log("draw!", pointsAdded)
 

@@ -9,7 +9,7 @@ fun penrose() = Sketch {
 
     lateinit var penrose: Penrose
 
-    setup {
+    Setup {
         createCanvas(700, 700)
         noFill()
         penrose = Penrose(this)
@@ -18,7 +18,7 @@ fun penrose() = Sketch {
         createLoop(duration = 10, gif = true, gifRender = true, gifQuality = 1, gifWorkers = 5)
     }
 
-    draw {
+    Draw {
         background(0)
         penrose.render()
     }

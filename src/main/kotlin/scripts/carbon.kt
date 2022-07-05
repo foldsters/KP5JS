@@ -8,12 +8,12 @@ fun carbon(filename: String, scaleFactor: Double=1.0) = Sketch {
 
     lateinit var img: NativeP5.Image
 
-    preload {
+    Preload {
         console.log("loading")
         img = loadImage(filename)
     }
 
-    setup {
+    Setup {
 
         img.resize(img.width/2, img.height/2)
 

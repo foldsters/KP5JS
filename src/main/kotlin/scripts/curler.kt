@@ -9,14 +9,12 @@ fun curler() = Sketch {
     lateinit var sliders: List<NativeP5.Slider>
     lateinit var paragraphs: Array<NativeP5.Element>
 
-    preload {
+    Preload {
         outShader = loadShader("out.vert", "out.frag")
     }
 
-    setup {
-        val canvas = createCanvas(512, 512, P5.RenderMode.WEBGL2)
-        drawingContext.getExtension("OES_standard_derivatives")
-        canvas.asDynamic().GL.getExtension("OES_standard_derivatives")
+    Setup {
+        val canvas = createCanvas(128, 128, P5.RenderMode.WEBGL2)
         noStroke()
         frameRate(15)
         shader(outShader)
@@ -54,7 +52,7 @@ fun curler() = Sketch {
         }
     }
 
-    draw {
+    Draw {
         val theta = 2.0*PI*frameCount.toDouble()/(15.0*15.0)
         outShader["iTime"] = theta
         arrayOf("rotX", "rotY", "rotZ", "swirl", "slope", "size", "sep").forEachIndexed { i, v ->

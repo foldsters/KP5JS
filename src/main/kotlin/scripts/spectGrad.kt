@@ -5,7 +5,7 @@ import spectro.wavToTri
 
 fun spectGrad() = Sketch {
 
-    setup {
+    Setup {
 
 
 

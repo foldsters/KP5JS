@@ -6,7 +6,7 @@ import kotlin.math.abs
 
 fun perlinLightning() = Sketch {
 
-    setup {
+    Setup {
         createCanvas(1920, 1920)
         background(0)
 
@@ -19,7 +19,7 @@ fun perlinLightning() = Sketch {
             0.3 to createVector(40, 40, 60),
         )
 
-        drawFor(0 until height) { y ->
+        DrawFor(0 until height) { y ->
             withPixels {
                 repeat(width) { x ->
                     val level = abs(0.5-fractalNoise(y.toDouble()/height,

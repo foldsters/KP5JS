@@ -1,33 +1,85 @@
 @file:Suppress("BOUNDS_NOT_ALLOWED_IF_BOUNDED_BY_TYPE_PARAMETER", "unused", "SpellCheckingInspection", "PropertyName",
-    "FunctionName"
+    "FunctionName", "UNCHECKED_CAST"
 )
-
 
 package p5.kglsl
 
+import p5.P5
 import p5.util.appendAll
 import p5.util.ifTrue
 import kotlin.math.max
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty
 
-@Suppress("UNCHECKED_CAST")
+fun P5.CreateShader(debug: Boolean=false, block: ShaderScope.()->Unit): P5.Shader {
+    val shaderScope = ShaderScope()
+    shaderScope.debug = debug
+    block(shaderScope)
+    if(debug) {
+        println("Vertex Program:")
+        println(shaderScope.vertexString)
+        println()
+        println("Fragment Program:")
+        println(shaderScope.fragmentString)
+    }
+    return createShader(shaderScope.vertexString, shaderScope.fragmentString)
+}
+
+class ShaderScope {
+
+    var vertexString = """#version 300 es
+#ifdef GL_ES
+precision highp float;
+#endif
+in vec3 aPosition;
+void main() { 
+gl_Position = vec4((aPosition.xy*2.0)-1.0,1.0,1.0);
+}"""
+    var fragmentString = ""
+    var debug = false
+
+    fun Vertex(block: KGLSL.()->Unit): String {
+        val kglsl = KGLSL()
+        kglsl.debug = debug
+        block(kglsl)
+        vertexString = kglsl.instructions.sortedBy { it.id }.joinToString("\n") { it.render() }
+        return vertexString
+    }
+
+    fun Fragment(block: KGLSL.()->Unit): String {
+        val kglsl = KGLSL()
+        kglsl.debug = debug
+        block(kglsl)
+        val preamble = """#version 300 es
+#ifdef GL_ES
+precision highp float;
+#endif
+"""
+        fragmentString = preamble + kglsl.instructions.sortedBy { it.id }.joinToString("\n") { it.render() }
+        return fragmentString
+    }
+
+}
+
+
+
 class KGLSL {
 
     // Instructions to be Rendered at the End
     var instructionIndent = 0
     val instructions = mutableListOf<Instruction>()
+    private var uniqueExprId = 0
+    fun genSnapshotId(): Int = uniqueExprId++
 
     // Tracking variables for assignment
     val seenVariableNames = mutableSetOf<String>()
-    val queuedAssignments: MutableMap<String, AssignmentStatement> = mutableMapOf()
-    fun pushQueuedAssignments() {
-        queuedAssignments.forEach { (name: String, it: AssignmentStatement) ->
-            it.apply {
-                queuedAssignments.remove(name)
-                instructions.add(Instruction(this))
-            }
-        }
+
+    var debug = false
+
+    inner class Instruction(instructionNode: ShaderNode) {
+        val id: Int = instructionNode.getSnapshotNum()
+        val text = instructionNode.render()
+        fun render() = text//if(debug) "$text //$id" else text
     }
 
 //     _   _           _        _____
@@ -44,19 +96,6 @@ class KGLSL {
         abstract fun render(): String
         abstract val nativeTypeName: String // For Variable Declaration
         abstract fun copy(): ShaderNode // For copying branches of the tree
-
-        init {
-            pushQueuedAssignments()
-        }
-    }
-
-    inner class Instruction(instructionNode: ShaderNode) {
-        val id: Int = instructionNode.getSnapshotNum() ?: genSnapshotId()
-        val text = instructionNode.render()
-
-        fun render(): String {
-            return "$text //$id"
-        }
     }
 
     // LITERAL EXPR: Holds kotlin float, int, bool
@@ -69,14 +108,16 @@ class KGLSL {
                 is Double -> {
                     val result = literalValue.toString()
                     if ("." !in result) {
-                        "$literalValue."
+                        "$literalValue.0"
                     } else result
                 }
                 is String -> literalValue
                 is Boolean -> literalValue.toString()
-                else -> "???"
+                is Int -> literalValue.toString()
+                else -> "<unknown literal>"
             }
         }
+
         override fun copy(): ShaderNode {
             val container = this
             return LiteralExpr(literalValue).apply {id = container.id}
@@ -103,9 +144,7 @@ class KGLSL {
                 append(";")
             }
         }
-        override fun copy(): AssignmentStatement {
-            return AssignmentStatement(name, expression.copy() as GenExpr<*>, declare)
-        }
+        override fun copy() = AssignmentStatement(name, expression.copy() as GenExpr<*>, declare)
         override val nativeTypeName: String
             get() = throw IllegalStateException("Cannot Use AssignmentNode as Shader Type")
     }
@@ -113,13 +152,12 @@ class KGLSL {
     // VARIABLE EXPR: Expressions that are just variable names
     inner class VariableExpr(val name: String): ShaderNode() {
         override fun render() = name
-        override fun copy(): ShaderNode {
-            return VariableExpr(name)
-        }
+        override fun copy() = VariableExpr(name)
         override val nativeTypeName: String
             get() = throw IllegalStateException("Cannot Use VariableNode as Shader Type")
     }
 
+    // FUNCTION EXPR: Expressions of functions holding values
     inner class FunctionExpr(val name: String, vararg cs: ShaderNode): ShaderNode(*cs) {
         override fun render(): String {
             return "$name(${children.render()})"
@@ -133,17 +171,19 @@ class KGLSL {
             get() = throw IllegalStateException("Cannot Use FunctionNode as Shader Type")
     }
 
+    // OPERATOR EXPR: Expressions that have infix operators
     inner class OperatorExpr(val name: String, vararg cs: ShaderNode): ShaderNode(*cs) {
         override fun render(): String {
             require(children.size > 1) {"Error in rendering Operator Node: Not Enough Children ($children)"}
             val child0 = children[0]
             val child1 = children[1]
-            val c0 = if(child0.children.isNotEmpty() && child0.children[0] is OperatorExpr) {
+            val isAssociative = name in listOf("+", "*", "||", "&&")
+            val c0 = if(child0.children.isNotEmpty() && child0.children[0] is OperatorExpr && !(isAssociative && ((child0.children[0] as OperatorExpr).name == name))) {
                 "(${child0.render()})"
             } else {
                 child0.render()
             }
-            val c1 = if(child1.children.isNotEmpty() && child1.children[0] is OperatorExpr) {
+            val c1 = if(child1.children.isNotEmpty() && child1.children[0] is OperatorExpr && !(isAssociative && ((child1.children[0] as OperatorExpr).name == name))) {
                 "(${child1.render()})"
             } else {
                 child1.render()
@@ -159,6 +199,7 @@ class KGLSL {
             get() = throw IllegalStateException("Cannot Use OperatorNode as Shader Type")
     }
 
+    // COMPONENT EXPR: Expressions that are field selectors of vectors
     inner class ComponentExpr(val name: String, vararg cs: ShaderNode): ShaderNode(*cs) {
         override fun render(): String {
             require(children.isNotEmpty()) {"Error in rendering Component Node: Not Enough Children ($children)"}
@@ -187,47 +228,36 @@ class KGLSL {
 //     \____|\___|_| |_|_____/_/\_\ .__/|_|
 //                                |_|
 
-    private var uniqueExprId = 0
-    fun genSnapshotId(): Int = uniqueExprId++
-
-    fun ShaderNode.getSnapshotNum(): Int? {
-        val num = when(this) {
-            is GenExpr<*> -> id
-            is LiteralExpr<*> -> id
-            else -> -1
-        }
-        val result = max(num, children.maxOfOrNull { it.getSnapshotNum() ?: -1 } ?: -1)
-        return if(result == -1) null else result
-    }
-
     // GENEXPR: Any expression that can be assigned to a value
-    abstract inner class GenExpr<T: ShaderNode>(vararg cs: ShaderNode): ShaderNode(*cs) {
+    abstract inner class GenExpr<T: GenExpr<T>>(vararg cs: ShaderNode): ShaderNode(*cs) {
 
         var name: String? = null
         var assign = true
         var modifiers = listOf<String>()
         var id = genSnapshotId()
+        var needsAssignmet = false
 
         abstract fun new(vararg cs: ShaderNode): GenExpr<T>
 
         operator fun getValue(thisRef: Any?, property: KProperty<*>): T {
-            pushQueuedAssignments()
             val varName = property.name
             name = varName
-            println("getting var $name")
-            seenVariableNames.add(name!!).ifTrue {
-                instructions.add(Instruction(AssignmentStatement(varName, this.copy() as GenExpr<*>, true, assign, modifiers)))
+            if(seenVariableNames.add(name!!)) {
+                instructions.add(Instruction(AssignmentStatement(varName, this.copy() as T, true, assign, modifiers)))
             }
             children = listOf(VariableExpr(varName))
             return this as T
         }
 
         operator fun setValue(thisRef: Any?, property: KProperty<*>, value: T) {
-            pushQueuedAssignments()
-            name = property.name
+            val varName = property.name
+            name = varName
+            if(seenVariableNames.add(name!!)) {
+                instructions.add(Instruction(AssignmentStatement(varName, this.copy() as GenExpr<*>, true, assign, modifiers)))
+            }
             children = value.children.copy()
-            println("pushing $name for assignment")
-            queuedAssignments[name!!] = AssignmentStatement(name!!, this, name!! !in seenVariableNames, assign, modifiers)
+            id = genSnapshotId()
+            instructions.add(Instruction(AssignmentStatement(varName, this, name!! !in seenVariableNames)))
         }
 
         override fun copy(): ShaderNode {
@@ -254,8 +284,9 @@ class KGLSL {
     abstract inner class GenBExpr<T: GenBExpr<T>>(vararg cs: ShaderNode): GenExpr<T>(*cs)
 
     // BOOLEXPR: Expression of type bool
-    inner class BoolExpr(vararg cs: ShaderNode): GenBExpr<BoolExpr>(*cs), ExprLen1 {
-        override fun new(vararg cs: ShaderNode) = BoolExpr(*cs)
+    inner class BoolExprImpl(vararg cs: ShaderNode): BoolExpr(*cs)
+    abstract inner class BoolExpr(vararg cs: ShaderNode): GenBExpr<BoolExpr>(*cs), ExprLen1 {
+        override fun new(vararg cs: ShaderNode) = BoolExprImpl(*cs)
         override val nativeTypeName = "bool"
     }
 
@@ -293,14 +324,16 @@ class KGLSL {
         }
     }
 
-    inner class BVec2Expr(vararg cs: ShaderNode): BVecExpr<BVec2Expr>(*cs), ExprLen2 {
-        override fun new(vararg cs: ShaderNode) = BVec2Expr(*cs)
+    inner class BVec2ExprImpl(vararg cs: ShaderNode): BVec2Expr(*cs)
+    abstract inner class BVec2Expr(vararg cs: ShaderNode): BVecExpr<BVec2Expr>(*cs), ExprLen2 {
+        override fun new(vararg cs: ShaderNode) = BVec2ExprImpl(*cs)
         override val nativeTypeName = "bvec2"
         override val numComponents = 2
     }
 
-    inner class BVec3Expr(vararg cs: ShaderNode): BVecExpr<BVec3Expr>(*cs), ExprLen3 {
-        override fun new(vararg cs: ShaderNode) = BVec3Expr(*cs)
+    inner class BVec3ExprImpl(vararg cs: ShaderNode): BVec3Expr(*cs)
+    abstract inner class BVec3Expr(vararg cs: ShaderNode): BVecExpr<BVec3Expr>(*cs), ExprLen3 {
+        override fun new(vararg cs: ShaderNode) = BVec3ExprImpl(*cs)
         override val nativeTypeName = "bvec3"
         override val numComponents = 3
 
@@ -343,8 +376,9 @@ class KGLSL {
         val bbgr by C4; val bbgg by C4; val bbgb by C4; val bbbr by C4; val bbbg by C4; val bbbb by C4
     }
 
-    inner class BVec4Expr(vararg cs: ShaderNode): BVecExpr<BVec4Expr>(*cs), ExprLen4 {
-        override fun new(vararg cs: ShaderNode) = BVec4Expr(*cs)
+    inner class BVec4ExprImpl(vararg cs: ShaderNode): BVec4Expr(*cs)
+    abstract inner class BVec4Expr(vararg cs: ShaderNode): BVecExpr<BVec4Expr>(*cs), ExprLen4 {
+        override fun new(vararg cs: ShaderNode) = BVec4ExprImpl(*cs)
         override val nativeTypeName = "bvec4"
         override val numComponents = 4
 
@@ -937,30 +971,51 @@ class KGLSL {
     fun texture(sampler: Sampler2D, P: Vec2Expr): Vec4Expr = functionOf("texture", sampler, P)
     fun textureGrad(sampler: Sampler2D, P: Vec2Expr, dPdx: Vec2Expr, dPdy: Vec2Expr): Vec4Expr = functionOf("textureGrad", sampler, P, dPdx, dPdy)
 
+    //
+
+    fun ShaderNode.getSnapshotNum(): Int {
+        var result: Int = when(this) {
+            is GenExpr<*> -> id
+            is LiteralExpr<*> -> id
+            else -> -1
+        }
+        if (children.isNotEmpty()) {
+            result = max(result, children.maxOf { it.getSnapshotNum() })
+        }
+        if (result == -1) {
+            result = genSnapshotId()
+        }
+        return result
+    }
 
     inline fun <reified T: GenExpr<*>> Uniform(): T {
-        val result = new<T>(LiteralExpr("?"))
+        val result = new<T>(LiteralExpr("<Unknown Uniform>"))
         result.modifiers = listOf("uniform")
         result.assign = false
         return result
     }
 
     inline fun <reified T: GenExpr<*>> Out(): T {
-        val result = new<T>(LiteralExpr("?"))
+        val result = new<T>(LiteralExpr("<Unknown Out>"))
         result.modifiers = listOf("out")
         result.assign = false
         return result
     }
 
     inline fun <reified T: GenExpr<*>> In(): T {
-        val result = new<T>(LiteralExpr("?"))
+        val result = new<T>(LiteralExpr("<Unknown In>"))
         result.modifiers = listOf("in")
         result.assign = false
         return result
     }
 
+    inline fun <reified T: GenExpr<*>> Declaration(): T {
+        val result = new<T>(LiteralExpr("<Unknown Declartion>"))
+        result.assign = false
+        return result
+    }
+
     operator fun String.unaryPlus() {
-        pushQueuedAssignments()
         instructions.add(Instruction(LiteralExpr(this)))
     }
 
@@ -973,6 +1028,34 @@ class KGLSL {
             iteratorVarName = "i$iteratorCount"
         }
         return iteratorVarName
+    }
+
+//    fun If(cond: BoolExpr, block: ()->Unit) {
+//        +"if(${cond.render()}) {"
+//        block()
+//        +"}"
+//    }
+
+    inner class If(cond: BoolExpr, block: ()->Unit) {
+        init {
+            +"if(${cond.render()}) {"
+            block()
+            +"}"
+        }
+
+        fun Else(block: ()->Unit) {
+            +"else {"
+            block()
+            +"}"
+        }
+
+        fun ElseIf(cond: BoolExpr, block: ()->Unit): If {
+            +"else if(${cond.render()}) {"
+            block()
+            +"}"
+            return this
+        }
+
     }
 
     fun For(start: FloatExpr, stop: FloatExpr, step: FloatExpr, block: (i: FloatExpr)->Unit) {
@@ -999,26 +1082,14 @@ class KGLSL {
 
     fun Main(block: ()->Vec4Expr) {
         var fragColor by Out<Vec4Expr>()
-        fragColor
-        val num = genSnapshotId()
         +"void main() {"
         val result = block()
         fragColor = result
         +"}"
     }
 
-    val Break: Unit get() {
-        +"break;"
-    }
-
-    val Continue: Unit get() {
-        +"continue;"
-    }
-
-    fun fragment(block: KGLSL.()->Unit): String {
-        block()
-        return instructions.sortedBy { it.id }.joinToString("\n") { it.render() }
-    }
+    val Break: Unit get() = +"break;"
+    val Continue: Unit get() = +"continue;"
 
     // List Helper Functions
     fun List<ShaderNode>.render(): String {
@@ -1043,10 +1114,10 @@ class KGLSL {
             Vec2Expr::class -> Vec2ExprImpl(*cs)
             Vec3Expr::class -> Vec3ExprImpl(*cs)
             Vec4Expr::class -> Vec4ExprImpl(*cs)
-            BoolExpr::class -> BoolExpr(*cs)
-            BVec2Expr::class -> BVec2Expr(*cs)
-            BVec3Expr::class -> BVec3Expr(*cs)
-            BVec4Expr::class -> BVec4Expr(*cs)
+            BoolExpr::class -> BoolExprImpl(*cs)
+            BVec2Expr::class -> BVec2ExprImpl(*cs)
+            BVec3Expr::class -> BVec3ExprImpl(*cs)
+            BVec4Expr::class -> BVec4ExprImpl(*cs)
             IntExpr::class -> IntExprImpl(*cs)
             IVec2Expr::class -> IVec2ExprImpl(*cs)
             IVec3Expr::class -> IVec3ExprImpl(*cs)
@@ -1069,17 +1140,32 @@ class KGLSL {
 //    |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
 
     // Helper
-    inline fun <reified T: GenExpr<*>> functionOf(name: String, vararg cs: ShaderNode): T {
+    inline fun <reified T: GenExpr<T>> functionOf(name: String, vararg cs: ShaderNode): T {
         return new(FunctionExpr(name, *(cs.map { it.copy() }).toTypedArray()))
     }
-    inline fun <reified T: GenExpr<*>> operatorOf(name: String, vararg cs: ShaderNode): T {
+    inline fun <reified T: GenExpr<T>> operatorOf(name: String, vararg cs: ShaderNode): T {
         return new(OperatorExpr(name, *(cs.map { it.copy() }).toTypedArray()))
     }
 
     // External Constructors
 
-    private object ConstructorKey
-    fun bool(b: Boolean) = BoolExpr(LiteralExpr(b))
+    fun bool(b: Boolean): BoolExpr = BoolExprImpl(LiteralExpr(b))
+
+    fun bvec2(x: BoolExpr, y: BoolExpr): BVec2Expr = BVec2ExprImpl(x, y)
+
+    fun bvec3(x: BoolExpr, y: BoolExpr, z: BoolExpr): BVec3Expr = BVec3ExprImpl(x, y, z)
+    fun bvec3(xy: BVec2Expr, z: BoolExpr): BVec3Expr = BVec3ExprImpl(xy, z)
+    fun bvec3(x: BoolExpr, yz: BVec2Expr): BVec3Expr = BVec3ExprImpl(x, yz)
+    fun bvec3(xyz: BVec3Expr): BVec3Expr = BVec3ExprImpl(xyz)
+
+    fun bvec4(x: BoolExpr, y: BoolExpr, z: BoolExpr, w: BoolExpr): BVec4Expr = BVec4ExprImpl(x, y, z, w)
+    fun bvec4(xy: BVec2Expr, z: BoolExpr, w: BoolExpr): BVec4Expr = BVec4ExprImpl(xy, z, w)
+    fun bvec4(x: BoolExpr, yz: BVec2Expr, w: BoolExpr): BVec4Expr = BVec4ExprImpl(x, yz, w)
+    fun bvec4(x: BoolExpr, y: BoolExpr, zw: BVec2Expr): BVec4Expr = BVec4ExprImpl(x, y, zw)
+    fun bvec4(xyz: BVec3Expr, w: BoolExpr): BVec4Expr = BVec4ExprImpl(xyz, w)
+    fun bvec4(x: BoolExpr, yzw: BVec3Expr): BVec4Expr = BVec4ExprImpl(x, yzw)
+    fun bvec4(xy: BVec2Expr, zw: BVec2Expr): BVec4Expr = BVec4ExprImpl(xy, zw)
+    fun bvec4(xyzw: BVec4Expr): BVec4Expr = BVec4ExprImpl(xyzw)
 
     fun int(x: Double): IntExpr = int(x.toInt())
     fun int(x: Float): IntExpr = int(x.toInt())
@@ -1090,17 +1176,18 @@ class KGLSL {
     fun ivec2(x: IntExpr, y: IntExpr): IVec2Expr = IVec2ExprImpl(x, y)
 
     fun ivec3(x: IntExpr, y: IntExpr, z: IntExpr): IVec3Expr = IVec3ExprImpl(x, y, z)
-    fun ivec3(xy: IVec2Expr, z: IntExpr): IVec3Expr = IVec3ExprImpl(xy.x, xy.y, z)
-    fun ivec3(x: IntExpr, yz: IVec2Expr): IVec3Expr = IVec3ExprImpl(x, yz.x, yz.y)
-    fun ivec3(xyz: IVec3Expr): IVec3Expr = IVec3ExprImpl(xyz.x, xyz.y, xyz.z)
+    fun ivec3(xy: IVec2Expr, z: IntExpr): IVec3Expr = IVec3ExprImpl(xy, z)
+    fun ivec3(x: IntExpr, yz: IVec2Expr): IVec3Expr = IVec3ExprImpl(x, yz)
+    fun ivec3(xyz: IVec3Expr): IVec3Expr = IVec3ExprImpl(xyz)
 
     fun ivec4(x: IntExpr, y: IntExpr, z: IntExpr, w: IntExpr): IVec4Expr = IVec4ExprImpl(x, y, z, w)
-    fun ivec4(xy: IVec2Expr, z: IntExpr, w: IntExpr): IVec4Expr = IVec4ExprImpl(xy.x, xy.y, z, w)
-    fun ivec4(x: IntExpr, yz: IVec2Expr, w: IntExpr): IVec4Expr = IVec4ExprImpl(x, yz.x, yz.y, w)
-    fun ivec4(x: IntExpr, y: IntExpr, zw: IVec2Expr): IVec4Expr = IVec4ExprImpl(x, y, zw.x, zw.y)
-    fun ivec4(xyz: IVec3Expr, w: IntExpr): IVec4Expr = IVec4ExprImpl(xyz.x, xyz.y, xyz.z, w)
-    fun ivec4(x: IntExpr, yzw: IVec3Expr): IVec4Expr = IVec4ExprImpl(x, yzw.x, yzw.y, yzw.z)
-    fun ivec4(xyzw: IVec4Expr): IVec4Expr = IVec4ExprImpl(xyzw.x, xyzw.y, xyzw.z, xyzw.w)
+    fun ivec4(xy: IVec2Expr, z: IntExpr, w: IntExpr): IVec4Expr = IVec4ExprImpl(xy, z, w)
+    fun ivec4(x: IntExpr, yz: IVec2Expr, w: IntExpr): IVec4Expr = IVec4ExprImpl(x, yz, w)
+    fun ivec4(x: IntExpr, y: IntExpr, zw: IVec2Expr): IVec4Expr = IVec4ExprImpl(x, y, zw)
+    fun ivec4(xyz: IVec3Expr, w: IntExpr): IVec4Expr = IVec4ExprImpl(xyz, w)
+    fun ivec4(x: IntExpr, yzw: IVec3Expr): IVec4Expr = IVec4ExprImpl(x, yzw)
+    fun ivec4(xy: IVec2Expr, zw: IVec2Expr): IVec4Expr = IVec4ExprImpl(xy, zw)
+    fun ivec4(xyzw: IVec4Expr): IVec4Expr = IVec4ExprImpl(xyzw)
 
     fun float(x: Double): FloatExpr = FloatExprImpl(LiteralExpr(x))
     fun float(x: Float): FloatExpr = float(x.toDouble())
@@ -1111,123 +1198,169 @@ class KGLSL {
     fun vec2(x: FloatExpr, y: FloatExpr): Vec2Expr = Vec2ExprImpl(x, y)
 
     fun vec3(x: FloatExpr, y: FloatExpr, z: FloatExpr): Vec3Expr = Vec3ExprImpl(x, y, z)
-    fun vec3(xy: Vec2Expr, z: FloatExpr): Vec3Expr = Vec3ExprImpl(xy.x, xy.y, z)
-    fun vec3(x: FloatExpr, yz: Vec2Expr): Vec3Expr = Vec3ExprImpl(x, yz.x, yz.y)
-    fun vec3(xyz: Vec3Expr): Vec3Expr = Vec3ExprImpl(xyz.x, xyz.y, xyz.z)
+    fun vec3(xy: Vec2Expr, z: FloatExpr): Vec3Expr = Vec3ExprImpl(xy, z)
+    fun vec3(x: FloatExpr, yz: Vec2Expr): Vec3Expr = Vec3ExprImpl(x, yz)
+    fun vec3(xyz: Vec3Expr): Vec3Expr = Vec3ExprImpl(xyz)
 
     fun vec4(x: FloatExpr, y: FloatExpr, z: FloatExpr, w: FloatExpr): Vec4Expr = Vec4ExprImpl(x, y, z, w)
-    fun vec4(xy: Vec2Expr, z: FloatExpr, w: FloatExpr): Vec4Expr = Vec4ExprImpl(xy.x, xy.y, z, w)
-    fun vec4(x: FloatExpr, yz: Vec2Expr, w: FloatExpr): Vec4Expr = Vec4ExprImpl(x, yz.x, yz.y, w)
-    fun vec4(x: FloatExpr, y: FloatExpr, zw: Vec2Expr): Vec4Expr = Vec4ExprImpl(x, y, zw.x, zw.y)
+    fun vec4(xy: Vec2Expr, z: FloatExpr, w: FloatExpr): Vec4Expr = Vec4ExprImpl(xy, z, w)
+    fun vec4(x: FloatExpr, yz: Vec2Expr, w: FloatExpr): Vec4Expr = Vec4ExprImpl(x, yz, w)
+    fun vec4(x: FloatExpr, y: FloatExpr, zw: Vec2Expr): Vec4Expr = Vec4ExprImpl(x, y, zw)
     fun vec4(xyz: Vec3Expr, w: FloatExpr): Vec4Expr = Vec4ExprImpl(xyz, w)
-    fun vec4(x: FloatExpr, yzw: Vec3Expr): Vec4Expr = Vec4ExprImpl(x, yzw.x, yzw.y, yzw.z)
-    fun vec4(xyzw: Vec4Expr): Vec4Expr = Vec4ExprImpl(xyzw.x, xyzw.y, xyzw.z, xyzw.w)
+    fun vec4(x: FloatExpr, yzw: Vec3Expr): Vec4Expr = Vec4ExprImpl(x, yzw)
+    fun vec4(xy: Vec2Expr, zw: Vec2Expr): Vec4Expr = Vec4ExprImpl(xy, zw)
+    fun vec4(xyzw: Vec4Expr): Vec4Expr = Vec4ExprImpl(xyzw)
 
     // Operators
-    fun <T: GenExpr<T>> equalTo(left: T, right: T): BoolExpr = BoolExpr(OperatorExpr("==", left.copy(), right.copy()))
+    fun <T: GenExpr<T>> equalTo(left: T, right: T): BoolExpr = operatorOf("==", left, right)
     infix fun <T: GenExpr<T>> T.EQ(other: T) = equalTo(this, other)
 
-    operator fun BoolExpr.not() = BoolExpr(FunctionExpr("!", this.copy()))
-    infix fun BoolExpr.AND(other: BoolExpr) = BoolExpr(FunctionExpr("&&", this.copy(), other.copy()))
-    infix fun BoolExpr.XOR(other: BoolExpr) = BoolExpr(FunctionExpr("^^", this.copy(), other.copy()))
-    infix fun BoolExpr.OR(other: BoolExpr) = BoolExpr(FunctionExpr("||", this.copy(), other.copy()))
+    operator fun BoolExpr.not(): BoolExpr = functionOf("!", this)
+    infix fun BoolExpr.AND(other: BoolExpr): BoolExpr = operatorOf("&&", this, other)
+    infix fun BoolExpr.XOR(other: BoolExpr): BoolExpr = operatorOf("^^", this, other)
+    infix fun BoolExpr.OR(other: BoolExpr): BoolExpr = operatorOf("||", this, other)
 
-    inline operator fun <reified T: GenIExpr<*>> T.plus(other: T): T = operatorOf("+", this, other)
-    inline operator fun <reified T: IVecExpr<*>> T.plus(other: IntExpr): T = operatorOf("+", this, other)
-    inline operator fun <reified T: IVecExpr<*>> IntExpr.plus(other: T): T = operatorOf("+", this, other)
-    inline operator fun <reified T: GenIExpr<*>> T.minus(other: T): T = operatorOf("-", this, other)
-    inline operator fun <reified T: IVecExpr<*>> T.minus(other: IntExpr): T = operatorOf("-", this, other)
-    inline operator fun <reified T: IVecExpr<*>> IntExpr.minus(other: T): T = operatorOf("-", this, other)
-    inline operator fun <reified T: GenIExpr<*>> T.times(other: T): T = operatorOf("*", this, other)
-    inline operator fun <reified T: IVecExpr<*>> T.times(other: IntExpr): T = operatorOf("*", this, other)
-    inline operator fun <reified T: IVecExpr<*>> IntExpr.times(other: T): T = operatorOf("*", this, other)
-    inline operator fun <reified T: GenIExpr<*>> T.div(other: T): T = operatorOf("/", this, other)
-    inline operator fun <reified T: IVecExpr<*>> T.div(other: IntExpr): T = operatorOf("/", this, other)
-    infix fun IntExpr.LT(other: IntExpr) = BoolExpr(OperatorExpr("<", this.copy(), other.copy()))
-    infix fun IntExpr.GT(other: IntExpr) = BoolExpr(OperatorExpr(">", this.copy(), other.copy()))
-    infix fun IntExpr.LE(other: IntExpr) = BoolExpr(OperatorExpr("<=", this.copy(), other.copy()))
-    infix fun IntExpr.GE(other: IntExpr) = BoolExpr(OperatorExpr(">=", this.copy(), other.copy()))
+    inline operator fun <reified T: GenIExpr<T>> T.plus(other: T): T = operatorOf("+", this, other)
+    inline operator fun <reified T: IVecExpr<T>> T.plus(other: IntExpr): T = operatorOf("+", this, other)
+    inline operator fun <reified T: IVecExpr<T>> IntExpr.plus(other: T): T = operatorOf("+", this, other)
+    inline operator fun <reified T: GenIExpr<T>> T.minus(other: T): T = operatorOf("-", this, other)
+    inline operator fun <reified T: IVecExpr<T>> T.minus(other: IntExpr): T = operatorOf("-", this, other)
+    inline operator fun <reified T: IVecExpr<T>> IntExpr.minus(other: T): T = operatorOf("-", this, other)
+    inline operator fun <reified T: GenIExpr<T>> T.times(other: T): T = operatorOf("*", this, other)
+    inline operator fun <reified T: IVecExpr<T>> T.times(other: IntExpr): T = operatorOf("*", this, other)
+    inline operator fun <reified T: IVecExpr<T>> IntExpr.times(other: T): T = operatorOf("*", this, other)
+    inline operator fun <reified T: GenIExpr<T>> T.div(other: T): T = operatorOf("/", this, other)
+    inline operator fun <reified T: IVecExpr<T>> T.div(other: IntExpr): T = operatorOf("/", this, other)
+    infix fun IntExpr.LT(other: IntExpr): BoolExpr = operatorOf("<", this, other)
+    infix fun IntExpr.GT(other: IntExpr): BoolExpr = operatorOf(">", this, other)
+    infix fun IntExpr.LE(other: IntExpr): BoolExpr = operatorOf("<=", this, other)
+    infix fun IntExpr.GE(other: IntExpr): BoolExpr = operatorOf(">=", this, other)
 
-    inline operator fun <reified T: GenFExpr<*>> T.plus(other: T): T = operatorOf("+", this, other)
-    inline operator fun <reified T: VecExpr<*>> T.plus(other: FloatExpr): T = operatorOf("+", this, other)
-    inline operator fun <reified T: VecExpr<*>> FloatExpr.plus(other: T): T = operatorOf("+", this, other)
-    inline operator fun <reified T: GenFExpr<*>> T.minus(other: T): T = operatorOf("-", this, other)
-    inline operator fun <reified T: VecExpr<*>> T.minus(other: FloatExpr): T = operatorOf("-", this, other)
-    inline operator fun <reified T: VecExpr<*>> FloatExpr.minus(other: T): T = operatorOf("-", this, other)
-    inline operator fun <reified T: GenFExpr<*>> T.times(other: T): T = operatorOf("*", this, other)
-    inline operator fun <reified T: VecExpr<*>> T.times(other: FloatExpr): T = operatorOf("*", this, other)
-    inline operator fun <reified T: VecExpr<*>> FloatExpr.times(other: T): T = operatorOf("*", this, other)
-    inline operator fun <reified T: GenFExpr<*>> T.div(other: T): T = operatorOf("/", this, other)
-    inline operator fun <reified T: VecExpr<*>> T.div(other: FloatExpr): T = operatorOf("/", this, other)
-    infix fun FloatExpr.LT(other: FloatExpr) = BoolExpr(OperatorExpr("<", this.copy(), other.copy()))
-    infix fun FloatExpr.GT(other: FloatExpr) = BoolExpr(OperatorExpr(">", this.copy(), other.copy()))
-    infix fun FloatExpr.LE(other: FloatExpr) = BoolExpr(OperatorExpr("<=", this.copy(), other.copy()))
-    infix fun FloatExpr.GE(other: FloatExpr) = BoolExpr(OperatorExpr(">=", this.copy(), other.copy()))
+    inline operator fun <reified T: GenFExpr<T>> T.plus(other: T): T = operatorOf("+", this, other)
+    inline operator fun <reified T:  VecExpr<T>> T.plus(other: FloatExpr): T = operatorOf("+", this, other)
+    inline operator fun <reified T:  VecExpr<T>> FloatExpr.plus(other: T): T = operatorOf("+", this, other)
+    inline operator fun <reified T: GenFExpr<T>> T.minus(other: T): T = operatorOf("-", this, other)
+    inline operator fun <reified T:  VecExpr<T>> T.minus(other: FloatExpr): T = operatorOf("-", this, other)
+    inline operator fun <reified T:  VecExpr<T>> FloatExpr.minus(other: T): T = operatorOf("-", this, other)
+    inline operator fun <reified T: GenFExpr<T>> T.times(other: T): T = operatorOf("*", this, other)
+    inline operator fun <reified T:  VecExpr<T>> T.times(other: FloatExpr): T = operatorOf("*", this, other)
+    inline operator fun <reified T:  VecExpr<T>> FloatExpr.times(other: T): T = operatorOf("*", this, other)
+    inline operator fun <reified T: GenFExpr<T>> T.div(other: T): T = operatorOf("/", this, other)
+    inline operator fun <reified T:  VecExpr<T>> T.div(other: FloatExpr): T = operatorOf("/", this, other)
+    infix fun FloatExpr.LT(other: FloatExpr): BoolExpr = operatorOf("<", this, other)
+    infix fun FloatExpr.GT(other: FloatExpr): BoolExpr = operatorOf(">", this, other)
+    infix fun FloatExpr.LE(other: FloatExpr): BoolExpr = operatorOf("<=", this, other)
+    infix fun FloatExpr.GE(other: FloatExpr): BoolExpr = operatorOf(">=", this, other)
+
+    // Kotlin Literal
+    infix fun BoolExpr.AND(other: Boolean): BoolExpr = operatorOf("&&", this, bool(other))
+    infix fun BoolExpr.XOR(other: Boolean): BoolExpr = operatorOf("^^", this, bool(other))
+    infix fun BoolExpr.OR(other: Boolean): BoolExpr = operatorOf("||", this, bool(other))
+
+    infix fun Boolean.AND(other: BoolExpr): BoolExpr = operatorOf("&&", bool(this), other)
+    infix fun Boolean.XOR(other: BoolExpr): BoolExpr = operatorOf("^^", bool(this), other)
+    infix fun Boolean.OR(other: BoolExpr): BoolExpr = operatorOf("||", bool(this), other)
+
+    inline operator fun <reified T: GenIExpr<T>> T.plus(other: Int): T = operatorOf("+", this, int(other))
+    inline operator fun <reified T: GenIExpr<T>> T.minus(other: Int): T = operatorOf("-", this, int(other))
+    inline operator fun <reified T: GenIExpr<T>> T.times(other: Int): T = operatorOf("*", this, int(other))
+    inline operator fun <reified T: GenIExpr<T>> T.div(other: Int): T = operatorOf("/", this, int(other))
+    infix fun IntExpr.LT(other: Int): BoolExpr = operatorOf("<", this, int(other))
+    infix fun IntExpr.GT(other: Int): BoolExpr = operatorOf(">", this, int(other))
+    infix fun IntExpr.LE(other: Int): BoolExpr = operatorOf("<=", this, int(other))
+    infix fun IntExpr.GE(other: Int): BoolExpr = operatorOf(">=", this, int(other))
+
+    inline operator fun <reified T: GenFExpr<T>> T.plus(other: Double): T = operatorOf("+", this, float(other))
+    inline operator fun <reified T: GenFExpr<T>> T.minus(other: Double): T = operatorOf("-", this, float(other))
+    inline operator fun <reified T: GenFExpr<T>> T.times(other: Double): T = operatorOf("*", this, float(other))
+    inline operator fun <reified T: GenFExpr<T>> T.div(other: Double): T = operatorOf("/", this, float(other))
+    infix fun FloatExpr.LT(other: Double): BoolExpr = operatorOf("<", this, float(other))
+    infix fun FloatExpr.GT(other: Double): BoolExpr = operatorOf(">", this, float(other))
+    infix fun FloatExpr.LE(other: Double): BoolExpr = operatorOf("<=", this, float(other))
+    infix fun FloatExpr.GE(other: Double): BoolExpr = operatorOf(">=", this, float(other))
+
+    inline operator fun <reified T: GenIExpr<T>> Int.plus(other: T): T = operatorOf("+", int(this), other)
+    inline operator fun <reified T: GenIExpr<T>> Int.minus(other: T): T = operatorOf("-", int(this), other)
+    inline operator fun <reified T: GenIExpr<T>> Int.times(other: T): T = operatorOf("*", int(this), other)
+    inline operator fun <reified T: GenIExpr<T>> Int.div(other: T): T = operatorOf("/", int(this), other)
+    infix fun Int.LT(other: IntExpr): BoolExpr = operatorOf("<", int(this), other)
+    infix fun Int.GT(other: IntExpr): BoolExpr = operatorOf(">", int(this), other)
+    infix fun Int.LE(other: IntExpr): BoolExpr = operatorOf("<=", int(this), other)
+    infix fun Int.GE(other: IntExpr): BoolExpr = operatorOf(">=", int(this), other)
+
+    inline operator fun <reified T: GenFExpr<T>> Double.plus(other: T): T = operatorOf("+", float(this), other)
+    inline operator fun <reified T: GenFExpr<T>> Double.minus(other: T): T = operatorOf("-", float(this), other)
+    inline operator fun <reified T: GenFExpr<T>> Double.times(other: T): T = operatorOf("*", float(this), other)
+    inline operator fun <reified T: GenFExpr<T>> Double.div(other: T): T = operatorOf("/", float(this), other)
+    infix fun Double.LT(other: FloatExpr): BoolExpr = operatorOf("<", float(this), other)
+    infix fun Double.GT(other: FloatExpr): BoolExpr = operatorOf(">", float(this), other)
+    infix fun Double.LE(other: FloatExpr): BoolExpr = operatorOf("<=", float(this), other)
+    infix fun Double.GE(other: FloatExpr): BoolExpr = operatorOf(">=", float(this), other)
 
     // Trig
-    inline fun <reified T: GenFExpr<*>> radians(degrees: T): T     = functionOf("radians", degrees)
-    inline fun <reified T: GenFExpr<*>> degrees(radians: T): T     = functionOf("degrees", radians)
-    inline fun <reified T: GenFExpr<*>> sin(angle: T): T           = functionOf("sin", angle)
-    inline fun <reified T: GenFExpr<*>> cos(angle: T): T           = functionOf("cos", angle)
-    inline fun <reified T: GenFExpr<*>> tan(angle: T): T           = functionOf("tan", angle)
-    inline fun <reified T: GenFExpr<*>> asin(x: T): T              = functionOf("asin", x)
-    inline fun <reified T: GenFExpr<*>> acos(x: T): T              = functionOf("acos", x)
-    inline fun <reified T: GenFExpr<*>> atan(y_over_x: T): T       = functionOf("atan", y_over_x)
-    inline fun <reified T: GenFExpr<*>> atan(y: T, x: T): T        = functionOf("atan", y, x)
-    inline fun <reified T: GenFExpr<*>> sinh(x: T): T              = functionOf("sinh", x)
-    inline fun <reified T: GenFExpr<*>> cosh(x: T): T              = functionOf("cosh", x)
-    inline fun <reified T: GenFExpr<*>> tanh(x: T): T              = functionOf("tanh", x)
-    inline fun <reified T: GenFExpr<*>> asinh(x: T): T             = functionOf("asinh", x)
-    inline fun <reified T: GenFExpr<*>> acosh(x: T): T             = functionOf("acosh", x)
-    inline fun <reified T: GenFExpr<*>> atanh(y_over_x: T): T      = functionOf("atanh", y_over_x)
-    inline fun <reified T: GenFExpr<*>> atanh(y: T, x: T): T       = functionOf("atanh", y, x)
+    inline fun <reified T: GenFExpr<T>> radians(degrees: T): T     = functionOf("radians", degrees)
+    inline fun <reified T: GenFExpr<T>> degrees(radians: T): T     = functionOf("degrees", radians)
+    inline fun <reified T: GenFExpr<T>> sin(angle: T): T           = functionOf("sin", angle)
+    inline fun <reified T: GenFExpr<T>> cos(angle: T): T           = functionOf("cos", angle)
+    inline fun <reified T: GenFExpr<T>> tan(angle: T): T           = functionOf("tan", angle)
+    inline fun <reified T: GenFExpr<T>> asin(x: T): T              = functionOf("asin", x)
+    inline fun <reified T: GenFExpr<T>> acos(x: T): T              = functionOf("acos", x)
+    inline fun <reified T: GenFExpr<T>> atan(y_over_x: T): T       = functionOf("atan", y_over_x)
+    inline fun <reified T: GenFExpr<T>> atan(y: T, x: T): T        = functionOf("atan", y, x)
+    inline fun <reified T: GenFExpr<T>> sinh(x: T): T              = functionOf("sinh", x)
+    inline fun <reified T: GenFExpr<T>> cosh(x: T): T              = functionOf("cosh", x)
+    inline fun <reified T: GenFExpr<T>> tanh(x: T): T              = functionOf("tanh", x)
+    inline fun <reified T: GenFExpr<T>> asinh(x: T): T             = functionOf("asinh", x)
+    inline fun <reified T: GenFExpr<T>> acosh(x: T): T             = functionOf("acosh", x)
+    inline fun <reified T: GenFExpr<T>> atanh(y_over_x: T): T      = functionOf("atanh", y_over_x)
+    inline fun <reified T: GenFExpr<T>> atanh(y: T, x: T): T       = functionOf("atanh", y, x)
 
     // Common
-    inline fun <reified T: GenFExpr<*>> abs(x: T): T               = functionOf("abs", x)
-    inline fun <reified T: GenIExpr<*>> abs(x: T): T               = functionOf("abs", x)
-    inline fun <reified T: GenFExpr<*>> sign(x: T): T              = functionOf("sign", x)
-    inline fun <reified T: GenIExpr<*>> sign(x: T): T              = functionOf("sign", x)
-    inline fun <reified T: GenFExpr<*>> floor(x: T): T             = functionOf("floor", x)
-    inline fun <reified T: GenIExpr<*>> floor(x: T): T             = functionOf("floor", x)
-    inline fun <reified T: GenFExpr<*>> trunc(x: T): T             = functionOf("trunc", x)
-    inline fun <reified T: GenFExpr<*>> round(x: T): T             = functionOf("round", x)
-    inline fun <reified T: GenFExpr<*>> roundEven(x: T): T         = functionOf("roundEven", x)
-    inline fun <reified T: GenFExpr<*>> ceil(x: T): T              = functionOf("ceil", x)
-    inline fun <reified T: GenIExpr<*>> fract(x: T): T             = functionOf("fract", x)
+    inline fun <reified T: GenFExpr<T>> abs(x: T): T               = functionOf("abs", x)
+    inline fun <reified T: GenIExpr<T>> abs(x: T): T               = functionOf("abs", x)
+    inline fun <reified T: GenFExpr<T>> sign(x: T): T              = functionOf("sign", x)
+    inline fun <reified T: GenIExpr<T>> sign(x: T): T              = functionOf("sign", x)
+    inline fun <reified T: GenFExpr<T>> floor(x: T): T             = functionOf("floor", x)
+    inline fun <reified T: GenIExpr<T>> floor(x: T): T             = functionOf("floor", x)
+    inline fun <reified T: GenFExpr<T>> trunc(x: T): T             = functionOf("trunc", x)
+    inline fun <reified T: GenFExpr<T>> round(x: T): T             = functionOf("round", x)
+    inline fun <reified T: GenFExpr<T>> roundEven(x: T): T         = functionOf("roundEven", x)
+    inline fun <reified T: GenFExpr<T>> ceil(x: T): T              = functionOf("ceil", x)
+    inline fun <reified T: GenIExpr<T>> fract(x: T): T             = functionOf("fract", x)
 
-    inline fun <reified T: VecExpr<*>>  mod(x: T, y: FloatExpr): T = functionOf("mod", x, y)
-    inline fun <reified T: GenFExpr<*>> mod(x: T, y: T): T         = functionOf("mod", x, y)
-    inline fun <reified T: GenFExpr<*>> fmod(x: T, i: T): T        = functionOf("fmod", x, i)
+    inline fun <reified T:  VecExpr<T>>  mod(x: T, y: FloatExpr): T = functionOf("mod", x, y)
+    inline fun <reified T: GenFExpr<T>> mod(x: T, y: T): T         = functionOf("mod", x, y)
+    inline fun <reified T: GenFExpr<T>> fmod(x: T, i: T): T        = functionOf("fmod", x, i)
 
-    inline fun <reified T: VecExpr<*>>  min(x: T, y: FloatExpr): T = functionOf("min", x, y)
-    inline fun <reified T: GenFExpr<*>> min(x: T, y: T): T         = functionOf("min", x, y)
-    inline fun <reified T: IVecExpr<*>> min(x: T, y: IntExpr): T   = functionOf("min", x, y)
-    inline fun <reified T: GenIExpr<*>> min(x: T, y: T): T         = functionOf("min", x, y)
-    inline fun <reified T: VecExpr<*>>  max(x: T, y: FloatExpr): T = functionOf("max", x, y)
-    inline fun <reified T: GenFExpr<*>> max(x: T, y: T): T         = functionOf("max", x, y)
-    inline fun <reified T: IVecExpr<*>> max(x: T, y: IntExpr): T   = functionOf("max", x, y)
-    inline fun <reified T: GenIExpr<*>> max(x: T, y: T): T         = functionOf("max", x, y)
+    inline fun <reified T:  VecExpr<T>>  min(x: T, y: FloatExpr): T = functionOf("min", x, y)
+    inline fun <reified T: GenFExpr<T>> min(x: T, y: T): T         = functionOf("min", x, y)
+    inline fun <reified T: IVecExpr<T>> min(x: T, y: IntExpr): T   = functionOf("min", x, y)
+    inline fun <reified T: GenIExpr<T>> min(x: T, y: T): T         = functionOf("min", x, y)
+    inline fun <reified T:  VecExpr<T>>  max(x: T, y: FloatExpr): T = functionOf("max", x, y)
+    inline fun <reified T: GenFExpr<T>> max(x: T, y: T): T         = functionOf("max", x, y)
+    inline fun <reified T: IVecExpr<T>> max(x: T, y: IntExpr): T   = functionOf("max", x, y)
+    inline fun <reified T: GenIExpr<T>> max(x: T, y: T): T         = functionOf("max", x, y)
 
-    inline fun <reified T: GenFExpr<*>> clamp(x: T, minVal: T, maxVal: T): T                 = functionOf("clamp", x, minVal, maxVal)
-    inline fun <reified T: VecExpr<*>>  clamp(x: T, minVal: FloatExpr, maxVal: FloatExpr): T = functionOf("clamp", x, minVal, maxVal)
-    inline fun <reified T: GenIExpr<*>> clamp(x: T, minVal: T, maxVal: T): T                 = functionOf("clamp", x, minVal, maxVal)
-    inline fun <reified T: IVecExpr<*>> clamp(x: T, minVal: IntExpr, maxVal: IntExpr): T     = functionOf("clamp", x, minVal, maxVal)
+    inline fun <reified T: GenFExpr<T>> clamp(x: T, minVal: T, maxVal: T): T                 = functionOf("clamp", x, minVal, maxVal)
+    inline fun <reified T:  VecExpr<T>>  clamp(x: T, minVal: FloatExpr, maxVal: FloatExpr): T = functionOf("clamp", x, minVal, maxVal)
+    inline fun <reified T: GenIExpr<T>> clamp(x: T, minVal: T, maxVal: T): T                 = functionOf("clamp", x, minVal, maxVal)
+    inline fun <reified T: IVecExpr<T>> clamp(x: T, minVal: IntExpr, maxVal: IntExpr): T     = functionOf("clamp", x, minVal, maxVal)
 
-    inline fun <reified T: GenFExpr<*>> mix(x: T, y: T, a: T): T        = functionOf("mix", x, y, a)
-    inline fun <reified T: VecExpr<*>> mix(x: T, y: T, a: FloatExpr): T = functionOf("mix", x, y, a)
-    inline fun <reified T, U, V: ExprLen> mix(x: T, y: T, a: U): T where T: GenExpr<*>, U : GenBExpr<*>, T: V, U: V = functionOf("mix", x, y, a)
+    inline fun <reified T: GenFExpr<T>> mix(x: T, y: T, a: T): T        = functionOf("mix", x, y, a)
+    inline fun <reified T:  VecExpr<T>> mix(x: T, y: T, a: FloatExpr): T = functionOf("mix", x, y, a)
+    inline fun <reified T, U, V: ExprLen> mix(x: T, y: T, a: U): T where T: GenExpr<T>, U : GenBExpr<U>, T: V, U: V = functionOf("mix", x, y, a)
 
-    inline fun <reified T: GenFExpr<*>> dFdx(p: T): T = functionOf("dFdx", p)
-    inline fun <reified T: GenFExpr<*>> dFdy(p: T): T = functionOf("dFdy", p)
-    inline fun <reified T: GenFExpr<*>> fwidth(p: T): T = functionOf("fwidth", p)
+    inline fun <reified T: GenFExpr<T>> dFdx(p: T): T = functionOf("dFdx", p)
+    inline fun <reified T: GenFExpr<T>> dFdy(p: T): T = functionOf("dFdy", p)
+    inline fun <reified T: GenFExpr<T>> fwidth(p: T): T = functionOf("fwidth", p)
 
-    inline fun <reified T: GenFExpr<*>> step(edge: T, x: T): T = functionOf("step", edge, x)
-    inline fun <reified T: VecExpr<*>> step(edge: FloatExpr, x: T): T = functionOf("step", edge, x)
-    inline fun <reified T: GenFExpr<*>> smoothstep(edge0: T, edge1: T, x: T): T = functionOf("step", edge0, edge1, x)
-    inline fun <reified T: VecExpr<*>> smoothstep(edge0: FloatExpr, edge1: FloatExpr, x: T): T = functionOf("step", edge0, edge1, x)
+    inline fun <reified T: GenFExpr<T>> step(edge: T, x: T): T = functionOf("step", edge, x)
+    inline fun <reified T:  VecExpr<T>> step(edge: FloatExpr, x: T): T = functionOf("step", edge, x)
+    inline fun <reified T: GenFExpr<T>> smoothstep(edge0: T, edge1: T, x: T): T = functionOf("step", edge0, edge1, x)
+    inline fun <reified T:  VecExpr<T>> smoothstep(edge0: FloatExpr, edge1: FloatExpr, x: T): T = functionOf("step", edge0, edge1, x)
 
-    inline fun <T, reified U, V: ExprLen> isnan(x: T): U where T: GenFExpr<*>, U: GenBExpr<*>, T: V, U: V = functionOf("isnan", x)
-    inline fun <T, reified U, V: ExprLen> isinf(x: T): U where T: GenFExpr<*>, U: GenBExpr<*>, T: V, U: V = functionOf("isinf", x)
+    inline fun <T, reified U, V: ExprLen> isnan(x: T): U where T: GenFExpr<T>, U: GenBExpr<U>, T: V, U: V = functionOf("isnan", x)
+    inline fun <T, reified U, V: ExprLen> isinf(x: T): U where T: GenFExpr<T>, U: GenBExpr<U>, T: V, U: V = functionOf("isinf", x)
 
     inline fun <reified T: GenFExpr<T>> exp(x: T): T = functionOf("exp", x)
     inline fun <reified T: GenFExpr<T>> exp2(x: T): T = functionOf("exp2", x)
@@ -1236,31 +1369,32 @@ class KGLSL {
     inline fun <reified T: GenFExpr<T>> log2(x: T): T = functionOf("log2", x)
     inline fun <reified T: GenFExpr<T>> sqrt(x: T): T = functionOf("sqrt", x)
 
-    //inline fun <reified T: GenFExpr<T>> fma(a: T, b: T, c: T): T = functionOf("fma", a, b, c)
     inline fun <reified T: GenFExpr<T>> pow(x: T, y: T): T = functionOf("pow", x, y)
 
     fun cross(x: Vec3Expr, y: Vec3Expr): Vec3Expr = functionOf("cross", x, y)
-    fun <T: GenFExpr<*>> distance(p0: T, p1: T): FloatExpr = functionOf("distance", p0, p1)
-    fun <T: GenFExpr<*>> dot(x: T, y: T): FloatExpr = functionOf("dot", x, y)
-    inline fun <T, reified U, V: ExprLen> equal(x: T, y: T): U where T: GenExpr<*>, U: GenBExpr<*>, T: V, U: V = functionOf("equal", x, y)
-    inline fun <T, reified U, V: ExprLen> notequal(x: T, y: T): U where T: GenExpr<*>, U: GenBExpr<*>, T: V, U: V = functionOf("notequal", x, y)
-    inline fun <reified T: GenFExpr<*>> faceforward(N: T, I: T, Nref: T): T = functionOf("faceforward", N, I, Nref)
-    inline fun <reified T: VecExpr<*>> normalize(v: T): T = functionOf("normalize", v)
-    inline fun <reified T: GenFExpr<*>> reflect(I: T, N: T): T = functionOf("reflect", I, N)
-    inline fun <reified T: GenFExpr<*>> distance(I: T, N: T, eta: FloatExpr): T = functionOf("distance", I, N, eta)
+    fun <T: GenFExpr<T>> distance(p0: T, p1: T): FloatExpr = functionOf("distance", p0, p1)
+    fun <T: GenFExpr<T>> dot(x: T, y: T): FloatExpr = functionOf("dot", x, y)
+    inline fun <T, reified U, V: ExprLen> equal(x: T, y: T): U    where T: GenExpr<T>, U: GenBExpr<U>, T: V, U: V = functionOf("equal", x, y)
+    inline fun <T, reified U, V: ExprLen> notequal(x: T, y: T): U where T: GenExpr<T>, U: GenBExpr<U>, T: V, U: V = functionOf("notequal", x, y)
+    inline fun <reified T: GenFExpr<T>> faceforward(N: T, I: T, Nref: T): T = functionOf("faceforward", N, I, Nref)
+    inline fun <reified T:  VecExpr<T>> normalize(v: T): T = functionOf("normalize", v)
+    inline fun <reified T: GenFExpr<T>> reflect(I: T, N: T): T = functionOf("reflect", I, N)
+    inline fun <reified T: GenFExpr<T>> distance(I: T, N: T, eta: FloatExpr): T = functionOf("distance", I, N, eta)
 
     fun all(x: BVecExpr<*>): BoolExpr = functionOf("all", x)
     fun any(x: BVecExpr<*>): BoolExpr = functionOf("any", x)
-    inline fun <reified T: BVecExpr<*>> not(x: T): T = functionOf("not", x)
-    inline fun <T, reified U, V: ExprLen> greaterThan(x: T, y: T): U where T: VecExpr<*>, U: BVecExpr<*>, T: V, U: V = functionOf("greaterThan", x, y)
-    inline fun <T, reified U, V: ExprLen> greaterThan(x: T, y: T): U where T: IVecExpr<*>, U: BVecExpr<*>, T: V, U: V = functionOf("greaterThan", x, y)
-    inline fun <T, reified U, V: ExprLen> greaterThanEqual(x: T, y: T): U where T: VecExpr<*>, U: BVecExpr<*>, T: V, U: V = functionOf("greaterThanEqual", x, y)
-    inline fun <T, reified U, V: ExprLen> greaterThanEqual(x: T, y: T): U where T: IVecExpr<*>, U: BVecExpr<*>, T: V, U: V = functionOf("greaterThanEqual", x, y)
-    inline fun <T, reified U, V: ExprLen> lessThan(x: T, y: T): U where T: VecExpr<*>, U: BVecExpr<*>, T: V, U: V = functionOf("lessThan", x, y)
-    inline fun <T, reified U, V: ExprLen> lessThan(x: T, y: T): U where T: IVecExpr<*>, U: BVecExpr<*>, T: V, U: V = functionOf("lessThan", x, y)
-    inline fun <T, reified U, V: ExprLen> lessThanEqual(x: T, y: T): U where T: VecExpr<*>, U: BVecExpr<*>, T: V, U: V = functionOf("lessThanEqual", x, y)
-    inline fun <T, reified U, V: ExprLen> lessThanEqual(x: T, y: T): U where T: IVecExpr<*>, U: BVecExpr<*>, T: V, U: V = functionOf("lessThanEqual", x, y)
+    inline fun <reified T: BVecExpr<T>> not(x: T): T = functionOf("not", x)
+    inline fun <T, reified U, V: ExprLen> greaterThan(x: T, y: T): U      where T:  VecExpr<T>, U: BVecExpr<U>, T: V, U: V = functionOf("greaterThan", x, y)
+    inline fun <T, reified U, V: ExprLen> greaterThan(x: T, y: T): U      where T: IVecExpr<T>, U: BVecExpr<U>, T: V, U: V = functionOf("greaterThan", x, y)
+    inline fun <T, reified U, V: ExprLen> greaterThanEqual(x: T, y: T): U where T:  VecExpr<T>, U: BVecExpr<U>, T: V, U: V = functionOf("greaterThanEqual", x, y)
+    inline fun <T, reified U, V: ExprLen> greaterThanEqual(x: T, y: T): U where T: IVecExpr<T>, U: BVecExpr<U>, T: V, U: V = functionOf("greaterThanEqual", x, y)
+    inline fun <T, reified U, V: ExprLen> lessThan(x: T, y: T): U         where T:  VecExpr<T>, U: BVecExpr<U>, T: V, U: V = functionOf("lessThan", x, y)
+    inline fun <T, reified U, V: ExprLen> lessThan(x: T, y: T): U         where T: IVecExpr<T>, U: BVecExpr<U>, T: V, U: V = functionOf("lessThan", x, y)
+    inline fun <T, reified U, V: ExprLen> lessThanEqual(x: T, y: T): U    where T:  VecExpr<T>, U: BVecExpr<U>, T: V, U: V = functionOf("lessThanEqual", x, y)
+    inline fun <T, reified U, V: ExprLen> lessThanEqual(x: T, y: T): U    where T: IVecExpr<T>, U: BVecExpr<U>, T: V, U: V = functionOf("lessThanEqual", x, y)
 
+    // Built-In Values
+    val gl_FragCoord: Vec4Expr = Vec4ExprImpl(VariableExpr("gl_FragCoord"))
 }
 
 typealias float = KGLSL.FloatExpr

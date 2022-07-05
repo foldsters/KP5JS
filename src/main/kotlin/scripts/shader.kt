@@ -1,23 +1,50 @@
 package scripts
 
+import p5.P5
 import p5.Sketch
 import p5.kglsl.*
 
 fun shader() = Sketch {
 
-    val fragmentCode = KGLSL().fragment {
+    Setup {
 
-        val iTime by Uniform<float>()
-        val iResolution by Uniform<vec2>()
-        val fragCoord by In<vec2>()
-        +"Before Main"
-        Main {
-            +"After Main"
-            val uv by fragCoord/iResolution.xy
-            val col by float(0.5) + (float(0.5)*cos(iTime + uv.xyx + vec3(0, 2, 4)))
-            vec4(col, 1.0)
+        createCanvas(512, 512, P5.RenderMode.WEBGL2)
+
+        val outShader = CreateShader(debug = true) {
+            Fragment {
+
+                val iTime by Uniform<float>()
+                val iResolution by Uniform<vec2>()
+
+                Main {
+                    val uv by gl_FragCoord.xy/iResolution.xy
+                    val col by 0.5 + (0.5 * cos(iTime/2.0 + uv.xyx + vec3(0, 2, 4)))
+                    vec4(col, 1.0)
+                }
+
+            }
+        }
+
+        noStroke()
+        shader(outShader)
+        pixelDensity(1)
+        frameRate(60)
+        outShader["iResolution"] = arrayOf(width, height)
+        rect(0, 0, width, height)
+
+        Draw {
+            outShader["iTime"] = millis()/1000.0
+            rect(0, 0, width, height)
         }
     }
-    println(fragmentCode)
 
 }
+
+
+
+
+
+
+
+
+

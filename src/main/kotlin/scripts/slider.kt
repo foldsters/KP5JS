@@ -4,11 +4,11 @@ import p5.Sketch
 
 fun slide() = Sketch {
 
-    setup {
+    Setup {
 
         var sliderValue by createSlider(0, 100, 0)
 
-        draw {
+        Draw {
             sliderValue = (sliderValue+1)%100
         }
 

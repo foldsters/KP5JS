@@ -8,7 +8,7 @@ import p5.util.toFixed
 
 fun unapologeticMocap() = Sketch {
 
-    preload {
+    Preload {
 
         val pointFrameMap: MutableMap<Number, Array<NativeP5.Vector>> = mutableMapOf()
 
@@ -25,7 +25,7 @@ fun unapologeticMocap() = Sketch {
         }
 
 
-        setup {
+        Setup {
 
             createCanvas(1920, 1080)
             val vid = createVideo("assets/dancer/unapologetic.mp4")
@@ -164,7 +164,7 @@ fun unapologeticMocap() = Sketch {
                 }
             }
 
-            mouseWheel { event ->
+            MouseWheel { event ->
                 keyIsDown(17).ifFalse {
                     when {
                         event.delta > 0 -> {
@@ -179,7 +179,7 @@ fun unapologeticMocap() = Sketch {
                 }
             }
 
-            keyPressed {
+            KeyPressed {
                 console.log(keyCode)
                 if (keyCode == 46) {
                     pointFrameMap.remove(videoFrame)
@@ -188,7 +188,7 @@ fun unapologeticMocap() = Sketch {
 
             var isDragging = false
 
-            draw {
+            Draw {
 
                 val (base, head, hand) = getPoints()
                 stroke(0, if (hasPoints) 255 else 0, 0)

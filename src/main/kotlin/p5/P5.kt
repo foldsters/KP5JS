@@ -249,7 +249,10 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
     }
     fun createCanvas(w: Number, h: Number, renderMode: RenderMode): Renderer {
         if (renderMode == RenderMode.WEBGL2) { enableWebgl2() }
-        return _createCanvas(w, h, renderMode.nativeValue)
+        val canvas = _createCanvas(w, h, renderMode.nativeValue)
+        drawingContext.getExtension("OES_standard_derivatives")
+        canvas.asDynamic().GL.getExtension("OES_standard_derivatives")
+        return canvas
     }
     fun createGraphics(w: Number, h: Number, renderMode: RenderMode): Graphics {
         if (renderMode == RenderMode.WEBGL2) { enableWebgl2() }

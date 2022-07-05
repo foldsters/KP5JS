@@ -5,11 +5,11 @@ import p5.Sketch
 import kotlin.math.*
 
 fun mysticTomato() = Sketch {
-    setup {
+    Setup {
         createCanvas(1920, 1080)
         colorMode(P5.ColorMode.HSB, 1, 1, 1, 255)
         var y = -1
-        draw {
+        Draw {
             withPixels {
                 if (y++ == height-1) noLoop()
                 repeat(width) { x ->

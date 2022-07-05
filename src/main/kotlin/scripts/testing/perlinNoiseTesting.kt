@@ -1,13 +1,12 @@
 package scripts.testing
 
 import p5.NativeP5
-import p5.P5
 import p5.Sketch
 
 
 fun perlinNoiseTesting() = Sketch {
 
-    setup {
+    Setup {
 
 
 

@@ -47,7 +47,7 @@ float curler(vec2 uv) {
     float d = 0.0;
     float reverse = 1.0;
 
-    for(float z = 1.0; z > -1.0; z-=0.002) {
+    for(float z = 1.0; z > -1.0; z-=0.02) {
         vec3 uvw = vec3(uv, z)/size;
         uvw = rotate(uvw, vec3(0.0, 0.0, 1.0), -rotZ);
         uvw = rotate(uvw, vec3(1.0, 0.0, 0.0), rotY);
