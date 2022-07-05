@@ -1,4 +1,4 @@
-package scripts
+package scripts.shader
 
 import p5.P5
 import p5.Sketch
@@ -12,6 +12,11 @@ fun shader() = Sketch {
 
         val outShader = CreateShader(debug = true) {
             Fragment {
+
+                var m by float(1.0)
+                For(2.0, 4.0) {
+                    m = it
+                }
 
                 val iTime by Uniform<float>()
                 val iResolution by Uniform<vec2>()

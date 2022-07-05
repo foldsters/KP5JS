@@ -49,27 +49,27 @@ fun Window.setTimeout(timeout: Int, arguments: Array<Any?>? = null, handler: dyn
 
 fun Number.toFixed(digits: Int): String = this.asDynamic().toFixed(digits) as String
 
-inline fun Any?.ifTrue(block: ()->Unit) {
+inline fun <T> T.ifTrue(block: (T)->Unit) {
     if (this == true) {
-        block()
+        block(this)
     }
 }
 
-inline fun Any?.ifFalse(block: ()->Unit) {
+inline fun <T> T.ifFalse(block: (T)->Unit) {
     if (this == false) {
-        block()
+        block(this)
     }
 }
 
-inline fun Any?.ifNull(block: ()->Unit) {
+inline fun <T> T.ifNull(block: (T)->Unit) {
     if (this == null) {
-        block()
+        block(this)
     }
 }
 
-inline fun Any?.ifNotNull(block: ()->Unit) {
+inline fun <T: Any> T?.ifNotNull(block: (T)->Unit) {
     if (this != null) {
-        block()
+        block(this)
     }
 }
 

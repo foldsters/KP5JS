@@ -1,11 +1,9 @@
+@file:Suppress("unused", "UnsafeCastFromDynamic", "UNUSED_PARAMETER", "UNCHECKED_CAST")
+
 package p5
 
-import kotlinx.html.InputType
-import org.w3c.dom.Path2D
 import kotlin.js.Json
 import kotlin.js.json
-import kotlin.math.PI
-import kotlin.math.sign
 import kotlin.reflect.KProperty
 import p5.openSimplexNoise.OpenSimplexNoise
 
@@ -134,8 +132,8 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
         fun beginShape() = _beginShape()
         fun beginShape(kind: PathMode) {
             when(val value = kind.nativeValue) {
-                is String -> _beginShapeString(value as String)
-                is Number -> _beginShapeNumber(value as Number)
+                is String -> _beginShapeString(value)
+                is Number -> _beginShapeNumber(value)
             }
         }
         fun endShape() = _endShape()
@@ -407,7 +405,7 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
         webgl2Enabled = true
     }
 
-    class Shader(val nativeShader: _Shader) {
+    open class Shader(val nativeShader: _Shader) {
 
         val uniforms: MutableMap<String, Any> = mutableMapOf()
 
@@ -471,6 +469,9 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
     }
     fun createShader(vertSrc: String, fragSrc: String): Shader {
         return Shader(_createShader(vertSrc, fragSrc))
+    }
+    fun createKShader(vertSrc: String, fragSrc: String, uniformCallbackRoster: MutableMap<String, ()->Any>): KShader {
+        return KShader(_createShader(vertSrc, fragSrc), uniformCallbackRoster)
     }
     fun shader(s: Shader) {
         _shader(s.nativeShader)
@@ -812,42 +813,42 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
     // Double Set
     var Vector.xy: Vector
         get() { return createVector(x, y) }
-        set(other: Vector) { val newX = other.x; val newY = other.y; x = newX; y = newY }
+        set(other) { val newX = other.x; val newY = other.y; x = newX; y = newY }
     var Vector.xz: Vector
         get() { return createVector(x, z) }
-        set(other: Vector) { val newX = other.x; val newZ = other.y; x = newX; z = newZ }
+        set(other) { val newX = other.x; val newZ = other.y; x = newX; z = newZ }
     var Vector.yx: Vector
         get() { return createVector(y, x) }
-        set(other: Vector) { val newY = other.x; val newX = other.y; x = newX; y = newY }
+        set(other) { val newY = other.x; val newX = other.y; x = newX; y = newY }
     var Vector.yz: Vector
         get() { return createVector(y, z) }
-        set(other: Vector) { val newY = other.x; val newZ = other.y; y = newY; z = newZ }
+        set(other) { val newY = other.x; val newZ = other.y; y = newY; z = newZ }
     var Vector.zx: Vector
         get() { return createVector(z, x) }
-        set(other: Vector) { val newZ = other.x; val newX = other.y; x = newX; z = newZ }
+        set(other) { val newZ = other.x; val newX = other.y; x = newX; z = newZ }
     var Vector.zy: Vector
         get() { return createVector(z, y) }
-        set(other: Vector) { val newZ = other.x; val newY = other.y; y = newY; z = newZ }
+        set(other) { val newZ = other.x; val newY = other.y; y = newY; z = newZ }
 
     // Triple Set
     var Vector.xyz: Vector
         get() { return createVector(x, y, z) }
-        set(other: Vector) { val newX = other.x; val newY = other.y; val newZ = other.z; x = newX; y = newY; z = newZ }
+        set(other) { val newX = other.x; val newY = other.y; val newZ = other.z; x = newX; y = newY; z = newZ }
     var Vector.xzy: Vector
         get() { return createVector(x, z, y) }
-        set(other: Vector) { val newX = other.x; val newZ = other.y; val newY = other.z; x = newX; y = newY; z = newZ }
+        set(other) { val newX = other.x; val newZ = other.y; val newY = other.z; x = newX; y = newY; z = newZ }
     var Vector.yxz: Vector
         get() { return createVector(y, x, z) }
-        set(other: Vector) { val newY = other.x; val newX = other.y; val newZ = other.z; x = newX; y = newY; z = newZ }
+        set(other) { val newY = other.x; val newX = other.y; val newZ = other.z; x = newX; y = newY; z = newZ }
     var Vector.yzx: Vector
         get() { return createVector(y, z, x) }
-        set(other: Vector) { val newY = other.x; val newZ = other.y; val newX = other.z; x = newX; y = newY; z = newZ }
+        set(other) { val newY = other.x; val newZ = other.y; val newX = other.z; x = newX; y = newY; z = newZ }
     var Vector.zxy: Vector
         get() { return createVector(z, x, y) }
-        set(other: Vector) { val newZ = other.x; val newX = other.y; val newY = other.z; x = newX; y = newY; z = newZ }
+        set(other) { val newZ = other.x; val newX = other.y; val newY = other.z; x = newX; y = newY; z = newZ }
     var Vector.zyx: Vector
         get() { return createVector(z, y, x) }
-        set(other: Vector) { val newZ = other.x; val newY = other.y; val newX = other.z; x = newX; y = newY; z = newZ }
+        set(other) { val newZ = other.x; val newY = other.y; val newX = other.z; x = newX; y = newY; z = newZ }
 
     fun Vector.toColor(): Color {
         return color(x, y, z)
@@ -855,32 +856,32 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
 
 
     operator fun Number.plus(other: Number): Number {
-        val t = this
+        @Suppress("UNUSED_VARIABLE") val t = this
         return js("t+other") as Number
     }
 
     operator fun Number.minus(other: Number): Number {
-        val t = this
+        @Suppress("UNUSED_VARIABLE") val t = this
         return js("t-other") as Number
     }
 
     operator fun Number.times(other: Number): Number {
-        val t = this
+        @Suppress("UNUSED_VARIABLE") val t = this
         return js("t*other") as Number
     }
 
     operator fun Number.div(other: Number): Number {
-        val t = this
+        @Suppress("UNUSED_VARIABLE") val t = this
         return js("t/other") as Number
     }
 
     operator fun Number.rem(other: Number): Number {
-        val t = this
+        @Suppress("UNUSED_VARIABLE") val t = this
         return js("t%other") as Number
     }
 
     operator fun Number.compareTo(other: Number): Int {
-        val dif = this - other
+        @Suppress("UNUSED_VARIABLE") val dif = this - other
         return if (js("dif > 0") as Boolean) {
             1
         } else if (js("dif < 0") as Boolean) {
@@ -889,7 +890,7 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
     }
 
     fun Number.pow(other: Number): Number {
-        val t = this
+        @Suppress("UNUSED_VARIABLE") val t = this
         return js("Math.pow(t, other)") as Number
     }
 
@@ -1136,7 +1137,7 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
 
     fun fractalNoise(x: Number, y: Number, octaves: List<Pair<Number, Number>>): Number {
         val weightSum = octaves.sumOf { it.second.toDouble() }
-        return octaves.map { (noise(x*(2.pow(it.first)), y*(2.0.pow(it.first)))*it.second).toDouble() }.sum()/weightSum
+        return octaves.sumOf { (noise(x * (2.pow(it.first)), y * (2.0.pow(it.first))) * it.second).toDouble() } / weightSum
     }
 
     fun repeatUntilNextFrame(block: ()->Unit) {
@@ -1170,6 +1171,10 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
         }
     }
 
-
+    class KShader(nativeShader: _Shader, val uniformCallbackRoster: MutableMap<String,()->Any>): Shader(nativeShader) {
+        fun update() {
+            updateUniforms( uniformCallbackRoster.mapValues { (_, value) -> value()} )
+        }
+    }
 }
 

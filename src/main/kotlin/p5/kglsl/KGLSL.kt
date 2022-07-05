@@ -1,33 +1,41 @@
-@file:Suppress("BOUNDS_NOT_ALLOWED_IF_BOUNDED_BY_TYPE_PARAMETER", "unused", "SpellCheckingInspection", "PropertyName",
-    "FunctionName", "UNCHECKED_CAST"
+@file:Suppress(
+    "BOUNDS_NOT_ALLOWED_IF_BOUNDED_BY_TYPE_PARAMETER",
+    "unused",
+    "SpellCheckingInspection",
+    "PropertyName",
+    "FunctionName",
+    "UNCHECKED_CAST",
+    "FINAL_UPPER_BOUND"
 )
 
 package p5.kglsl
 
+import p5.NativeP5
 import p5.P5
 import p5.util.appendAll
+import p5.util.ifNotNull
 import p5.util.ifTrue
 import kotlin.math.max
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty
 
-fun P5.CreateShader(debug: Boolean=false, block: ShaderScope.()->Unit): P5.Shader {
+fun P5.CreateShader(debug: Boolean=false, block: ShaderScope.()->Unit): P5.KShader {
     val shaderScope = ShaderScope()
     shaderScope.debug = debug
     block(shaderScope)
     if(debug) {
         println("Vertex Program:")
-        println(shaderScope.vertexString)
+        println(shaderScope.vertexCode)
         println()
         println("Fragment Program:")
-        println(shaderScope.fragmentString)
+        println(shaderScope.fragmentCode)
     }
-    return createShader(shaderScope.vertexString, shaderScope.fragmentString)
+    return createKShader(shaderScope.vertexCode, shaderScope.fragmentCode, shaderScope.uniformCallbackRoster)
 }
 
 class ShaderScope {
 
-    var vertexString = """#version 300 es
+    var vertexCode = """#version 300 es
 #ifdef GL_ES
 precision highp float;
 #endif
@@ -35,28 +43,30 @@ in vec3 aPosition;
 void main() { 
 gl_Position = vec4((aPosition.xy*2.0)-1.0,1.0,1.0);
 }"""
-    var fragmentString = ""
+    var fragmentCode = ""
     var debug = false
+    var uniformCallbackRoster: MutableMap<String, ()->Any> = mutableMapOf()
 
     fun Vertex(block: KGLSL.()->Unit): String {
-        val kglsl = KGLSL()
-        kglsl.debug = debug
-        block(kglsl)
-        vertexString = kglsl.instructions.sortedBy { it.id }.joinToString("\n") { it.render() }
-        return vertexString
+        val vertex = KGLSL()
+        vertex.debug = debug
+        block(vertex)
+        vertexCode = vertex.instructions.sortedBy { it.id }.joinToString("\n") { it.render() }
+        return vertexCode
     }
 
     fun Fragment(block: KGLSL.()->Unit): String {
-        val kglsl = KGLSL()
-        kglsl.debug = debug
-        block(kglsl)
+        val fragment = KGLSL()
+        fragment.debug = debug
+        block(fragment)
         val preamble = """#version 300 es
 #ifdef GL_ES
 precision highp float;
 #endif
 """
-        fragmentString = preamble + kglsl.instructions.sortedBy { it.id }.joinToString("\n") { it.render() }
-        return fragmentString
+        fragmentCode = preamble + fragment.instructions.sortedBy { it.id }.joinToString("\n") { it.render() }
+        uniformCallbackRoster = fragment.uniformCallbackRoster
+        return fragmentCode
     }
 
 }
@@ -66,13 +76,12 @@ precision highp float;
 class KGLSL {
 
     // Instructions to be Rendered at the End
-    var instructionIndent = 0
     val instructions = mutableListOf<Instruction>()
     private var uniqueExprId = 0
-    fun genSnapshotId(): Int = uniqueExprId++
+    private fun genSnapshotId(): Int = uniqueExprId++
 
     // Tracking variables for assignment
-    val seenVariableNames = mutableSetOf<String>()
+    private val seenVariableNames = mutableSetOf<String>()
 
     var debug = false
 
@@ -128,7 +137,7 @@ class KGLSL {
     }
 
     // ASSIGNMENT STATEMENT: Renders to an assignment/declaration statement
-    inner class AssignmentStatement(
+    private inner class AssignmentStatement(
         val name: String,
         val expression: GenExpr<*>,
         val declare: Boolean = false,
@@ -215,6 +224,8 @@ class KGLSL {
             get() = throw IllegalStateException("Cannot Use ComponentNode as Shader Type")
     }
 
+    val uniformCallbackRoster: MutableMap<String, ()->Any> = mutableMapOf()
+
     interface ExprLen
     interface ExprLen1: ExprLen
     interface ExprLen2: ExprLen
@@ -236,12 +247,17 @@ class KGLSL {
         var modifiers = listOf<String>()
         var id = genSnapshotId()
         var needsAssignmet = false
+        var uniformCallback: (()->Any)? = null
 
         abstract fun new(vararg cs: ShaderNode): GenExpr<T>
 
         operator fun getValue(thisRef: Any?, property: KProperty<*>): T {
             val varName = property.name
             name = varName
+            uniformCallback.ifNotNull {
+                uniformCallbackRoster[varName] = it
+                uniformCallback = null
+            }
             if(seenVariableNames.add(name!!)) {
                 instructions.add(Instruction(AssignmentStatement(varName, this.copy() as T, true, assign, modifiers)))
             }
@@ -252,6 +268,10 @@ class KGLSL {
         operator fun setValue(thisRef: Any?, property: KProperty<*>, value: T) {
             val varName = property.name
             name = varName
+            uniformCallback.ifNotNull {
+                uniformCallbackRoster[varName] = it
+                uniformCallback = null
+            }
             if(seenVariableNames.add(name!!)) {
                 instructions.add(Instruction(AssignmentStatement(varName, this.copy() as GenExpr<*>, true, assign, modifiers)))
             }
@@ -264,6 +284,7 @@ class KGLSL {
             val result = new(*children.toTypedArray())
             result.name = name
             result.id = id
+            result.uniformCallback = uniformCallback
             return result
         }
 
@@ -284,9 +305,9 @@ class KGLSL {
     abstract inner class GenBExpr<T: GenBExpr<T>>(vararg cs: ShaderNode): GenExpr<T>(*cs)
 
     // BOOLEXPR: Expression of type bool
-    inner class BoolExprImpl(vararg cs: ShaderNode): BoolExpr(*cs)
+    private inner class BoolExprImpl(vararg cs: ShaderNode): BoolExpr(*cs)
     abstract inner class BoolExpr(vararg cs: ShaderNode): GenBExpr<BoolExpr>(*cs), ExprLen1 {
-        override fun new(vararg cs: ShaderNode) = BoolExprImpl(*cs)
+        override fun new(vararg cs: ShaderNode): BoolExpr = BoolExprImpl(*cs)
         override val nativeTypeName = "bool"
     }
 
@@ -324,16 +345,16 @@ class KGLSL {
         }
     }
 
-    inner class BVec2ExprImpl(vararg cs: ShaderNode): BVec2Expr(*cs)
+    private inner class BVec2ExprImpl(vararg cs: ShaderNode): BVec2Expr(*cs)
     abstract inner class BVec2Expr(vararg cs: ShaderNode): BVecExpr<BVec2Expr>(*cs), ExprLen2 {
-        override fun new(vararg cs: ShaderNode) = BVec2ExprImpl(*cs)
+        override fun new(vararg cs: ShaderNode): BVec2Expr = BVec2ExprImpl(*cs)
         override val nativeTypeName = "bvec2"
         override val numComponents = 2
     }
 
-    inner class BVec3ExprImpl(vararg cs: ShaderNode): BVec3Expr(*cs)
+    private inner class BVec3ExprImpl(vararg cs: ShaderNode): BVec3Expr(*cs)
     abstract inner class BVec3Expr(vararg cs: ShaderNode): BVecExpr<BVec3Expr>(*cs), ExprLen3 {
-        override fun new(vararg cs: ShaderNode) = BVec3ExprImpl(*cs)
+        override fun new(vararg cs: ShaderNode): BVec3Expr = BVec3ExprImpl(*cs)
         override val nativeTypeName = "bvec3"
         override val numComponents = 3
 
@@ -376,9 +397,9 @@ class KGLSL {
         val bbgr by C4; val bbgg by C4; val bbgb by C4; val bbbr by C4; val bbbg by C4; val bbbb by C4
     }
 
-    inner class BVec4ExprImpl(vararg cs: ShaderNode): BVec4Expr(*cs)
+    private inner class BVec4ExprImpl(vararg cs: ShaderNode): BVec4Expr(*cs)
     abstract inner class BVec4Expr(vararg cs: ShaderNode): BVecExpr<BVec4Expr>(*cs), ExprLen4 {
-        override fun new(vararg cs: ShaderNode) = BVec4ExprImpl(*cs)
+        override fun new(vararg cs: ShaderNode): BVec4Expr = BVec4ExprImpl(*cs)
         override val nativeTypeName = "bvec4"
         override val numComponents = 4
 
@@ -508,10 +529,10 @@ class KGLSL {
     abstract inner class GenIExpr<T: GenIExpr<T>>(vararg cs: ShaderNode): GenExpr<T>(*cs), NonBool
 
     // INTEXPR: Expression of type int
-    inner class IntExprImpl(vararg cs: ShaderNode): IntExpr(*cs)
+    private inner class IntExprImpl(vararg cs: ShaderNode): IntExpr(*cs)
     abstract inner class IntExpr(vararg cs: ShaderNode): GenIExpr<IntExpr>(*cs), ExprLen1 {
         override val nativeTypeName = "int"
-        override fun new(vararg cs: ShaderNode) = IntExprImpl(*cs)
+        override fun new(vararg cs: ShaderNode): IntExpr = IntExprImpl(*cs)
     }
 
     // IVECEXPR: Abstract base class of float vector expressions
@@ -549,16 +570,16 @@ class KGLSL {
 
     }
 
-    inner class IVec2ExprImpl(vararg cs: ShaderNode): IVec2Expr(*cs)
+    private inner class IVec2ExprImpl(vararg cs: ShaderNode): IVec2Expr(*cs)
     abstract inner class IVec2Expr(vararg cs: ShaderNode): IVecExpr<IVec2Expr>(*cs), ExprLen2 {
-        override fun new(vararg cs: ShaderNode) = IVec2ExprImpl(*cs)
+        override fun new(vararg cs: ShaderNode): IVec2Expr = IVec2ExprImpl(*cs)
         override val nativeTypeName = "ivec2"
         override val numComponents = 2
     }
 
-    inner class IVec3ExprImpl(vararg cs: ShaderNode): IVec3Expr(*cs)
+    private inner class IVec3ExprImpl(vararg cs: ShaderNode): IVec3Expr(*cs)
     abstract inner class IVec3Expr(vararg cs: ShaderNode): IVecExpr<IVec3Expr>(*cs), ExprLen3 {
-        override fun new(vararg cs: ShaderNode) = IVec3ExprImpl(*cs)
+        override fun new(vararg cs: ShaderNode): IVec3Expr = IVec3ExprImpl(*cs)
         override val nativeTypeName = "ivec3"
         override val numComponents = 3
 
@@ -601,9 +622,9 @@ class KGLSL {
         val bbgr by C4; val bbgg by C4; val bbgb by C4; val bbbr by C4; val bbbg by C4; val bbbb by C4
     }
 
-    inner class IVec4ExprImpl(vararg cs: ShaderNode): IVec4Expr(*cs)
+    private inner class IVec4ExprImpl(vararg cs: ShaderNode): IVec4Expr(*cs)
     abstract inner class IVec4Expr(vararg cs: ShaderNode): IVecExpr<IVec4Expr>(*cs), ExprLen4 {
-        override fun new(vararg cs: ShaderNode) = IVec4ExprImpl(*cs)
+        override fun new(vararg cs: ShaderNode): IVec4Expr = IVec4ExprImpl(*cs)
         override val nativeTypeName = "ivec4"
         override val numComponents = 4
 
@@ -730,10 +751,10 @@ class KGLSL {
     abstract inner class GenFExpr<T: GenFExpr<T>>(vararg cs: ShaderNode): GenExpr<T>(*cs), NonBool
 
     // FLOATEXPR: Expression of type float
-    inner class FloatExprImpl(vararg cs: ShaderNode): FloatExpr(*cs)
+    private inner class FloatExprImpl(vararg cs: ShaderNode): FloatExpr(*cs)
     abstract inner class FloatExpr (vararg cs: ShaderNode): GenFExpr<FloatExpr>(*cs), ExprLen1 {
         override val nativeTypeName = "float"
-        override fun new(vararg cs: ShaderNode) = FloatExprImpl(*cs)
+        override fun new(vararg cs: ShaderNode): FloatExpr = FloatExprImpl(*cs)
     }
 
     // VECEXPR: Abstract base class of float vector expressions
@@ -772,14 +793,14 @@ class KGLSL {
         }
     }
 
-    inner class Vec2ExprImpl(vararg cs: ShaderNode): Vec2Expr(*cs)
+    private inner class Vec2ExprImpl(vararg cs: ShaderNode): Vec2Expr(*cs)
     abstract inner class Vec2Expr(vararg cs: ShaderNode): VecExpr<Vec2Expr>(*cs), ExprLen2 {
-        override fun new(vararg cs: ShaderNode) = Vec2ExprImpl(*cs)
+        override fun new(vararg cs: ShaderNode): Vec2Expr = Vec2ExprImpl(*cs)
         override val nativeTypeName = "vec2"
         override val numComponents = 2
     }
 
-    inner class Vec3ExprImpl(vararg cs: ShaderNode): Vec3Expr(*cs)
+    private inner class Vec3ExprImpl(vararg cs: ShaderNode): Vec3Expr(*cs)
     abstract inner class Vec3Expr(vararg cs: ShaderNode): VecExpr<Vec3Expr>(*cs), ExprLen3 {
         override fun new(vararg cs: ShaderNode): Vec3Expr = Vec3ExprImpl(*cs)
         override val nativeTypeName = "vec3"
@@ -824,9 +845,9 @@ class KGLSL {
         val bbgr by C4; val bbgg by C4; val bbgb by C4; val bbbr by C4; val bbbg by C4; val bbbb by C4
     }
 
-    inner class Vec4ExprImpl(vararg cs: ShaderNode): Vec4Expr(*cs)
+    private inner class Vec4ExprImpl(vararg cs: ShaderNode): Vec4Expr(*cs)
     abstract inner class Vec4Expr(vararg cs: ShaderNode): VecExpr<Vec4Expr>(*cs), ExprLen4 {
-        override fun new(vararg cs: ShaderNode) = Vec4ExprImpl(*cs)
+        override fun new(vararg cs: ShaderNode): Vec4Expr = Vec4ExprImpl(*cs)
         override val nativeTypeName = "vec4"
         override val numComponents = 4
 
@@ -988,12 +1009,19 @@ class KGLSL {
         return result
     }
 
-    inline fun <reified T: GenExpr<*>> Uniform(): T {
+    inline fun <reified T: GenExpr<T>> Uniform(): T {
         val result = new<T>(LiteralExpr("<Unknown Uniform>"))
         result.modifiers = listOf("uniform")
         result.assign = false
         return result
     }
+
+    fun <T: BoolExpr>  Uniform(block: ()->Boolean): BoolExpr           = Uniform<BoolExpr>().apply  { uniformCallback = block }
+    fun <T: FloatExpr> Uniform(block: ()->Double): FloatExpr           = Uniform<FloatExpr>().apply { uniformCallback = block }
+    fun <T: Sampler2D> Uniform(block: ()->NativeP5.Texture): Sampler2D = Uniform<Sampler2D>().apply { uniformCallback = block }
+    fun <T: NativeP5.Image> Uniform(block: ()->NativeP5.Image): Sampler2D = Uniform<Sampler2D>().apply { uniformCallback = block }
+    fun <T: NativeP5.Graphics> Uniform(block: ()->NativeP5.Graphics): Sampler2D = Uniform<Sampler2D>().apply { uniformCallback = block }
+    inline fun <reified T: VecExpr<T>>  Uniform(noinline block: ()->Array<Number>): T = Uniform<T>().apply { uniformCallback = block }
 
     inline fun <reified T: GenExpr<*>> Out(): T {
         val result = new<T>(LiteralExpr("<Unknown Out>"))
@@ -1019,6 +1047,10 @@ class KGLSL {
         instructions.add(Instruction(LiteralExpr(this)))
     }
 
+    fun comment(message: String) {
+        +"// $message"
+    }
+
     var iteratorCount = 0
     fun makeIteratorVar(): String {
         var iteratorVarName = "i$iteratorCount"
@@ -1029,12 +1061,6 @@ class KGLSL {
         }
         return iteratorVarName
     }
-
-//    fun If(cond: BoolExpr, block: ()->Unit) {
-//        +"if(${cond.render()}) {"
-//        block()
-//        +"}"
-//    }
 
     inner class If(cond: BoolExpr, block: ()->Unit) {
         init {
@@ -1058,21 +1084,65 @@ class KGLSL {
 
     }
 
-    fun For(start: FloatExpr, stop: FloatExpr, step: FloatExpr, block: (i: FloatExpr)->Unit) {
+    private fun _For(start: FloatExpr, stop: FloatExpr, step: FloatExpr, block: (FloatExpr)->Unit) {
         val iterName = makeIteratorVar()
         val iterVar = float(VariableExpr(iterName))
-        +"for(float $iterName=${start.render()}; $iterName<${stop.render()}; $iterName+=${step.render()} {"
+        +"for(float $iterName=${start.render()}; $iterName<${stop.render()}; $iterName+=${step.render()}) {"
         block(iterVar)
         +"}"
     }
 
-    fun For(start: IntExpr, stop: IntExpr, step: IntExpr, block: (i: IntExpr)->Unit) {
+    private fun _For(start: FloatExpr, stop: FloatExpr, block: (FloatExpr)->Unit) {
         val iterName = makeIteratorVar()
-        val iterVar = int(VariableExpr(iterName))
-        +"for(int $iterName=${start.render()}; $iterName<${stop.render()}; $iterName+=${step.render()} {"
+        val iterVar = float(VariableExpr(iterName))
+        +"for(float $iterName=${start.render()}; $iterName<${stop.render()}; $iterName++) {"
         block(iterVar)
         +"}"
     }
+
+    fun For(start: FloatExpr, stop: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), block)
+    fun For(start: FloatExpr, stop: Double,    block: (FloatExpr)->Unit) = _For(float(start), float(stop), block)
+    fun For(start: Double,    stop: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), block)
+    fun For(start: Double,    stop: Double,    block: (FloatExpr)->Unit) = _For(float(start), float(stop), block)
+
+    fun For(start: FloatExpr, stop: FloatExpr, step: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
+    fun For(start: FloatExpr, stop: FloatExpr, step: Double,    block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
+    fun For(start: FloatExpr, stop: Double,    step: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
+    fun For(start: FloatExpr, stop: Double,    step: Double,    block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
+    fun For(start: Double,    stop: FloatExpr, step: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
+    fun For(start: Double,    stop: FloatExpr, step: Double,    block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
+    fun For(start: Double,    stop: Double,    step: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
+    fun For(start: Double,    stop: Double,    step: Double,    block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
+
+    private fun _For(start: IntExpr, stop: IntExpr, step: IntExpr, block: (IntExpr)->Unit) {
+        val iterName = makeIteratorVar()
+        val iterVar = int(VariableExpr(iterName))
+        +"for(int $iterName=${start.render()}; $iterName<${stop.render()}; $iterName+=${step.render()}) {"
+        block(iterVar)
+        +"}"
+    }
+
+    private fun _For(start: IntExpr, stop: IntExpr, block: (IntExpr)->Unit) {
+        val iterName = makeIteratorVar()
+        val iterVar = int(VariableExpr(iterName))
+        +"for(int $iterName=${start.render()}; $iterName<${stop.render()}; $iterName++) {"
+        block(iterVar)
+        +"}"
+    }
+
+    fun For(start: IntExpr, stop: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), block)
+    fun For(start: IntExpr, stop: Int,     block: (IntExpr)->Unit) = _For(int(start), int(stop), block)
+    fun For(start: Int,     stop: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), block)
+    fun For(start: Int,     stop: Int,     block: (IntExpr)->Unit) = _For(int(start), int(stop), block)
+
+    fun For(start: IntExpr, stop: IntExpr, step: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
+    fun For(start: IntExpr, stop: IntExpr, step: Int,     block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
+    fun For(start: IntExpr, stop: Int,     step: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
+    fun For(start: IntExpr, stop: Int,     step: Int,     block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
+    fun For(start: Int,     stop: IntExpr, step: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
+    fun For(start: Int,     stop: IntExpr, step: Int,     block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
+    fun For(start: Int,     stop: Int,     step: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
+    fun For(start: Int,     stop: Int,     step: Int,     block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
 
     fun While(cond: BoolExpr, block: ()->Unit) {
         +"while(${cond.render()}){"
@@ -1092,7 +1162,7 @@ class KGLSL {
     val Continue: Unit get() = +"continue;"
 
     // List Helper Functions
-    fun List<ShaderNode>.render(): String {
+    private fun List<ShaderNode>.render(): String {
         isEmpty().ifTrue {
             return ""
         }
@@ -1100,7 +1170,7 @@ class KGLSL {
     }
 
     // Used for Rendering
-    fun List<ShaderNode>.copy(): List<ShaderNode> {
+    private fun List<ShaderNode>.copy(): List<ShaderNode> {
         return map { it.copy() }
     }
 
@@ -1111,14 +1181,14 @@ class KGLSL {
     fun <T: GenExpr<*>> newByClass(clazz: KClass<T>, vararg cs: ShaderNode): T {
         return when(clazz) {
             FloatExpr::class -> FloatExprImpl(*cs)
-            Vec2Expr::class -> Vec2ExprImpl(*cs)
-            Vec3Expr::class -> Vec3ExprImpl(*cs)
-            Vec4Expr::class -> Vec4ExprImpl(*cs)
-            BoolExpr::class -> BoolExprImpl(*cs)
+            Vec2Expr ::class -> Vec2ExprImpl(*cs)
+            Vec3Expr ::class -> Vec3ExprImpl(*cs)
+            Vec4Expr ::class -> Vec4ExprImpl(*cs)
+            BoolExpr ::class -> BoolExprImpl(*cs)
             BVec2Expr::class -> BVec2ExprImpl(*cs)
             BVec3Expr::class -> BVec3ExprImpl(*cs)
             BVec4Expr::class -> BVec4ExprImpl(*cs)
-            IntExpr::class -> IntExprImpl(*cs)
+            IntExpr  ::class -> IntExprImpl(*cs)
             IVec2Expr::class -> IVec2ExprImpl(*cs)
             IVec3Expr::class -> IVec3ExprImpl(*cs)
             IVec4Expr::class -> IVec4ExprImpl(*cs)
@@ -1328,26 +1398,26 @@ class KGLSL {
     inline fun <reified T: GenFExpr<T>> ceil(x: T): T              = functionOf("ceil", x)
     inline fun <reified T: GenIExpr<T>> fract(x: T): T             = functionOf("fract", x)
 
-    inline fun <reified T:  VecExpr<T>>  mod(x: T, y: FloatExpr): T = functionOf("mod", x, y)
+    inline fun <reified T:  VecExpr<T>> mod(x: T, y: FloatExpr): T = functionOf("mod", x, y)
     inline fun <reified T: GenFExpr<T>> mod(x: T, y: T): T         = functionOf("mod", x, y)
     inline fun <reified T: GenFExpr<T>> fmod(x: T, i: T): T        = functionOf("fmod", x, i)
 
-    inline fun <reified T:  VecExpr<T>>  min(x: T, y: FloatExpr): T = functionOf("min", x, y)
+    inline fun <reified T:  VecExpr<T>> min(x: T, y: FloatExpr): T = functionOf("min", x, y)
     inline fun <reified T: GenFExpr<T>> min(x: T, y: T): T         = functionOf("min", x, y)
     inline fun <reified T: IVecExpr<T>> min(x: T, y: IntExpr): T   = functionOf("min", x, y)
     inline fun <reified T: GenIExpr<T>> min(x: T, y: T): T         = functionOf("min", x, y)
-    inline fun <reified T:  VecExpr<T>>  max(x: T, y: FloatExpr): T = functionOf("max", x, y)
+    inline fun <reified T:  VecExpr<T>> max(x: T, y: FloatExpr): T = functionOf("max", x, y)
     inline fun <reified T: GenFExpr<T>> max(x: T, y: T): T         = functionOf("max", x, y)
     inline fun <reified T: IVecExpr<T>> max(x: T, y: IntExpr): T   = functionOf("max", x, y)
     inline fun <reified T: GenIExpr<T>> max(x: T, y: T): T         = functionOf("max", x, y)
 
     inline fun <reified T: GenFExpr<T>> clamp(x: T, minVal: T, maxVal: T): T                 = functionOf("clamp", x, minVal, maxVal)
-    inline fun <reified T:  VecExpr<T>>  clamp(x: T, minVal: FloatExpr, maxVal: FloatExpr): T = functionOf("clamp", x, minVal, maxVal)
+    inline fun <reified T:  VecExpr<T>> clamp(x: T, minVal: FloatExpr, maxVal: FloatExpr): T = functionOf("clamp", x, minVal, maxVal)
     inline fun <reified T: GenIExpr<T>> clamp(x: T, minVal: T, maxVal: T): T                 = functionOf("clamp", x, minVal, maxVal)
     inline fun <reified T: IVecExpr<T>> clamp(x: T, minVal: IntExpr, maxVal: IntExpr): T     = functionOf("clamp", x, minVal, maxVal)
 
-    inline fun <reified T: GenFExpr<T>> mix(x: T, y: T, a: T): T        = functionOf("mix", x, y, a)
-    inline fun <reified T:  VecExpr<T>> mix(x: T, y: T, a: FloatExpr): T = functionOf("mix", x, y, a)
+    inline fun <reified T: GenFExpr<T>>   mix(x: T, y: T, a: T): T        = functionOf("mix", x, y, a)
+    inline fun <reified T:  VecExpr<T>>   mix(x: T, y: T, a: FloatExpr): T = functionOf("mix", x, y, a)
     inline fun <reified T, U, V: ExprLen> mix(x: T, y: T, a: U): T where T: GenExpr<T>, U : GenBExpr<U>, T: V, U: V = functionOf("mix", x, y, a)
 
     inline fun <reified T: GenFExpr<T>> dFdx(p: T): T = functionOf("dFdx", p)
@@ -1356,8 +1426,8 @@ class KGLSL {
 
     inline fun <reified T: GenFExpr<T>> step(edge: T, x: T): T = functionOf("step", edge, x)
     inline fun <reified T:  VecExpr<T>> step(edge: FloatExpr, x: T): T = functionOf("step", edge, x)
-    inline fun <reified T: GenFExpr<T>> smoothstep(edge0: T, edge1: T, x: T): T = functionOf("step", edge0, edge1, x)
-    inline fun <reified T:  VecExpr<T>> smoothstep(edge0: FloatExpr, edge1: FloatExpr, x: T): T = functionOf("step", edge0, edge1, x)
+    inline fun <reified T: GenFExpr<T>> smoothstep(edge0: T, edge1: T, x: T): T = functionOf("smoothstep", edge0, edge1, x)
+    inline fun <reified T:  VecExpr<T>> smoothstep(edge0: FloatExpr, edge1: FloatExpr, x: T): T = functionOf("smoothstep", edge0, edge1, x)
 
     inline fun <T, reified U, V: ExprLen> isnan(x: T): U where T: GenFExpr<T>, U: GenBExpr<U>, T: V, U: V = functionOf("isnan", x)
     inline fun <T, reified U, V: ExprLen> isinf(x: T): U where T: GenFExpr<T>, U: GenBExpr<U>, T: V, U: V = functionOf("isinf", x)
@@ -1393,6 +1463,122 @@ class KGLSL {
     inline fun <T, reified U, V: ExprLen> lessThanEqual(x: T, y: T): U    where T:  VecExpr<T>, U: BVecExpr<U>, T: V, U: V = functionOf("lessThanEqual", x, y)
     inline fun <T, reified U, V: ExprLen> lessThanEqual(x: T, y: T): U    where T: IVecExpr<T>, U: BVecExpr<U>, T: V, U: V = functionOf("lessThanEqual", x, y)
 
+    // Literal Extensions
+    fun <T: IntExpr, U: Int> ivec2(x: T, y: U):             IVec2Expr = IVec2ExprImpl(int(x), int(y))
+    fun <T: IntExpr, U: Int> ivec2(x: U, y: T):             IVec2Expr = IVec2ExprImpl(int(x), int(y))
+    fun <T: IntExpr, U: Int> ivec3(x: T, y: T, z: U):       IVec3Expr = IVec3ExprImpl(int(x), int(y), int(z))
+    fun <T: IntExpr, U: Int> ivec3(x: T, y: U, z: T):       IVec3Expr = IVec3ExprImpl(int(x), int(y), int(z))
+    fun <T: IntExpr, U: Int> ivec3(x: T, y: U, z: U):       IVec3Expr = IVec3ExprImpl(int(x), int(y), int(z))
+    fun <T: IntExpr, U: Int> ivec3(x: U, y: T, z: T):       IVec3Expr = IVec3ExprImpl(int(x), int(y), int(z))
+    fun <T: IntExpr, U: Int> ivec3(x: U, y: T, z: U):       IVec3Expr = IVec3ExprImpl(int(x), int(y), int(z))
+    fun <T: IntExpr, U: Int> ivec3(x: U, y: U, z: T):       IVec3Expr = IVec3ExprImpl(int(x), int(y), int(z))
+    fun <T: IntExpr, U: Int> ivec4(x: T, y: T, z: T, w: U): IVec4Expr = IVec4ExprImpl(int(x), int(y), int(z), int(w))
+    fun <T: IntExpr, U: Int> ivec4(x: T, y: T, z: U, w: T): IVec4Expr = IVec4ExprImpl(int(x), int(y), int(z), int(w))
+    fun <T: IntExpr, U: Int> ivec4(x: T, y: T, z: U, w: U): IVec4Expr = IVec4ExprImpl(int(x), int(y), int(z), int(w))
+    fun <T: IntExpr, U: Int> ivec4(x: T, y: U, z: T, w: T): IVec4Expr = IVec4ExprImpl(int(x), int(y), int(z), int(w))
+    fun <T: IntExpr, U: Int> ivec4(x: T, y: U, z: T, w: U): IVec4Expr = IVec4ExprImpl(int(x), int(y), int(z), int(w))
+    fun <T: IntExpr, U: Int> ivec4(x: T, y: U, z: U, w: T): IVec4Expr = IVec4ExprImpl(int(x), int(y), int(z), int(w))
+    fun <T: IntExpr, U: Int> ivec4(x: T, y: U, z: U, w: U): IVec4Expr = IVec4ExprImpl(int(x), int(y), int(z), int(w))
+    fun <T: IntExpr, U: Int> ivec4(x: U, y: T, z: T, w: T): IVec4Expr = IVec4ExprImpl(int(x), int(y), int(z), int(w))
+    fun <T: IntExpr, U: Int> ivec4(x: U, y: T, z: T, w: U): IVec4Expr = IVec4ExprImpl(int(x), int(y), int(z), int(w))
+    fun <T: IntExpr, U: Int> ivec4(x: U, y: T, z: U, w: T): IVec4Expr = IVec4ExprImpl(int(x), int(y), int(z), int(w))
+    fun <T: IntExpr, U: Int> ivec4(x: U, y: T, z: U, w: U): IVec4Expr = IVec4ExprImpl(int(x), int(y), int(z), int(w))
+    fun <T: IntExpr, U: Int> ivec4(x: U, y: U, z: T, w: T): IVec4Expr = IVec4ExprImpl(int(x), int(y), int(z), int(w))
+    fun <T: IntExpr, U: Int> ivec4(x: U, y: U, z: T, w: U): IVec4Expr = IVec4ExprImpl(int(x), int(y), int(z), int(w))
+    fun <T: IntExpr, U: Int> ivec4(x: U, y: U, z: U, w: T): IVec4Expr = IVec4ExprImpl(int(x), int(y), int(z), int(w))
+
+    fun ivec2(x: Int, y: Int):                      IVec2Expr = IVec2ExprImpl(int(x), int(y))
+    fun ivec3(x: Int, y: Int, z: Int):              IVec3Expr = IVec3ExprImpl(int(x), int(y), int(z))
+    fun ivec4(x: Int, y: Int, z: Int, w: Int):      IVec4Expr = IVec4ExprImpl(int(x), int(y), int(z), int(w))
+    fun ivec4(xy: IVec2Expr,  z: Int, w: IntExpr):  IVec4Expr = IVec4ExprImpl(xy.x, xy.y, int(z), int(w))
+    fun ivec4(xy: IVec2Expr,  z: IntExpr,  w: Int): IVec4Expr = IVec4ExprImpl(xy.x, xy.y, int(z), int(w))
+    fun ivec4(xy: IVec2Expr,  z: Int, w: Int):      IVec4Expr = IVec4ExprImpl(xy.x, xy.y, int(z), int(w))
+    fun ivec4(x: IntExpr,  yz: IVec2Expr,  w: Int): IVec4Expr = IVec4ExprImpl(int(x), yz.x, yz.y, int(w))
+    fun ivec4(x: Int, yz: IVec2Expr,  w: IntExpr):  IVec4Expr = IVec4ExprImpl(int(x), yz.x, yz.y, int(w))
+    fun ivec4(x: Int, yz: IVec2Expr,  w: Int):      IVec4Expr = IVec4ExprImpl(int(x), yz.x, yz.y, int(w))
+    fun ivec4(x: IntExpr,  y: Int, zw: IVec2Expr):  IVec4Expr = IVec4ExprImpl(int(x), int(y), zw.x, zw.y)
+    fun ivec4(x: Int, y: IntExpr,  zw: IVec2Expr):  IVec4Expr = IVec4ExprImpl(int(x), int(y), zw.x, zw.y)
+    fun ivec4(x: Int, y: Int, zw: IVec2Expr):       IVec4Expr = IVec4ExprImpl(int(x), int(y), zw.x, zw.y)
+    fun ivec4(xyz: IVec3Expr, w: Int):              IVec4Expr = IVec4ExprImpl(xyz.x, xyz.y, xyz.z, int(w))
+    fun ivec4(x: Int, yzw: IVec3Expr):              IVec4Expr = IVec4ExprImpl(int(x), yzw.x, yzw.y, yzw.z)
+
+    fun <T: FloatExpr, U: Double> vec2(x: T, y: U):             Vec2Expr = Vec2ExprImpl(float(x), float(y))
+    fun <T: FloatExpr, U: Double> vec2(x: U, y: T):             Vec2Expr = Vec2ExprImpl(float(x), float(y))
+    fun <T: FloatExpr, U: Double> vec3(x: T, y: T, z: U):       Vec3Expr = Vec3ExprImpl(float(x), float(y), float(z))
+    fun <T: FloatExpr, U: Double> vec3(x: T, y: U, z: T):       Vec3Expr = Vec3ExprImpl(float(x), float(y), float(z))
+    fun <T: FloatExpr, U: Double> vec3(x: T, y: U, z: U):       Vec3Expr = Vec3ExprImpl(float(x), float(y), float(z))
+    fun <T: FloatExpr, U: Double> vec3(x: U, y: T, z: T):       Vec3Expr = Vec3ExprImpl(float(x), float(y), float(z))
+    fun <T: FloatExpr, U: Double> vec3(x: U, y: T, z: U):       Vec3Expr = Vec3ExprImpl(float(x), float(y), float(z))
+    fun <T: FloatExpr, U: Double> vec3(x: U, y: U, z: T):       Vec3Expr = Vec3ExprImpl(float(x), float(y), float(z))
+    fun <T: FloatExpr, U: Double> vec4(x: T, y: T, z: T, w: U): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+    fun <T: FloatExpr, U: Double> vec4(x: T, y: T, z: U, w: T): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+    fun <T: FloatExpr, U: Double> vec4(x: T, y: T, z: U, w: U): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+    fun <T: FloatExpr, U: Double> vec4(x: T, y: U, z: T, w: T): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+    fun <T: FloatExpr, U: Double> vec4(x: T, y: U, z: T, w: U): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+    fun <T: FloatExpr, U: Double> vec4(x: T, y: U, z: U, w: T): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+    fun <T: FloatExpr, U: Double> vec4(x: T, y: U, z: U, w: U): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+    fun <T: FloatExpr, U: Double> vec4(x: U, y: T, z: T, w: T): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+    fun <T: FloatExpr, U: Double> vec4(x: U, y: T, z: T, w: U): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+    fun <T: FloatExpr, U: Double> vec4(x: U, y: T, z: U, w: T): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+    fun <T: FloatExpr, U: Double> vec4(x: U, y: T, z: U, w: U): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+    fun <T: FloatExpr, U: Double> vec4(x: U, y: U, z: T, w: T): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+    fun <T: FloatExpr, U: Double> vec4(x: U, y: U, z: T, w: U): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+    fun <T: FloatExpr, U: Double> vec4(x: U, y: U, z: U, w: T): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+
+    fun vec2(x: Double, y: Double):                       Vec2Expr = Vec2ExprImpl(float(x), float(y))
+    fun vec3(x: Double, y: Double, z: Double):            Vec3Expr = Vec3ExprImpl(float(x), float(y), float(z))
+    fun vec4(x: Double, y: Double, z: Double, w: Double): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+    fun vec4(xy: Vec2Expr,  z: Double, w: FloatExpr):     Vec4Expr = Vec4ExprImpl(xy.x, xy.y, float(z), float(w))
+    fun vec4(xy: Vec2Expr,  z: FloatExpr,  w: Double):    Vec4Expr = Vec4ExprImpl(xy.x, xy.y, float(z), float(w))
+    fun vec4(xy: Vec2Expr,  z: Double, w: Double):        Vec4Expr = Vec4ExprImpl(xy.x, xy.y, float(z), float(w))
+    fun vec4(x: FloatExpr,  yz: Vec2Expr,  w: Double):    Vec4Expr = Vec4ExprImpl(float(x), yz.x, yz.y, float(w))
+    fun vec4(x: Double, yz: Vec2Expr,  w: FloatExpr):     Vec4Expr = Vec4ExprImpl(float(x), yz.x, yz.y, float(w))
+    fun vec4(x: Double, yz: Vec2Expr,  w: Double):        Vec4Expr = Vec4ExprImpl(float(x), yz.x, yz.y, float(w))
+    fun vec4(x: FloatExpr,  y: Double, zw: Vec2Expr):     Vec4Expr = Vec4ExprImpl(float(x), float(y), zw.x, zw.y)
+    fun vec4(x: Double, y: FloatExpr,  zw: Vec2Expr):     Vec4Expr = Vec4ExprImpl(float(x), float(y), zw.x, zw.y)
+    fun vec4(x: Double, y: Double, zw: Vec2Expr):         Vec4Expr = Vec4ExprImpl(float(x), float(y), zw.x, zw.y)
+    fun vec4(xyz: Vec3Expr, w: Double):                   Vec4Expr = Vec4ExprImpl(xyz, float(w))
+    fun vec4(x: Double, yzw: Vec3Expr):                   Vec4Expr = Vec4ExprImpl(float(x), yzw)
+
+    fun <T: FloatExpr, U: Int> vec2(x: T, y: U):             Vec2Expr = Vec2ExprImpl(float(x), float(y))
+    fun <T: FloatExpr, U: Int> vec2(x: U, y: T):             Vec2Expr = Vec2ExprImpl(float(x), float(y))
+    fun <T: FloatExpr, U: Int> vec3(x: T, y: T, z: U):       Vec3Expr = Vec3ExprImpl(float(x), float(y), float(z))
+    fun <T: FloatExpr, U: Int> vec3(x: T, y: U, z: T):       Vec3Expr = Vec3ExprImpl(float(x), float(y), float(z))
+    fun <T: FloatExpr, U: Int> vec3(x: T, y: U, z: U):       Vec3Expr = Vec3ExprImpl(float(x), float(y), float(z))
+    fun <T: FloatExpr, U: Int> vec3(x: U, y: T, z: T):       Vec3Expr = Vec3ExprImpl(float(x), float(y), float(z))
+    fun <T: FloatExpr, U: Int> vec3(x: U, y: T, z: U):       Vec3Expr = Vec3ExprImpl(float(x), float(y), float(z))
+    fun <T: FloatExpr, U: Int> vec3(x: U, y: U, z: T):       Vec3Expr = Vec3ExprImpl(float(x), float(y), float(z))
+    fun <T: FloatExpr, U: Int> vec4(x: T, y: T, z: T, w: U): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+    fun <T: FloatExpr, U: Int> vec4(x: T, y: T, z: U, w: T): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+    fun <T: FloatExpr, U: Int> vec4(x: T, y: T, z: U, w: U): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+    fun <T: FloatExpr, U: Int> vec4(x: T, y: U, z: T, w: T): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+    fun <T: FloatExpr, U: Int> vec4(x: T, y: U, z: T, w: U): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+    fun <T: FloatExpr, U: Int> vec4(x: T, y: U, z: U, w: T): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+    fun <T: FloatExpr, U: Int> vec4(x: T, y: U, z: U, w: U): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+    fun <T: FloatExpr, U: Int> vec4(x: U, y: T, z: T, w: T): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+    fun <T: FloatExpr, U: Int> vec4(x: U, y: T, z: T, w: U): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+    fun <T: FloatExpr, U: Int> vec4(x: U, y: T, z: U, w: T): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+    fun <T: FloatExpr, U: Int> vec4(x: U, y: T, z: U, w: U): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+    fun <T: FloatExpr, U: Int> vec4(x: U, y: U, z: T, w: T): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+    fun <T: FloatExpr, U: Int> vec4(x: U, y: U, z: T, w: U): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+    fun <T: FloatExpr, U: Int> vec4(x: U, y: U, z: U, w: T): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+
+    fun vec2(x: Int, y: Int):                 Vec2Expr = Vec2ExprImpl(float(x), float(y))
+    fun vec3(x: Int, y: Int, z: Int):         Vec3Expr = Vec3ExprImpl(float(x), float(y), float(z))
+    fun vec4(x: Int, y: Int, z: Int, w: Int): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
+
+    fun vec4(xy: Vec2Expr,  z: Int, w: FloatExpr):  Vec4Expr = Vec4ExprImpl(xy.x, xy.y, float(z), float(w))
+    fun vec4(xy: Vec2Expr,  z: FloatExpr,  w: Int): Vec4Expr = Vec4ExprImpl(xy.x, xy.y, float(z), float(w))
+    fun vec4(xy: Vec2Expr,  z: Int, w: Int):        Vec4Expr = Vec4ExprImpl(xy.x, xy.y, float(z), float(w))
+    fun vec4(x: FloatExpr,  yz: Vec2Expr,  w: Int): Vec4Expr = Vec4ExprImpl(float(x), yz.x, yz.y, float(w))
+    fun vec4(x: Int, yz: Vec2Expr,  w: FloatExpr):  Vec4Expr = Vec4ExprImpl(float(x), yz.x, yz.y, float(w))
+    fun vec4(x: Int, yz: Vec2Expr,  w: Int):        Vec4Expr = Vec4ExprImpl(float(x), yz.x, yz.y, float(w))
+    fun vec4(x: FloatExpr,  y: Int, zw: Vec2Expr):  Vec4Expr = Vec4ExprImpl(float(x), float(y), zw.x, zw.y)
+    fun vec4(x: Int, y: FloatExpr,  zw: Vec2Expr):  Vec4Expr = Vec4ExprImpl(float(x), float(y), zw.x, zw.y)
+    fun vec4(x: Int, y: Int, zw: Vec2Expr):         Vec4Expr = Vec4ExprImpl(float(x), float(y), zw.x, zw.y)
+    fun vec4(xyz: Vec3Expr, w: Int):                Vec4Expr = Vec4ExprImpl(xyz.x, xyz.y, xyz.z, float(w))
+    fun vec4(x: Int, yzw: Vec3Expr):                Vec4Expr = Vec4ExprImpl(float(x), yzw.x, yzw.y, yzw.z)
+
     // Built-In Values
     val gl_FragCoord: Vec4Expr = Vec4ExprImpl(VariableExpr("gl_FragCoord"))
 }
@@ -1409,7 +1595,6 @@ typealias int   = KGLSL.IntExpr
 typealias ivec2 = KGLSL.IVec2Expr
 typealias ivec3 = KGLSL.IVec3Expr
 typealias ivec4 = KGLSL.IVec4Expr
-
 
 // Common Functions
 /*
