@@ -1,4 +1,4 @@
-package scripts
+package projects
 
 import p5.Sketch
 import spectro.wavToTri

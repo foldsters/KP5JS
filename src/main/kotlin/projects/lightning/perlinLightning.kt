@@ -1,4 +1,4 @@
-package scripts.lightning
+package projects.lightning
 
 import p5.NativeP5
 import p5.Sketch

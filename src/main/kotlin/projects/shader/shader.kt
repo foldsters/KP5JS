@@ -1,4 +1,4 @@
-package scripts.shader
+package projects.shader
 
 import p5.P5
 import p5.Sketch

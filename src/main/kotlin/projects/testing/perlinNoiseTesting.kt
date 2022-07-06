@@ -1,4 +1,4 @@
-package scripts.testing
+package projects.testing
 
 import p5.NativeP5
 import p5.Sketch

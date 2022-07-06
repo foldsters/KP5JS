@@ -1,4 +1,4 @@
-package scripts.examples
+package projects.examples
 
 import p5.P5
 import p5.Sketch

@@ -1,4 +1,4 @@
-package scripts.dancer
+package projects.dancer
 
 import p5.NativeP5
 import p5.P5

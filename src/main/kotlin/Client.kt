@@ -1,5 +1,6 @@
 
-import scripts.shader.uniformBridgeExample
+import projects.hopper.hopper
+import projects.shader.uniformBridgeExample
 
-fun main() = uniformBridgeExample()
+fun main() = hopper()
 

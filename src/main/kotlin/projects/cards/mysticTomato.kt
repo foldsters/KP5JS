@@ -1,4 +1,4 @@
-package scripts.cards
+package projects.cards
 
 import p5.P5
 import p5.Sketch

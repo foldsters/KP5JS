@@ -1,4 +1,4 @@
-package scripts
+package projects
 
 import p5.NativeP5
 import p5.P5

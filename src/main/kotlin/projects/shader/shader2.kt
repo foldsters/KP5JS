@@ -1,4 +1,4 @@
-package scripts.shader
+package projects.shader
 
 import p5.P5
 import p5.Sketch
@@ -20,12 +20,12 @@ fun uniformBridgeExample() = Sketch {
 
                 fun center(coord: vec2, res: vec2) = (2.0*coord - res)/max(res.x, res.y)
 
-                val iResolution by Uniform<vec2> { arrayOf(width, height) }
-                val circleCenter by Uniform<vec2> { arrayOf(slider, 0) }
+                val iResolution  by Uniform<vec2> { arrayOf(width, height) }
+                val circleCenter by Uniform { slider.toDouble() }
 
                 Main {
                     val uv by center(gl_FragCoord.xy, iResolution)
-                    val dist by distance(circleCenter, uv)
+                    val dist by distance(vec2(circleCenter, 0.0), uv)
                     val color by smoothstep(float(0.09), float(0.11), dist)
                     vec4(color, color, color, 1.0)
                 }

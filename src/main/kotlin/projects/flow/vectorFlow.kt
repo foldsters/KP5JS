@@ -1,4 +1,4 @@
-package scripts.flow
+package projects.flow
 
 import p5.Sketch
 

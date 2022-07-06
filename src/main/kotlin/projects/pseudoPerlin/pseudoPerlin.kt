@@ -1,4 +1,4 @@
-package scripts.pseudoPerlin
+package projects.pseudoPerlin
 
 import p5.Sketch
 

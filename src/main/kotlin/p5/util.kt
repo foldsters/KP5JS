@@ -73,6 +73,24 @@ inline fun <T: Any> T?.ifNotNull(block: (T)->Unit) {
     }
 }
 
-fun StringBuilder.appendAll(iterable: Iterable<String>, sep: String="") {
+fun StringBuilder.appendAll(iterable: Iterable<Any?>, sep: String="") {
     iterable.forEach { append(it, sep) }
+}
+
+fun StringBuilder.appendAll(array: Array<out Any?>, sep: String="") {
+    array.forEach { append(it, sep) }
+}
+
+fun <T: Comparable<T>> List<T>.indexOfMax(): Int { return indexOf(maxOf { it })}
+
+inline fun <T> Iterable<T>.withEach(action: T.()->Unit) {
+    return this.forEach { action(it) }
+}
+
+fun println(message: Any?, message2: Any?, vararg messages: Any?, sep: String = " ") {
+    val result = buildString {
+        append(message, sep, message2, sep)
+        appendAll(messages, sep)
+    }
+    println(result)
 }

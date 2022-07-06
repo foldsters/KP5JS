@@ -13,8 +13,8 @@ package p5.kglsl
 import p5.NativeP5
 import p5.P5
 import p5.util.appendAll
-import p5.util.ifNotNull
 import p5.util.ifTrue
+import kotlin.experimental.ExperimentalTypeInference
 import kotlin.math.max
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty
@@ -72,7 +72,7 @@ precision highp float;
 }
 
 
-
+@OptIn(ExperimentalTypeInference::class)
 class KGLSL {
 
     // Instructions to be Rendered at the End
@@ -247,17 +247,15 @@ class KGLSL {
         var modifiers = listOf<String>()
         var id = genSnapshotId()
         var needsAssignmet = false
-        var uniformCallback: (()->Any)? = null
+        var uniformCallback: Callback<*>? = null
 
         abstract fun new(vararg cs: ShaderNode): GenExpr<T>
 
         operator fun getValue(thisRef: Any?, property: KProperty<*>): T {
             val varName = property.name
             name = varName
-            uniformCallback.ifNotNull {
-                uniformCallbackRoster[varName] = it
-                uniformCallback = null
-            }
+            uniformCallback?.register(varName)
+            uniformCallback = null
             if(seenVariableNames.add(name!!)) {
                 instructions.add(Instruction(AssignmentStatement(varName, this.copy() as T, true, assign, modifiers)))
             }
@@ -268,10 +266,8 @@ class KGLSL {
         operator fun setValue(thisRef: Any?, property: KProperty<*>, value: T) {
             val varName = property.name
             name = varName
-            uniformCallback.ifNotNull {
-                uniformCallbackRoster[varName] = it
-                uniformCallback = null
-            }
+            uniformCallback?.register(varName)
+            uniformCallback = null
             if(seenVariableNames.add(name!!)) {
                 instructions.add(Instruction(AssignmentStatement(varName, this.copy() as GenExpr<*>, true, assign, modifiers)))
             }
@@ -1016,12 +1012,19 @@ class KGLSL {
         return result
     }
 
-    fun <T: BoolExpr>  Uniform(block: ()->Boolean): BoolExpr           = Uniform<BoolExpr>().apply  { uniformCallback = block }
-    fun <T: FloatExpr> Uniform(block: ()->Double): FloatExpr           = Uniform<FloatExpr>().apply { uniformCallback = block }
-    fun <T: Sampler2D> Uniform(block: ()->NativeP5.Texture): Sampler2D = Uniform<Sampler2D>().apply { uniformCallback = block }
-    fun <T: NativeP5.Image> Uniform(block: ()->NativeP5.Image): Sampler2D = Uniform<Sampler2D>().apply { uniformCallback = block }
-    fun <T: NativeP5.Graphics> Uniform(block: ()->NativeP5.Graphics): Sampler2D = Uniform<Sampler2D>().apply { uniformCallback = block }
-    inline fun <reified T: VecExpr<T>>  Uniform(noinline block: ()->Array<Number>): T = Uniform<T>().apply { uniformCallback = block }
+    inner class Callback<T: Any>(val callback: ()->T) {
+        fun register(name: String) {
+            uniformCallbackRoster[name] = callback
+        }
+    }
+
+    @OverloadResolutionByLambdaReturnType
+    fun Uniform(block: ()->Boolean): BoolExpr            = Uniform<BoolExpr>().apply  { uniformCallback = Callback(block) }
+    fun Uniform(block: ()->Double): FloatExpr            = Uniform<FloatExpr>().apply { uniformCallback = Callback(block) }
+    fun Uniform(block: ()->NativeP5.Texture): Sampler2D  = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
+    fun Uniform(block: ()->NativeP5.Image): Sampler2D    = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
+    fun Uniform(block: ()->NativeP5.Graphics): Sampler2D = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
+    inline fun <reified T: VecExpr<T>>  Uniform(noinline block: ()->Array<Number>): T = Uniform<T>().apply { uniformCallback = Callback(block) }
 
     inline fun <reified T: GenExpr<*>> Out(): T {
         val result = new<T>(LiteralExpr("<Unknown Out>"))
@@ -1595,6 +1598,8 @@ typealias int   = KGLSL.IntExpr
 typealias ivec2 = KGLSL.IVec2Expr
 typealias ivec3 = KGLSL.IVec3Expr
 typealias ivec4 = KGLSL.IVec4Expr
+
+typealias Callback<T> = T.()->T
 
 // Common Functions
 /*

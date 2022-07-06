@@ -248,8 +248,10 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
     fun createCanvas(w: Number, h: Number, renderMode: RenderMode): Renderer {
         if (renderMode == RenderMode.WEBGL2) { enableWebgl2() }
         val canvas = _createCanvas(w, h, renderMode.nativeValue)
-        drawingContext.getExtension("OES_standard_derivatives")
-        canvas.asDynamic().GL.getExtension("OES_standard_derivatives")
+        if (renderMode == RenderMode.WEBGL2) { enableWebgl2()
+            drawingContext.getExtension("OES_standard_derivatives")
+            canvas.asDynamic().GL.getExtension("OES_standard_derivatives")
+        }
         return canvas
     }
     fun createGraphics(w: Number, h: Number, renderMode: RenderMode): Graphics {
@@ -737,17 +739,17 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
         }
     }
 
-    operator fun Vector.plusAssign(other: Vector) = add(other)
-    operator fun Vector.plusAssign(other: Number) {
-        when(scalarMode) {
-            ScalarMode.X -> add(createVector(other, 0, 0))
-            ScalarMode.XY -> add(createVector(other, other, 0))
-            ScalarMode.XYZ -> add(createVector(other, other, other))
-        }
-    }
+//    operator fun Vector.plusAssign(other: Vector) = add(other)
+//    operator fun Vector.plusAssign(other: Number) {
+//        when(scalarMode) {
+//            ScalarMode.X -> add(createVector(other, 0, 0))
+//            ScalarMode.XY -> add(createVector(other, other, 0))
+//            ScalarMode.XYZ -> add(createVector(other, other, other))
+//        }
+//    }
 
     operator fun Vector.rem(other: Vector) = Vector.rem(this, other)
-    operator fun Vector.remAssign(other: Vector) = rem(other)
+//    operator fun Vector.remAssign(other: Vector) = rem(other)
 
     operator fun Vector.minus(other: Vector) = Vector.sub(this, other)
     operator fun Vector.minus(other: Number): Vector {
@@ -757,24 +759,24 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
             ScalarMode.XYZ -> Vector.sub(this, createVector(other, other, other))
         }
     }
-    operator fun Vector.minusAssign(other: Vector) = sub(other)
-    operator fun Vector.minusAssign(other: Number) {
-        when(scalarMode) {
-            ScalarMode.X -> sub(createVector(other, 0, 0))
-            ScalarMode.XY -> sub(createVector(other, other, 0))
-            ScalarMode.XYZ -> sub(createVector(other, other, other))
-        }
-    }
+//    operator fun Vector.minusAssign(other: Vector) = sub(other)
+//    operator fun Vector.minusAssign(other: Number) {
+//        when(scalarMode) {
+//            ScalarMode.X -> sub(createVector(other, 0, 0))
+//            ScalarMode.XY -> sub(createVector(other, other, 0))
+//            ScalarMode.XYZ -> sub(createVector(other, other, other))
+//        }
+//    }
 
     operator fun Vector.times(other: Number) = Vector.mult(this, other)
     operator fun Vector.times(other: Vector) = Vector.mult(this, other)
-    operator fun Vector.timesAssign(other: Number) = mult(other)
-    operator fun Vector.timesAssign(other: Vector) = mult(other)
+//    operator fun Vector.timesAssign(other: Number) = mult(other)
+//    operator fun Vector.timesAssign(other: Vector) = mult(other)
 
     operator fun Vector.div(other: Number) = Vector.div(this, other)
     operator fun Vector.div(other: Vector) = Vector.div(this, other)
-    operator fun Vector.divAssign(other: Number) = div(other)
-    operator fun Vector.divAssign(other: Vector) = div(other)
+//    operator fun Vector.divAssign(other: Number) = div(other)
+//    operator fun Vector.divAssign(other: Vector) = div(other)
 
     infix fun Vector.dot(other: Vector) = dot(other)
     infix fun Vector.cross(other: Vector) = cross(other)
@@ -1056,57 +1058,74 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
         this.value(value)
     }
 
+    fun <T: Pair<Number, Number>> interpolate(vl: T?=null, v0: T, v1: T, vr: T?=null, x: Number): Number {
 
-    fun interpolate(vl: Vector?=null, v0: Vector, v1: Vector, vr: Vector?=null, x: Number): Number {
+        val scale = 1/(v1.first - v0.first)
 
-        val scale = 1/(v1.x - v0.x)
+        val slope0 = if(vl != null) (v1.second - vl.second)/(1-scale*(vl.first - v0.first)) else 0
+        val slope1 = if(vr != null) (vr.second - v0.second)/(scale*(vr.first - v0.first)) else 0
 
-        val slope0 = if(vl != null) (v1.y - vl.y)/(1-scale*(vl.x - v0.x)) else 0
-        val slope1 = if(vr != null) (vr.y - v0.y)/(scale*(vr.x - v0.x)) else 0
+        val xi = scale*(x - v0.first)
 
-        val xi = scale*(x - v0.x)
+        val a = 2*v0.second - 2*v1.second + slope0 + slope1
+        val b = -3*v0.second + 3*v1.second - 2*slope0 - slope1
 
-        val a = 2*v0.y - 2*v1.y + slope0 + slope1
-        val b = -3*v0.y + 3*v1.y - 2*slope0 - slope1
-
-        return ((a*xi + b)*xi + slope0)*xi + v0.y
-
+        return ((a*xi + b)*xi + slope0)*xi + v0.second
     }
 
-    fun List<Vector>.interpolate(x: Number): Number {
+    fun <T: Pair<Number, Vector>> interpolate(vl: T?=null, v0: T, v1: T, vr: T?=null, x: Number): Vector {
+
+        val scale = 1/(v1.first - v0.first)
+
+        val slope0 = if(vl != null) (v1.second - vl.second)/(1-scale*(vl.first - v0.first)) else createVector(0, 0, 0)
+        val slope1 = if(vr != null) (vr.second - v0.second)/(scale*(vr.first - v0.first)) else createVector(0, 0, 0)
+
+        val xi = scale*(x - v0.first)
+
+        val a = v0.second*2 - v1.second*2 + slope0 + slope1
+        val b = v0.second*-3 + v1.second*3 - slope0*2 - slope1
+
+        return ((a*xi + b)*xi + slope0)*xi + v0.second
+    }
+
+    fun List<Pair<Number, Number>>.interpolate(x: Number): Number {
 
         if (isEmpty()) return 0
-        if (size == 1) return this[0].y
-        if (x <= this[0].x) return this[0].y
-        if (x >= last().x) return last().y
+        if (size == 1) return this[0].second
+        if (x <= this[0].first) return this[0].second
+        if (x >= last().first) return last().second
         if (size == 2) return interpolate(v0=this[0], v1=this[1], x=x)
-        if (x <= this[1].x) return interpolate(v0=this[0], v1=this[1], vr=this[2], x=x)
-        if (x >= this[lastIndex-1].x) return interpolate(vl=this[lastIndex-2], v0=this[lastIndex-1], v1=this[lastIndex], x=x)
+        if (x <= this[1].first) return interpolate(v0=this[0], v1=this[1], vr=this[2], x=x)
+        if (x >= this[lastIndex-1].first) return interpolate(vl=this[lastIndex-2], v0=this[lastIndex-1], v1=this[lastIndex], x=x)
 
         for(it in windowed(4)) {
-            if (it[1].x <= x && x <= it[2].x) return interpolate(vl=it[0], v0=it[1], v1=it[2], vr=it[3], x=x)
+            if (it[1].first <= x && x <= it[2].first) return interpolate(vl=it[0], v0=it[1], v1=it[2], vr=it[3], x=x)
         }
 
         return 0.0
     }
 
-    fun Map<Number, Vector>.interpolate(k: Number): Vector {
+    fun List<Pair<Number, Vector>>.interpolate(x: Number): Vector {
 
-        val interpX = map {
-            createVector(it.key, it.value.x)
-        }.sortedBy { it.x.toDouble() }.interpolate(k)
+        if (isEmpty()) return createVector(0, 0, 0)
+        if (size == 1) return this[0].second
+        if (x <= this[0].first) return this[0].second
+        if (x >= last().first) return last().second
+        if (size == 2) return interpolate(v0=this[0], v1=this[1], x=x)
+        if (x <= this[1].first) return interpolate(v0=this[0], v1=this[1], vr=this[2], x=x)
+        if (x >= this[lastIndex-1].first) return interpolate(vl=this[lastIndex-2], v0=this[lastIndex-1], v1=this[lastIndex], x=x)
 
-        val interpY = map {
-            createVector(it.key, it.value.y)
-        }.sortedBy { it.x.toDouble() }.interpolate(k)
+        for(it in windowed(4)) {
+            if (it[1].first <= x && x <= it[2].first) return interpolate(vl=it[0], v0=it[1], v1=it[2], vr=it[3], x=x)
+        }
 
-        val interpZ = map {
-            createVector(it.key, it.value.z)
-        }.sortedBy { it.x.toDouble() }.interpolate(k)
-
-        return createVector(interpX, interpY, interpZ)
-
+        return createVector(0, 0, 0)
     }
+
+    fun Map<Number, Number>.interpolate(k: Number) = toList().interpolate(k)
+    fun Map<Number, Vector>.interpolate(k: Number) = toList().interpolate(k)
+    fun List<Number>.interpolate(k: Number) = mapIndexed { i, n -> i to n }.interpolate(k)
+    fun List<Vector>.interpolate(k: Number) = mapIndexed { i, n -> i to n }.interpolate(k)
 
     enum class TableMode(val nativeValue: String) {
         TSV("tsv"),
@@ -1176,5 +1195,8 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
             updateUniforms( uniformCallbackRoster.mapValues { (_, value) -> value()} )
         }
     }
+
+    fun randInt(max: Number): Int = random(max).toInt()
+    fun randInt(min: Number, max: Number): Int = random(min, max).toInt()
 }
 

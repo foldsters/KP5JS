@@ -1,4 +1,4 @@
-package scripts.huegene
+package projects.huegene
 
 import p5.NativeP5
 import p5.Sketch

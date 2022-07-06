@@ -47,16 +47,37 @@ class SketchScope(val p5: P5) {
         p5.draw = wrap { if (cond()) block() else noLoop() }
     }
 
-    fun <T> DrawFor(iter: Iterable<T>, block: P5.(T) -> Unit) {
+    fun <T> DrawFor(iter: Iterable<T>, stepsPerFrame: Int = 1, block: P5.(T) -> Unit) {
         val itor = iter.iterator()
         p5.draw = wrap {
-            if (itor.hasNext()) block(itor.next()) else noLoop()
+            repeat(stepsPerFrame) {
+                if (itor.hasNext()) block(itor.next()) else noLoop()
+            }
+        }
+    }
+
+    fun <T> DrawForWithPixels(iter: Iterable<T>, stepsPerFrame: Int = 1, block: P5.PixelScope.(T) -> Unit) {
+        val itor = iter.iterator()
+        p5.draw = wrap {
+            withPixels {
+                repeat(stepsPerFrame) {
+                    if (itor.hasNext()) block(itor.next()) else noLoop()
+                }
+            }
         }
     }
 
     fun <T> DrawFor(itor: Iterator<T>, block: P5.(T) -> Unit) {
         p5.draw = wrap {
             if (itor.hasNext()) block(itor.next()) else noLoop()
+        }
+    }
+
+    fun <T> DrawFor(itor: Iterator<T>, stepsPerFrame: Int, block: P5.(T) -> Unit) {
+        p5.draw = wrap {
+            repeat(stepsPerFrame) {
+                if (itor.hasNext()) block(itor.next()) else noLoop()
+            }
         }
     }
 
