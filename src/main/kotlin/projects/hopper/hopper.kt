@@ -87,6 +87,7 @@ fun hopper() = Sketch {
 
             override fun compareTo(other: Point): Int = compareValuesBy(other, this, {it.z}, {-it.y}, {-it.x})
         }
+
         class HopperPoint(location: Vector): Point(location)
         class CloudPoint(location: Vector): Point(location)
 
@@ -101,15 +102,11 @@ fun hopper() = Sketch {
             }
         }
 
-
-
         DrawForWithPixels(hopperPoints.sorted(), 1000) {
             with(it) {
-                val l = z%2
-                val r = (x*x + y*y)*0.5
-                val d = 7 + r/500.0
-                val m = max(0.2, (z/d)-0.5)
-                val colorVector = colors.interpolate(m)*l
+                val s = (location.xy.magSq()/1000.0).toDouble()
+                val m = max(0.7, z/(7 + s)) - 0.5
+                val colorVector = colors.interpolate(m)*(z%2)
                 colorArray[location.xy + createVector(100, 100)] = colorVector.toColor()
             }
         }
