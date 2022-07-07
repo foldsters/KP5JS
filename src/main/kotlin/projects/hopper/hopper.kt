@@ -25,7 +25,7 @@ fun hopper() = Sketch {
             }
 
             val hopper = spiral().reversed() + spiral()
-            return hopper.map {h -> if (h%2 == 1) h else h+1}
+            return hopper.map {h -> h + (h+1)%2 }
         }
 
         fun genHopperLayers(hopperTop: List<Int>) = buildList {
@@ -53,6 +53,7 @@ fun hopper() = Sketch {
             var start = createVector(0, 0, 2*randInt(0, seedHeight/2))
             start += direction(majorSide  )*randInt(seedHeight*2, seedHeight*4)
             start += direction(majorSide-1)*randInt(-seedHeight*2, seedHeight*2)
+            start = start.map { it + it%2 }
             var pos: Vector
             val hopperPoints = mutableListOf<Vector>()
 
@@ -104,8 +105,8 @@ fun hopper() = Sketch {
 
         DrawForWithPixels(hopperPoints.sorted(), 1000) {
             with(it) {
-                val s = (location.xy.magSq()/1000.0).toDouble()
-                val m = max(0.7, z/(7 + s)) - 0.5
+                val s = location.xy.magSq()/1000.0
+                val m = max(0.7, z/(7 + s)) - 0.4
                 val colorVector = colors.interpolate(m)*(z%2)
                 colorArray[location.xy + createVector(100, 100)] = colorVector.toColor()
             }

@@ -857,29 +857,29 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
     }
 
 
-    operator fun Number.plus(other: Number): Number {
+    operator fun Number.plus(other: Number): Double {
         @Suppress("UNUSED_VARIABLE") val t = this
-        return js("t+other") as Number
+        return js("t+other") as Double
     }
 
-    operator fun Number.minus(other: Number): Number {
+    operator fun Number.minus(other: Number): Double {
         @Suppress("UNUSED_VARIABLE") val t = this
-        return js("t-other") as Number
+        return js("t-other") as Double
     }
 
-    operator fun Number.times(other: Number): Number {
+    operator fun Number.times(other: Number): Double {
         @Suppress("UNUSED_VARIABLE") val t = this
-        return js("t*other") as Number
+        return js("t*other") as Double
     }
 
-    operator fun Number.div(other: Number): Number {
+    operator fun Number.div(other: Number): Double {
         @Suppress("UNUSED_VARIABLE") val t = this
-        return js("t/other") as Number
+        return js("t/other") as Double
     }
 
-    operator fun Number.rem(other: Number): Number {
+    operator fun Number.rem(other: Number): Double {
         @Suppress("UNUSED_VARIABLE") val t = this
-        return js("t%other") as Number
+        return js("t%other") as Double
     }
 
     operator fun Number.compareTo(other: Number): Int {
@@ -891,9 +891,9 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
         } else 0
     }
 
-    fun Number.pow(other: Number): Number {
+    fun Number.pow(other: Number): Double {
         @Suppress("UNUSED_VARIABLE") val t = this
-        return js("Math.pow(t, other)") as Number
+        return js("Math.pow(t, other)") as Double
     }
 
     enum class DitherMode(val serpentine: Boolean = false) {
@@ -938,16 +938,16 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
         fun start(renderCallback: ()->Unit = {}) {
             nativeLoop.start(renderCallback)
         }
-        val progress: Number get() { return nativeLoop.progress as Number }
-        val theta: Number get() { return nativeLoop.theta as Number }
-        fun noise(): Number {
-            return nativeLoop.noise() as Number
+        val progress: Number get() { return nativeLoop.progress as Double }
+        val theta: Number get() { return nativeLoop.theta as Double }
+        fun noise(): Double {
+            return nativeLoop.noise() as Double
         }
-        fun noise1D(x: Number): Number {
-            return nativeLoop.noise1D(x) as Number
+        fun noise1D(x: Number): Double {
+            return nativeLoop.noise1D(x) as Double
         }
-        fun noise2D(x: Number, y: Number): Number {
-            return nativeLoop.noise1D(x, y) as Number
+        fun noise2D(x: Number, y: Number): Double {
+            return nativeLoop.noise1D(x, y) as Double
         }
     }
 
@@ -1017,24 +1017,24 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
     private var simplexNoise3D = OpenSimplexNoise.makeNoise3D(_simplexSeed)
     private var simplexNoise4D = OpenSimplexNoise.makeNoise4D(_simplexSeed)
 
-    fun simplexSeed(): Number = _simplexSeed
+    fun simplexSeed(): Double = _simplexSeed
     fun simplexSeed(seed: Number) {
-        _simplexSeed = seed
+        _simplexSeed = seed as Double
         simplexNoise2D = OpenSimplexNoise.makeNoise2D(_simplexSeed)
         simplexNoise3D = OpenSimplexNoise.makeNoise3D(_simplexSeed)
         simplexNoise4D = OpenSimplexNoise.makeNoise4D(_simplexSeed)
     }
 
-    fun simplexNoise(x: Number): Number { return simplexNoise2D(x, 0) }
-    fun simplexNoise(x: Number, y: Number): Number { return simplexNoise2D(x, y) }
-    fun simplexNoise(x: Number, y: Number, z: Number): Number { return simplexNoise3D(x, y, z) }
-    fun simplexNoise(x: Number, y: Number, u: Number, v: Number): Number { return simplexNoise4D(x, y, u, v) }
+    fun simplexNoise(x: Number): Double { return simplexNoise2D(x, 0) as Double }
+    fun simplexNoise(x: Number, y: Number): Double { return simplexNoise2D(x, y) as Double  }
+    fun simplexNoise(x: Number, y: Number, z: Number): Double { return simplexNoise3D(x, y, z) as Double }
+    fun simplexNoise(x: Number, y: Number, u: Number, v: Number): Double { return simplexNoise4D(x, y, u, v) as Double }
 
     fun Button.fontSize(sizePx: Number) {
         style("font-size", "${sizePx}px")
     }
 
-    operator fun Slider.getValue(thisRef: Any?, property: KProperty<*>): Number {
+    operator fun Slider.getValue(thisRef: Any?, property: KProperty<*>): Double {
         return value()
     }
 
@@ -1058,7 +1058,7 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
         this.value(value)
     }
 
-    fun <T: Pair<Number, Number>> interpolate(vl: T?=null, v0: T, v1: T, vr: T?=null, x: Number): Number {
+    fun <T: Pair<Number, Number>> interpolate(vl: T?=null, v0: T, v1: T, vr: T?=null, x: Number): Double {
 
         val scale = 1/(v1.first - v0.first)
 
@@ -1088,12 +1088,12 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
         return ((a*xi + b)*xi + slope0)*xi + v0.second
     }
 
-    fun List<Pair<Number, Number>>.interpolate(x: Number): Number {
+    fun List<Pair<Number, Number>>.interpolate(x: Number): Double {
 
-        if (isEmpty()) return 0
-        if (size == 1) return this[0].second
-        if (x <= this[0].first) return this[0].second
-        if (x >= last().first) return last().second
+        if (isEmpty()) return 0.0
+        if (size == 1) return this[0].second.toDouble()
+        if (x <= this[0].first) return this[0].second.toDouble()
+        if (x >= last().first) return last().second.toDouble()
         if (size == 2) return interpolate(v0=this[0], v1=this[1], x=x)
         if (x <= this[1].first) return interpolate(v0=this[0], v1=this[1], vr=this[2], x=x)
         if (x >= this[lastIndex-1].first) return interpolate(vl=this[lastIndex-2], v0=this[lastIndex-1], v1=this[lastIndex], x=x)
@@ -1150,13 +1150,13 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
         return _loadTable(filename, extension.nativeValue, if(hasHeaders) "header" else "", callback, errorCallback)
     }
 
-    fun fractalNoise(x: Number, y: Number, octaves: List<Number>): Number {
-        return octaves.map { noise(x*(2.pow(it)), y*(2.0.pow(it))).toDouble() }.average()
+    fun fractalNoise(x: Number, y: Number, octaves: List<Number>): Double {
+        return octaves.map { noise(x*(2.pow(it)), y*(2.0.pow(it))) }.average()
     }
 
-    fun fractalNoise(x: Number, y: Number, octaves: List<Pair<Number, Number>>): Number {
+    fun fractalNoise(x: Number, y: Number, octaves: List<Pair<Number, Number>>): Double {
         val weightSum = octaves.sumOf { it.second.toDouble() }
-        return octaves.sumOf { (noise(x * (2.pow(it.first)), y * (2.0.pow(it.first))) * it.second).toDouble() } / weightSum
+        return octaves.sumOf { (noise(x * (2.pow(it.first)), y * (2.0.pow(it.first))) * it.second) } / weightSum
     }
 
     fun repeatUntilNextFrame(block: ()->Unit) {
@@ -1198,5 +1198,24 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
 
     fun randInt(max: Number): Int = random(max).toInt()
     fun randInt(min: Number, max: Number): Int = random(min, max).toInt()
+
+    fun Vector.map(action: (Number)->Number): Vector {
+        return createVector(action(x), action(y), action(z))
+    }
+
+    fun quad(v1: Vector, v2: Vector, v3: Vector, v4: Vector, xyz: Boolean=false) {
+        if(xyz) {
+            quad(v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, v3.x, v3.y, v3.z, v4.x, v4.y, v4.z)
+        } else {
+            quad(v1.x, v1.y, v2.x, v2.y, v3.x, v3.y, v4.x, v4.y)
+        }
+    }
+    fun quad(v1: Vector, v2: Vector, v3: Vector, v4: Vector, detailX: Int, detailY: Int, xyz: Boolean=false) {
+        if(xyz) {
+            quad(v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, v3.x, v3.y, v3.z, v4.x, v4.y, v4.z, detailX, detailY)
+        } else {
+            quad(v1.x, v1.y, v2.x, v2.y, v3.x, v3.y, v4.x, v4.y, detailX, detailY)
+        }
+    }
 }
 

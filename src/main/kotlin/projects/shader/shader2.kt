@@ -21,7 +21,7 @@ fun uniformBridgeExample() = Sketch {
                 fun center(coord: vec2, res: vec2) = (2.0*coord - res)/max(res.x, res.y)
 
                 val iResolution  by Uniform<vec2> { arrayOf(width, height) }
-                val circleCenter by Uniform { slider.toDouble() }
+                val circleCenter by Uniform { slider }
 
                 Main {
                     val uv by center(gl_FragCoord.xy, iResolution)

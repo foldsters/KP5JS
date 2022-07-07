@@ -79,15 +79,15 @@ abstract external class NativeP5(sketch : (P5)->Unit) {
     fun color(colorString: String): Color
     fun color(colorArray: Array<Number>): Color
 
-    fun alpha(color: Color): Number
-    fun blue(color: Color): Number
-    fun brightness(color: Color): Number
-    fun green(color: Color): Number
-    fun hue(color: Color): Number
+    fun alpha(color: Color): Double
+    fun blue(color: Color): Double
+    fun brightness(color: Color): Double
+    fun green(color: Color): Double
+    fun hue(color: Color): Double
     fun lerpColor(c1: Color, c2: Color, amt: Double): Color
-    fun lightness(color: Color): Number
-    fun red(color: Color): Number
-    fun saturation(): Number
+    fun lightness(color: Color): Double
+    fun red(color: Color): Double
+    fun saturation(): Double
 
     // Setting
     fun background(gray: Number)
@@ -145,7 +145,7 @@ abstract external class NativeP5(sketch : (P5)->Unit) {
     fun ellipse(x: Number, y: Number, width: Number, height: Number)
     fun ellipse(x: Number, y: Number, width: Number, height: Number, detail: Int)
 
-    fun circle(x: Number, y:Number, d: Number)
+    fun circle(x: Number, y:Double, d: Number)
 
     fun line(x1: Number, y1: Number, x2: Number, y2: Number)
     fun line(x1: Number, y1: Number, x2: Number, y2: Number, z1: Number, z2: Number)
@@ -173,11 +173,11 @@ abstract external class NativeP5(sketch : (P5)->Unit) {
 
     fun rect(x: Number, y: Number, width: Number)
     fun rect(x: Number, y: Number, width: Number, height: Number)
-    fun rect(x: Number, y: Number, width: Number, height: Number, tl: Number, tr: Number, br: Number, bl:Number)
+    fun rect(x: Number, y: Number, width: Number, height: Number, tl: Number, tr: Number, br: Number, bl:Double)
     fun rect(x: Number, y: Number, width: Number, detailX: Int, detailY: Int)
 
     fun square(x: Number, y: Number, size: Number)
-    fun square(x: Number, y: Number, size: Number, tl: Number, tr: Number, br: Number, bl:Number)
+    fun square(x: Number, y: Number, size: Number, tl: Number, tr: Number, br: Number, bl:Double)
     fun square(x: Number, y: Number, size: Number, detailX: Int, detailY: Int)
 
     fun triangle(x1: Number, y1: Number, x2: Number, y2: Number, x3: Number, y3: Number)
@@ -205,8 +205,8 @@ abstract external class NativeP5(sketch : (P5)->Unit) {
         x3: Number, y3: Number, z3: Number, x4: Number, y4: Number, z4: Number
     )
     fun bezierDetail(detail: Number)
-    fun bezierPoint(a: Number, b: Number, c: Number, d: Number, t: Number): Number
-    fun bezierTangent(a: Number, b: Number, c: Number, d: Number, t: Number): Number
+    fun bezierPoint(a: Number, b: Number, c: Number, d: Number, t: Number): Double
+    fun bezierTangent(a: Number, b: Number, c: Number, d: Number, t: Number): Double
     fun curve(
         x1: Number, y1: Number, x2: Number, y2: Number,
         x3: Number, y3: Number, x4: Number, y4: Number
@@ -217,8 +217,8 @@ abstract external class NativeP5(sketch : (P5)->Unit) {
     )
     fun curveDetail(detail: Number)
     fun curveTightness(amount: Number)
-    fun curvePoint(a: Number, b: Number, c: Number, d: Number, t: Number): Number
-    fun curveTangent(a: Number, b: Number, c: Number, d: Number, t: Number): Number
+    fun curvePoint(a: Number, b: Number, c: Number, d: Number, t: Number): Double
+    fun curveTangent(a: Number, b: Number, c: Number, d: Number, t: Number): Double
 
     // Vertex
     @JsName("beginContour")
@@ -369,7 +369,7 @@ abstract external class NativeP5(sketch : (P5)->Unit) {
     }
 
     class Slider: Element {
-        fun value(): Number
+        fun value(): Double
         fun value(v: Number)
     }
 
@@ -407,20 +407,20 @@ abstract external class NativeP5(sketch : (P5)->Unit) {
         fun loop()
         fun noLoop()
         fun autoplay(shouldAutoplay: Boolean)
-        fun volume(): Number
+        fun volume(): Double
         fun volume(value: Number)
-        fun speed(): Number
+        fun speed(): Double
         fun speed(multiplier: Number)
-        fun time(): Number
+        fun time(): Double
         fun time(timeSeconds: Number)
-        fun duration(): Number
+        fun duration(): Double
         fun onended(callback: (MediaElement)->Unit)
         // fun connect() // TODO: Implement when integrating p5.sound
         fun disconnect()
         fun showControls()
         fun hideControls()
-        fun addCue(time: Number, callback: (Number)->Unit): Number
-        fun <T> addCue(time: Number, callback: (Number, T)->Unit, value: T): Number
+        fun addCue(time: Number, callback: (Number)->Unit): Double
+        fun <T> addCue(time: Number, callback: (Number, T)->Unit, value: T): Double
         fun removeCue(id: Number)
         fun clearCues()
         fun get(): Image
@@ -647,9 +647,9 @@ abstract external class NativeP5(sketch : (P5)->Unit) {
         @JsName("save")
         fun _save(filename: String, extension: String)
         fun reset()
-        fun getCurrentFrame(): Number
+        fun getCurrentFrame(): Double
         fun setFrame(index: Number)
-        fun numFrames(): Number
+        fun numFrames(): Double
         fun play()
         fun pause()
         fun delay(d: Number)
@@ -805,8 +805,8 @@ abstract external class NativeP5(sketch : (P5)->Unit) {
         fun setString(row: Int, columnHeader: String, value: String)
         fun <T> get(row: Int, columnId: Int): T
         fun <T> get(row: Int, columnHeader: String): T
-        fun getNum(row: Int, columnId: Int): Number
-        fun getNum(row: Int, columnHeader: String): Number
+        fun getNum(row: Int, columnId: Int): Double
+        fun getNum(row: Int, columnHeader: String): Double
         fun getString(row: Int, columnId: Int): String
         fun getString(row: Int, columnHeader: String): String
         fun getObject()
@@ -825,8 +825,8 @@ abstract external class NativeP5(sketch : (P5)->Unit) {
         fun setString(columnHeader: String, value: String)
         fun <T> get(columnId: Int): T
         fun <T> get(columnHeader: String): T
-        fun getNum(columnId: Int): Number
-        fun getNum(columnHeader: String): Number
+        fun getNum(columnId: Int): Double
+        fun getNum(columnHeader: String): Double
         fun getString(columnId: Int): String
         fun getString(columnHeader: String): String
     }
@@ -860,8 +860,8 @@ abstract external class NativeP5(sketch : (P5)->Unit) {
 
     // MATH
 
-    fun map(value: Number, start1: Number, stop1: Number, start2: Number, stop2: Number): Number
-    fun map(value: Number, start1: Number, stop1: Number, start2: Number, stop2: Number, withinBounds: Boolean): Number
+    fun map(value: Number, start1: Number, stop1: Number, start2: Number, stop2: Number): Double
+    fun map(value: Number, start1: Number, stop1: Number, start2: Number, stop2: Number, withinBounds: Boolean): Double
 
     open class Vector protected constructor() {
         var x: Number
@@ -878,18 +878,18 @@ abstract external class NativeP5(sketch : (P5)->Unit) {
         fun mult(v: Vector) // TODO: Make Binary Overload
         fun div(n: Number) // TODO: Make Binary Overload
         fun div(v: Vector) // TODO: Make Binary Overload
-        fun mag(): Number
-        fun magSq(): Number
-        fun dot(v: Vector): Number // TODO: Make Binary Overload
+        fun mag(): Double
+        fun magSq(): Double
+        fun dot(v: Vector): Double // TODO: Make Binary Overload
         fun cross(v: Vector): Vector // TODO: Make Binary Overload
-        fun dist(v: Vector): Number // TODO: Make Binary Overload
+        fun dist(v: Vector): Double // TODO: Make Binary Overload
         fun normalize(): Vector
         fun limit(n: Number): Vector
         fun setMag(): Vector
-        fun heading(): Number
+        fun heading(): Double
         fun setHeading(angle: Number)
         fun rotate(angle: Number)
-        fun angleBetween(v: Vector): Number
+        fun angleBetween(v: Vector): Double
         fun lerp(v: Vector): Vector
         fun reflect(v: Vector): Vector
         fun array(): Array<Number>
@@ -917,21 +917,21 @@ abstract external class NativeP5(sketch : (P5)->Unit) {
     fun createVector(x: Number, y: Number, z: Number): Vector
 
     // Noise
-    fun noise(x: Number): Number
-    fun noise(x: Number, y: Number): Number
-    fun noise(x: Number, y: Number, z: Number): Number
+    fun noise(x: Number): Double
+    fun noise(x: Number, y: Number): Double
+    fun noise(x: Number, y: Number, z: Number): Double
     fun noiseDetail(lod: Number, falloff: Number)
     fun noiseSeed(seed: Int)
 
     // Random
     fun randomSeed(seed: Int)
-    fun random(): Number
-    fun random(max: Number): Number
-    fun random(min: Number, max: Number): Number
+    fun random(): Double
+    fun random(max: Number): Double
+    fun random(min: Number, max: Number): Double
     fun <T> random(choices: Array<T>): T
-    fun randomGaussian(): Number
-    fun randomGaussian(mean: Number): Number
-    fun randomGaussian(mean: Number, sd: Number): Number
+    fun randomGaussian(): Double
+    fun randomGaussian(mean: Number): Double
+    fun randomGaussian(mean: Number, sd: Number): Double
 
     // Trig
     @JsName("angleMode")
@@ -953,17 +953,17 @@ abstract external class NativeP5(sketch : (P5)->Unit) {
     fun _textAlign(horizAlign: String) // TODO: Make Enum
     @JsName("textAlign")
     fun _textAlign(horizAlign: String, vertAlign: String) // TODO: Make Enum
-    fun textLeading(): Number
+    fun textLeading(): Double
     fun textLeading(leading: Number)
-    fun textSize(): Number
+    fun textSize(): Double
     fun textSize(size: Number)
     @JsName("textStyle")
     fun _textStyle(): String // TODO: Make Enum
     @JsName("textStyle")
     fun _textStyle(style: String) // TODO: Make Enum
-    fun textWidth(text: String): Number
-    fun textAscent(): Number
-    fun textDecent(): Number
+    fun textWidth(text: String): Double
+    fun textAscent(): Double
+    fun textDecent(): Double
     @JsName("textWrap")
     fun _textWrap(): String // TODO: Make Enum
     @JsName("textWrap")

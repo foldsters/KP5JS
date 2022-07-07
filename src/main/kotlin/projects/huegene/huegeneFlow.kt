@@ -131,7 +131,7 @@ fun huegeneFlow() = Sketch {
                                 return@forEach
                             }
                             val checkColor = colorArray[checkVector]
-                            if (alpha(checkColor) == 0) {
+                            if (alpha(checkColor) == 0.0) {
                                 candidates.add(offset)
                             }
                         }
