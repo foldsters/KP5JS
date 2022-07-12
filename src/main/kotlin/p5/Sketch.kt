@@ -3,6 +3,7 @@
 package p5
 
 import kotlinx.browser.window
+import p5.util.println
 
 fun Sketch(sketch: SketchScope.()->Unit) {
     window.onload = {
@@ -14,10 +15,6 @@ class SketchScope(val p5: P5) {
 
     private fun wrap(f: P5.()->Unit): () -> Unit {
         return { f(p5) }
-    }
-
-    private fun <T> wrap(f: P5.(T)->Unit): (T) -> Unit {
-        return { v -> f(p5, v) }
     }
 
     fun Preload       (block: P5.()->Unit) { p5.preload = wrap(block) }
@@ -36,10 +33,10 @@ class SketchScope(val p5: P5) {
     fun MouseReleased (block: P5.()->Unit) { p5.mouseReleased = wrap(block) }
     fun MouseClicked  (block: P5.()->Unit) { p5.mouseClicked = wrap(block) }
     fun DoubleClicked (block: P5.()->Unit) { p5.doubleClicked = wrap(block) }
-    fun MouseWheel    (block: P5.(NativeP5.WheelEvent)->Unit) { p5.mouseWheel = wrap(block) }
     fun TouchStarted  (block: P5.()->Unit) { p5.touchStarted = wrap(block) }
     fun TouchMoved    (block: P5.()->Unit) { p5.touchMoved = wrap(block) }
     fun TouchEnded    (block: P5.()->Unit) { p5.touchEnded = wrap(block) }
+    fun MouseWheel    (block: NativeP5.WheelEvent.()->Unit) { p5.mouseWheel = { wheelEvent -> block(wheelEvent) } }
 
     // New Scopes
 
@@ -47,11 +44,17 @@ class SketchScope(val p5: P5) {
         p5.draw = wrap { if (cond()) block() else noLoop() }
     }
 
-    fun <T> DrawFor(iter: Iterable<T>, stepsPerFrame: Int = 1, block: P5.(T) -> Unit) {
+    fun <T> DrawFor(iter: Iterable<T>, stepsPerFrame: Int = 1, onLastFrame: (P5.()->Unit)?=null, block: P5.(T) -> Unit) {
         val itor = iter.iterator()
         p5.draw = wrap {
             repeat(stepsPerFrame) {
-                if (itor.hasNext()) block(itor.next()) else noLoop()
+                if (itor.hasNext()) block(itor.next()) else {
+                    p5.draw = {
+                        onLastFrame?.invoke(this)
+                        noLoop()
+                        p5.draw = null
+                    }
+                }
             }
         }
     }
@@ -61,7 +64,10 @@ class SketchScope(val p5: P5) {
         p5.draw = wrap {
             withPixels {
                 repeat(stepsPerFrame) {
-                    if (itor.hasNext()) block(itor.next()) else noLoop()
+                    if (itor.hasNext()) block(itor.next()) else {
+                        noLoop()
+                        p5.draw = null
+                    }
                 }
             }
         }
@@ -69,24 +75,20 @@ class SketchScope(val p5: P5) {
 
     fun <T> DrawFor(itor: Iterator<T>, block: P5.(T) -> Unit) {
         p5.draw = wrap {
-            if (itor.hasNext()) block(itor.next()) else noLoop()
+            if (itor.hasNext()) block(itor.next()) else {
+                noLoop()
+                p5.draw = null
+            }
         }
     }
 
     fun <T> DrawFor(itor: Iterator<T>, stepsPerFrame: Int, block: P5.(T) -> Unit) {
         p5.draw = wrap {
             repeat(stepsPerFrame) {
-                if (itor.hasNext()) block(itor.next()) else noLoop()
-            }
-        }
-    }
-
-    fun <T> DrawFor(iter: Iterable<T>, onLastFrame: ()->Unit, block: P5.(T) -> Unit) {
-        val itor = iter.iterator()
-        p5.draw = wrap {
-            if (itor.hasNext()) block(itor.next()) else {
-                onLastFrame()
-                noLoop()
+                if (itor.hasNext()) block(itor.next()) else {
+                    noLoop()
+                    p5.draw = null
+                }
             }
         }
     }

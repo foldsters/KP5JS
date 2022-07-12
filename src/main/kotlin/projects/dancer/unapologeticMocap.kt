@@ -164,14 +164,14 @@ fun unapologeticMocap() = Sketch {
                 }
             }
 
-            MouseWheel { event ->
+            MouseWheel {
                 keyIsDown(17).ifFalse {
                     when {
-                        event.delta > 0 -> {
+                        delta > 0 -> {
                             videoFrame -= frameSkip.toDouble()
                             updateFrame()
                         }
-                        event.delta < 0 -> {
+                        delta < 0 -> {
                             videoFrame += frameSkip.toDouble()
                             updateFrame()
                         }

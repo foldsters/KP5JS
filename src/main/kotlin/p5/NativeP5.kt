@@ -246,7 +246,7 @@ abstract external class NativeP5(sketch : (P5)->Unit) {
     @JsName("endShape")
     fun _endShape()
     @JsName("endShape")
-    fun _endShape(mode: String)
+    fun _endShapeClose(mode: String)
     @JsName("quadraticVertex")
     fun _quadraticVertex(cx: Number, cy: Number, x3: Number, y3: Number)
     @JsName("quadraticVertex")

@@ -6,12 +6,15 @@ import kotlin.js.Json
 import kotlin.js.json
 import kotlin.reflect.KProperty
 import p5.openSimplexNoise.OpenSimplexNoise
+import kotlin.experimental.ExperimentalTypeInference
+import kotlin.reflect.KClass
 
 @JsModule("p5")
 @JsNonModule
 @JsName("p5")
 private external val p5: dynamic
 
+@OptIn(ExperimentalTypeInference::class)
 open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
 
     fun nativeP5(): dynamic {
@@ -117,7 +120,7 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
     }
 
     object CLOSE
-    enum class PathMode(val nativeValue: dynamic) {
+    enum class PathMode(val nativeValue: Any) {
         POINTS(0),
         LINES(1),
         TRIANGLES(4),
@@ -128,32 +131,42 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
         TESS("tess")
     }
 
-    inner class ShapeScope {
-        fun beginShape() = _beginShape()
-        fun beginShape(kind: PathMode) {
-            when(val value = kind.nativeValue) {
-                is String -> _beginShapeString(value)
-                is Number -> _beginShapeNumber(value)
-            }
+    inner class ShapeBuilder2D {
+        fun addVertex(x: Number, y: Number, z: Number) = _vertex(x, y)
+        fun addVertex(xy: Vector) = _vertex(xy.x, xy.y)
+        fun addVertex(x: Number, y: Number, u: Number, v: Number) = _vertex(x, y, u, v)
+        fun addVertex(xy: Vector, uv: Vector) = _vertex(xy.x, xy.y, uv.x, uv.y)
+        fun addQuadraticVertex(cx: Number, cy: Number, x3: Number, y3: Number) = _quadraticVertex(cx, cy, x3, y3)
+        fun addQuadraticVertex(cxy: Vector, xy3: Vector) = _quadraticVertex(cxy.x, cxy.y, xy3.x, xy3.y)
+        fun addBezierVertex(x2: Number, y2: Number, x3: Number, y3: Number, x4: Number, y4: Number) = _bezierVertex(x2, y2, x3, y3, x4, y4)
+        fun addBezierVertex(xy2: Vector, xy3: Vector, xy4: Vector) = _bezierVertex(xy2.x, xy2.y, xy3.x, xy3.y, xy4.x, xy4.y)
+        fun addCurveVertex(x: Number, y: Number) = _curveVertex(x, y)
+        fun addCurveVertex(xy: Vector) = _curveVertex(xy.x, xy.y)
+        fun List<Vector>.addVertices() { forEach { addVertex(it) } }
+        fun addVertices(vararg vertices: Vector) { vertices.forEach { addVertex(it) }}
+
+        fun withContour(contour: ShapeBuilder2D.()->Unit) {
+            _beginContour()
+            contour()
+            _endContour()
         }
-        fun endShape() = _endShape()
-        fun endShape(mode: CLOSE) {
-            _endShape("close")
-        }
-        fun vertex(x: Number, y: Number) = _vertex(x, y)
+    }
+
+    inner class ShapeBuilder3D {
         fun vertex(x: Number, y: Number, z: Number) = _vertex(x, y, z)
-        fun vertex(x: Number, y: Number, u: Number, v: Number) = _vertex(x, y, u, v)
+        fun vertex(xyz: Vector) = _vertex(xyz.x, xyz.y, xyz.z)
         fun vertex(x: Number, y: Number, z: Number, u: Number, v: Number) = _vertex(x, y, z, u, v)
-        fun quadraticVertex(cx: Number, cy: Number, x3: Number, y3: Number) = _quadraticVertex(cx, cy, x3, y3)
+        fun vertex(xyz: Vector, uv: Vector) = _vertex(xyz.x, xyz.y, xyz.z, uv.x, uv.y)
         fun quadraticVertex(cx: Number, cy: Number, cz: Number, x3: Number, y3: Number, z3: Number) = _quadraticVertex(cx, cy, cz, x3, y3, z3)
-        fun bezierVertex(x2: Number, y2: Number, x3: Number, y3: Number, x4: Number, y4: Number) = _bezierVertex(x2, y2, x3, y3, x4, y4)
+        fun quadraticVertex(cxyz: Vector, xyz3: Vector) = _quadraticVertex(cxyz.x, cxyz.y, cxyz.z, xyz3.x, xyz3.y, xyz3.z)
         fun bezierVertex(
             x2: Number, y2: Number, z2: Number,
             x3: Number, y3: Number, z3: Number,
             x4: Number, y4: Number, z4: Number
         ) = _bezierVertex(x2, y2, z2, x3, y3, z3, x4, y4, z4)
-        fun curveVertex(x: Number, y: Number) = _curveVertex(x, y)
+        fun bezierVertex(xyz2: Vector, xyz3: Vector, xyz4: Vector) = _bezierVertex(xyz2.x, xyz2.y, xyz2.z, xyz3.x, xyz3.y, xyz3.z, xyz4.z, xyz4.y, xyz4.z)
         fun curveVertex(x: Number, y: Number, z: Number) = _curveVertex(x, y, z)
+        fun curveVertex(xyz: Vector) = _curveVertex(xyz.x, xyz.y, xyz.z)
         fun normal(vector: Vector) = _normal(vector)
         fun normal(x: Number, y: Number, z: Number) = _normal(x, y, z)
 
@@ -375,11 +388,28 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
     }
 
     // SCOPE EXTENSION FUNCTIONS
-    fun withShape(pathMode: PathMode?=null, close: CLOSE?=null, path: ShapeScope.()->Unit) {
-        val shapeScope = ShapeScope()
-        if (pathMode == null) shapeScope.beginShape() else shapeScope.beginShape(pathMode)
+    fun shapeBuilder2D(pathMode: PathMode?=null, close: CLOSE?=null, path: ShapeBuilder2D.()->Unit) {
+        val shapeScope = ShapeBuilder2D()
+        if (pathMode == null) {
+            _beginShape()
+        } else when(val value = pathMode.nativeValue) {
+            is String -> _beginShapeString(value)
+            is Number -> _beginShapeNumber(value)
+            else -> throw IllegalStateException()
+        }
         path(shapeScope)
-        if (close == null) shapeScope.endShape() else shapeScope.endShape(CLOSE)
+        if (close == null) _endShape() else _endShapeClose("close")
+    }
+
+    fun shapeBuilder3D(pathMode: PathMode?=null, close: CLOSE?=null, path: ShapeBuilder3D.()->Unit) {
+        val shapeScope = ShapeBuilder3D()
+        when(val value = pathMode?.nativeValue) {
+            (value == null) -> _beginShape()
+            is String -> _beginShapeString(value)
+            is Number -> _beginShapeNumber(value)
+        }
+        path(shapeScope)
+        if (close == null) _endShape() else _endShapeClose("close")
     }
 
     private var webgl2Enabled: Boolean = false
@@ -856,6 +886,10 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
         return color(x, y, z)
     }
 
+    fun Vector.toColor(alpha: Number): Color {
+        return color(x, y, z, alpha)
+    }
+
 
     operator fun Number.plus(other: Number): Number {
         @Suppress("UNUSED_VARIABLE") val t = this
@@ -1011,24 +1045,25 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
         return Loop(nativeLoop)
     }
 
-    private var _simplexSeed = random()
-
-    private var simplexNoise2D = OpenSimplexNoise.makeNoise2D(_simplexSeed)
-    private var simplexNoise3D = OpenSimplexNoise.makeNoise3D(_simplexSeed)
-    private var simplexNoise4D = OpenSimplexNoise.makeNoise4D(_simplexSeed)
-
-    fun simplexSeed(): Number = _simplexSeed
-    fun simplexSeed(seed: Number) {
-        _simplexSeed = seed
-        simplexNoise2D = OpenSimplexNoise.makeNoise2D(_simplexSeed)
-        simplexNoise3D = OpenSimplexNoise.makeNoise3D(_simplexSeed)
-        simplexNoise4D = OpenSimplexNoise.makeNoise4D(_simplexSeed)
+    object SimplexNoise {
+        var simplexSeed = kotlin.random.Random.nextDouble() as Number
+        var Noise2D = OpenSimplexNoise.makeNoise2D(simplexSeed)
+        var Noise3D = OpenSimplexNoise.makeNoise3D(simplexSeed)
+        var Noise4D = OpenSimplexNoise.makeNoise4D(simplexSeed)
     }
 
-    fun simplexNoise(x: Number): Number { return simplexNoise2D(x, 0) }
-    fun simplexNoise(x: Number, y: Number): Number { return simplexNoise2D(x, y) }
-    fun simplexNoise(x: Number, y: Number, z: Number): Number { return simplexNoise3D(x, y, z) }
-    fun simplexNoise(x: Number, y: Number, u: Number, v: Number): Number { return simplexNoise4D(x, y, u, v) }
+    fun simplexSeed(): Number = SimplexNoise.simplexSeed
+    fun simplexSeed(seed: Number) {
+        SimplexNoise.simplexSeed = seed
+        SimplexNoise.Noise2D = OpenSimplexNoise.makeNoise2D(seed)
+        SimplexNoise.Noise3D = OpenSimplexNoise.makeNoise3D(seed)
+        SimplexNoise.Noise4D = OpenSimplexNoise.makeNoise4D(seed)
+    }
+
+    fun simplexNoise(x: Number): Number { return SimplexNoise.Noise2D(x, 0) }
+    fun simplexNoise(x: Number, y: Number): Number { return SimplexNoise.Noise2D(x, y) }
+    fun simplexNoise(x: Number, y: Number, z: Number): Number { return SimplexNoise.Noise3D(x, y, z) }
+    fun simplexNoise(x: Number, y: Number, u: Number, v: Number): Number { return SimplexNoise.Noise4D(x, y, u, v) }
 
     fun Button.fontSize(sizePx: Number) {
         style("font-size", "${sizePx}px")
@@ -1124,6 +1159,7 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
 
     fun Map<Number, Number>.interpolate(k: Number) = toList().interpolate(k)
     fun Map<Number, Vector>.interpolate(k: Number) = toList().interpolate(k)
+    fun Map<Double, Vector>.interpolate(k: Number) = toList().interpolate(k)
     fun List<Number>.interpolate(k: Number) = mapIndexed { i, n -> i to n }.interpolate(k)
     fun List<Vector>.interpolate(k: Number) = mapIndexed { i, n -> i to n }.interpolate(k)
 
@@ -1198,5 +1234,100 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
 
     fun randInt(max: Number): Int = random(max).toInt()
     fun randInt(min: Number, max: Number): Int = random(min, max).toInt()
+
+    fun Vector.map(action: (Number)->Number): Vector {
+        return createVector(action(x), action(y), action(z))
+    }
+
+    fun quad(v1: Vector, v2: Vector, v3: Vector, v4: Vector, xyz: Boolean=false) {
+        if(xyz) {
+            quad(v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, v3.x, v3.y, v3.z, v4.x, v4.y, v4.z)
+        } else {
+            quad(v1.x, v1.y, v2.x, v2.y, v3.x, v3.y, v4.x, v4.y)
+        }
+    }
+    fun quad(v1: Vector, v2: Vector, v3: Vector, v4: Vector, detailX: Int, detailY: Int, xyz: Boolean=false) {
+        if(xyz) {
+            quad(v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, v3.x, v3.y, v3.z, v4.x, v4.y, v4.z, detailX, detailY)
+        } else {
+            quad(v1.x, v1.y, v2.x, v2.y, v3.x, v3.y, v4.x, v4.y, detailX, detailY)
+        }
+    }
+
+    fun List<Number>.center(): Number {
+        return (fold(0 as Number) { it1, it2 -> it1+it2 })/size.toDouble()
+    }
+
+    fun List<Vector>.center(): Vector {
+        return (fold(createVector(0, 0, 0)) { it1, it2 -> it1+it2 })/size.toDouble()
+    }
+
+    fun List<Number>.centerize(): List<Number> {
+        val average = center()
+        return map { it - average }
+    }
+
+    fun List<Vector>.centerize(): List<Vector> {
+        val average = center()
+        return map { it - average }
+    }
+
+    @OverloadResolutionByLambdaReturnType
+    fun cache(volatile: Boolean = false, initialValue: () -> String) = CacheProvider(String::class, initialValue, volatile)
+    fun cache(volatile: Boolean = false, initialValue: () -> Number)  = CacheProvider(Number::class, initialValue, volatile)
+    fun cache(volatile: Boolean = false, initialValue: () -> Boolean) = CacheProvider(Boolean::class, initialValue, volatile)
+    fun cache(volatile: Boolean = false, initialValue: () -> Color)   = CacheProvider(Color::class, initialValue, volatile)
+    fun cache(volatile: Boolean = false, initialValue: () -> Vector)  = CacheProvider(Vector::class, initialValue, volatile)
+
+    inner class CacheProvider<T : Any>(val classType: KClass<T>, val initialValue: () -> T, val volatile: Boolean) {
+
+        var innerVar: T? = null
+
+        operator fun getValue(thisRef: Any?, property: KProperty<*>): T {
+            val keyString = property.name
+            if (innerVar != null && !volatile) return innerVar!!
+            val storedItem: T? = when(classType) {
+                String::class -> getItem<String>(keyString) as T?
+                Number::class -> getItem<Number>(keyString) as T?
+                Boolean::class -> getItem<Boolean>(keyString) as T?
+                Color::class -> getItem<Color>(keyString) as T?
+                Vector::class -> getItem<Vector>(keyString) as T?
+                else -> null
+            }
+            if (storedItem == null) {
+                console.warn("Cached Value Not Found!")
+                val initVal = initialValue()
+                when(classType) {
+                    String::class -> storeItem(keyString, initVal as String)
+                    Number::class -> storeItem(keyString, initVal as Number)
+                    Boolean::class -> storeItem(keyString, initVal as Boolean)
+                    Color::class -> storeItem(keyString, initVal as Color)
+                    Vector::class -> storeItem(keyString, initVal as Vector)
+                    else -> throw IllegalStateException("Cannot cache item of type ${classType.simpleName}")
+                }
+                innerVar = initVal
+                return initVal
+            }
+            innerVar = storedItem
+            return storedItem
+        }
+
+        operator fun setValue(thisRef: Any?, property: KProperty<*>, value: T) {
+            val keyString = property.name
+            when(classType) {
+                String::class -> storeItem(keyString, value as String)
+                Number::class -> storeItem(keyString, value as Number)
+                Boolean::class -> storeItem(keyString, value as Boolean)
+                Color::class -> storeItem(keyString, value as Color)
+                Vector::class -> storeItem(keyString, value as Vector)
+                else -> throw IllegalStateException("Cannot cache item of type ${classType.simpleName}")
+            }
+            innerVar = value
+        }
+    }
+
+    infix fun Vector.cross2(other: Vector): Double {
+        return (x*other.y - y*other.x).toDouble()
+    }
 }
 
