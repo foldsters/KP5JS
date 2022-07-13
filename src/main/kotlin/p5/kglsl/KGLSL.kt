@@ -1023,7 +1023,7 @@ class KGLSL {
     fun Uniform(block: ()->Double): FloatExpr            = Uniform<FloatExpr>().apply { uniformCallback = Callback(block) }
     fun Uniform(block: ()->NativeP5.Texture): Sampler2D  = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
     fun Uniform(block: ()->NativeP5.Image): Sampler2D    = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
-    fun Uniform(block: ()->NativeP5.Graphics): Sampler2D = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
+    fun Uniform(block: ()-> NativeP5): Sampler2D = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
     inline fun <reified T: VecExpr<T>>  Uniform(noinline block: ()->Array<Number>): T = Uniform<T>().apply { uniformCallback = Callback(block) }
 
     inline fun <reified T: GenExpr<*>> Out(): T {
@@ -1304,10 +1304,10 @@ class KGLSL {
     inline operator fun <reified T: IVecExpr<T>> IntExpr.times(other: T): T = operatorOf("*", this, other)
     inline operator fun <reified T: GenIExpr<T>> T.div(other: T): T = operatorOf("/", this, other)
     inline operator fun <reified T: IVecExpr<T>> T.div(other: IntExpr): T = operatorOf("/", this, other)
-    infix fun IntExpr.LT(other: IntExpr): BoolExpr = operatorOf("<", this, other)
-    infix fun IntExpr.GT(other: IntExpr): BoolExpr = operatorOf(">", this, other)
-    infix fun IntExpr.LE(other: IntExpr): BoolExpr = operatorOf("<=", this, other)
-    infix fun IntExpr.GE(other: IntExpr): BoolExpr = operatorOf(">=", this, other)
+    @JsName("IE_LT_IE") infix fun IntExpr.`<` (other: IntExpr): BoolExpr = operatorOf("<", this, other)
+    @JsName("IE_GT_IE") infix fun IntExpr.`>` (other: IntExpr): BoolExpr = operatorOf(">", this, other)
+    @JsName("IE_LE_IE") infix fun IntExpr.`<=`(other: IntExpr): BoolExpr = operatorOf("<=", this, other)
+    @JsName("IE_GE_IE") infix fun IntExpr.`>=`(other: IntExpr): BoolExpr = operatorOf(">=", this, other)
 
     inline operator fun <reified T: GenFExpr<T>> T.plus(other: T): T = operatorOf("+", this, other)
     inline operator fun <reified T:  VecExpr<T>> T.plus(other: FloatExpr): T = operatorOf("+", this, other)
@@ -1324,6 +1324,10 @@ class KGLSL {
     infix fun FloatExpr.GT(other: FloatExpr): BoolExpr = operatorOf(">", this, other)
     infix fun FloatExpr.LE(other: FloatExpr): BoolExpr = operatorOf("<=", this, other)
     infix fun FloatExpr.GE(other: FloatExpr): BoolExpr = operatorOf(">=", this, other)
+    @JsName("FE_LT_FE") infix fun FloatExpr.`<` (other: FloatExpr): BoolExpr = operatorOf("<", this, other)
+    @JsName("FE_GT_FE") infix fun FloatExpr.`>` (other: FloatExpr): BoolExpr = operatorOf(">", this, other)
+    @JsName("FE_LE_FE") infix fun FloatExpr.`<=`(other: FloatExpr): BoolExpr = operatorOf("<=", this, other)
+    @JsName("FE_GE_FE") infix fun FloatExpr.`>=`(other: FloatExpr): BoolExpr = operatorOf(">=", this, other)
 
     // Kotlin Literal
     infix fun BoolExpr.AND(other: Boolean): BoolExpr = operatorOf("&&", this, bool(other))
@@ -1342,6 +1346,10 @@ class KGLSL {
     infix fun IntExpr.GT(other: Int): BoolExpr = operatorOf(">", this, int(other))
     infix fun IntExpr.LE(other: Int): BoolExpr = operatorOf("<=", this, int(other))
     infix fun IntExpr.GE(other: Int): BoolExpr = operatorOf(">=", this, int(other))
+    @JsName("IE_LT_I") infix fun IntExpr.`<` (other: Int): BoolExpr = operatorOf("<", this, int(other))
+    @JsName("IE_GT_I") infix fun IntExpr.`>` (other: Int): BoolExpr = operatorOf(">", this, int(other))
+    @JsName("IE_LE_I") infix fun IntExpr.`<=`(other: Int): BoolExpr = operatorOf("<=", this, int(other))
+    @JsName("IE_GE_I") infix fun IntExpr.`>=`(other: Int): BoolExpr = operatorOf(">=", this, int(other))
 
     inline operator fun <reified T: GenFExpr<T>> T.plus(other: Double): T = operatorOf("+", this, float(other))
     inline operator fun <reified T: GenFExpr<T>> T.minus(other: Double): T = operatorOf("-", this, float(other))
@@ -1351,6 +1359,10 @@ class KGLSL {
     infix fun FloatExpr.GT(other: Double): BoolExpr = operatorOf(">", this, float(other))
     infix fun FloatExpr.LE(other: Double): BoolExpr = operatorOf("<=", this, float(other))
     infix fun FloatExpr.GE(other: Double): BoolExpr = operatorOf(">=", this, float(other))
+    @JsName("FE_LT_D") infix fun FloatExpr.`<` (other: Double): BoolExpr = operatorOf("<", this, float(other))
+    @JsName("FE_GT_D") infix fun FloatExpr.`>` (other: Double): BoolExpr = operatorOf(">", this, float(other))
+    @JsName("FE_LE_D") infix fun FloatExpr.`<=`(other: Double): BoolExpr = operatorOf("<=", this, float(other))
+    @JsName("FE_GE_D") infix fun FloatExpr.`>=`(other: Double): BoolExpr = operatorOf(">=", this, float(other))
 
     inline operator fun <reified T: GenIExpr<T>> Int.plus(other: T): T = operatorOf("+", int(this), other)
     inline operator fun <reified T: GenIExpr<T>> Int.minus(other: T): T = operatorOf("-", int(this), other)
@@ -1360,15 +1372,19 @@ class KGLSL {
     infix fun Int.GT(other: IntExpr): BoolExpr = operatorOf(">", int(this), other)
     infix fun Int.LE(other: IntExpr): BoolExpr = operatorOf("<=", int(this), other)
     infix fun Int.GE(other: IntExpr): BoolExpr = operatorOf(">=", int(this), other)
+    @JsName("I_LT_IE") infix fun Int.`<` (other: IntExpr): BoolExpr = operatorOf("<", int(this), other)
+    @JsName("I_GT_IE") infix fun Int.`>` (other: IntExpr): BoolExpr = operatorOf(">", int(this), other)
+    @JsName("I_LE_IE") infix fun Int.`<=`(other: IntExpr): BoolExpr = operatorOf("<=", int(this), other)
+    @JsName("I_GE_IE") infix fun Int.`>=`(other: IntExpr): BoolExpr = operatorOf(">=", int(this), other)
 
     inline operator fun <reified T: GenFExpr<T>> Double.plus(other: T): T = operatorOf("+", float(this), other)
     inline operator fun <reified T: GenFExpr<T>> Double.minus(other: T): T = operatorOf("-", float(this), other)
     inline operator fun <reified T: GenFExpr<T>> Double.times(other: T): T = operatorOf("*", float(this), other)
     inline operator fun <reified T: GenFExpr<T>> Double.div(other: T): T = operatorOf("/", float(this), other)
-    infix fun Double.LT(other: FloatExpr): BoolExpr = operatorOf("<", float(this), other)
-    infix fun Double.GT(other: FloatExpr): BoolExpr = operatorOf(">", float(this), other)
-    infix fun Double.LE(other: FloatExpr): BoolExpr = operatorOf("<=", float(this), other)
-    infix fun Double.GE(other: FloatExpr): BoolExpr = operatorOf(">=", float(this), other)
+    @JsName("D_LT_FE") infix fun Double.`<` (other: FloatExpr): BoolExpr = operatorOf("<", float(this), other)
+    @JsName("D_GT_FE") infix fun Double.`>` (other: FloatExpr): BoolExpr = operatorOf(">", float(this), other)
+    @JsName("D_LE_FE") infix fun Double.`<=`(other: FloatExpr): BoolExpr = operatorOf("<=", float(this), other)
+    @JsName("D_GE_FE") infix fun Double.`>=`(other: FloatExpr): BoolExpr = operatorOf(">=", float(this), other)
 
     // Trig
     inline fun <reified T: GenFExpr<T>> radians(degrees: T): T     = functionOf("radians", degrees)

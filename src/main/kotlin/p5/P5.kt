@@ -15,11 +15,9 @@ import kotlin.reflect.KClass
 private external val p5: dynamic
 
 @OptIn(ExperimentalTypeInference::class)
-open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
-
-    fun nativeP5(): dynamic {
-        return this.asDynamic()
-    }
+open class P5: NativeP5 {
+    constructor(): super()
+    constructor(sketch: (P5) -> Unit): super(sketch)
 
     // MODE EXTENSION FUNCTIONS
 
@@ -267,9 +265,11 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
         }
         return canvas
     }
-    fun createGraphics(w: Number, h: Number, renderMode: RenderMode): Graphics {
-        if (renderMode == RenderMode.WEBGL2) { enableWebgl2() }
-        return _createGraphics(w, h, renderMode.nativeValue)
+    fun createGraphics(w: Number, h: Number, hide: Boolean = true): P5 {
+        return P5().apply { createCanvas(w, h).apply { if(hide) hide() } }
+    }
+    fun createGraphics(w: Number, h: Number, renderMode: RenderMode, hide: Boolean = true): P5 {
+        return P5().apply { createCanvas(w, h, renderMode).apply { if(hide) hide() } }
     }
 
     enum class BlendMode(val nativeValue: String) {
@@ -388,7 +388,7 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
     }
 
     // SCOPE EXTENSION FUNCTIONS
-    fun shapeBuilder2D(pathMode: PathMode?=null, close: CLOSE?=null, path: ShapeBuilder2D.()->Unit) {
+    fun buildShape2D(pathMode: PathMode?, close: CLOSE?, path: ShapeBuilder2D.()->Unit) {
         val shapeScope = ShapeBuilder2D()
         if (pathMode == null) {
             _beginShape()
@@ -400,8 +400,12 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
         path(shapeScope)
         if (close == null) _endShape() else _endShapeClose("close")
     }
+    fun buildShape2D(path: ShapeBuilder2D.()->Unit) = buildShape2D(null, null, path)
+    fun buildShape2D(pathMode: PathMode, path: ShapeBuilder2D.()->Unit) = buildShape2D(pathMode, null, path)
+    fun buildShape2D(close: CLOSE?, path: ShapeBuilder2D.()->Unit) = buildShape2D(null, close, path)
 
-    fun shapeBuilder3D(pathMode: PathMode?=null, close: CLOSE?=null, path: ShapeBuilder3D.()->Unit) {
+
+    fun buildShape3D(pathMode: PathMode?=null, close: CLOSE?=null, path: ShapeBuilder3D.()->Unit) {
         val shapeScope = ShapeBuilder3D()
         when(val value = pathMode?.nativeValue) {
             (value == null) -> _beginShape()
@@ -457,7 +461,7 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
             uniforms[uniformName] = data
             nativeShader._setUniform(uniformName, data)
         }
-        operator fun set(uniformName: String, data: Graphics) {
+        operator fun set(uniformName: String, data: NativeP5) {
             uniforms[uniformName] = data
             nativeShader._setUniform(uniformName, data)
         }
@@ -481,7 +485,7 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
                     is Number -> set(k, v)
                     is Array<*> -> set(k, v as? Array<Number> ?: arrayOf())
                     is Image -> set(k, v)
-                    is Graphics -> set(k, v)
+                    is NativeP5 -> set(k, v)
                     is MediaElement -> set(k, v)
                     is Texture -> set(k, v)
                     else -> console.warn("Invalid Shader Uniform Type")
@@ -1329,5 +1333,55 @@ open class P5(val sketch: (P5)->Unit) : NativeP5(sketch) {
     infix fun Vector.cross2(other: Vector): Double {
         return (x*other.y - y*other.x).toDouble()
     }
+
+    fun Vector.toInts(): Vector {
+        return map { it.toInt() }
+    }
+
+    fun List<Vector>.dilate(factor: Number): List<Vector> {
+        val center = center()
+        return map { (it-center)*factor + center }
+    }
+
+    fun List<Vector>.dilate(factor: Number, center: Vector): List<Vector> {
+        return map { (it-center)*factor + center }
+    }
+
+    enum class MouseButton(val nativeValue: String) {
+        CENTER("center"),
+        LEFT("left"),
+        RIGHT("right")
+    }
+
+    val mouseButton: MouseButton get() {
+        return when(_mouseButton) {
+            MouseButton.CENTER.nativeValue -> MouseButton.CENTER
+            MouseButton.LEFT.nativeValue -> MouseButton.LEFT
+            MouseButton.RIGHT.nativeValue -> MouseButton.RIGHT
+            else -> throw IllegalStateException("Unknown Mouse Button")
+        }
+    }
+
+    fun map(value: Vector, start1: Number, stop1: Number, start2: Number, stop2: Number): Vector {
+        return value.map { map(it, start1, stop1, start2, stop2) }
+    }
+    fun map(value: Vector, start1: Number, stop1: Number, start2: Number, stop2: Number, withinBounds: Boolean): Vector {
+        return value.map { map(it, start1, stop1, start2, stop2, withinBounds) }
+    }
+    fun map(value: Vector, start1: Vector, stop1: Vector, start2: Vector, stop2: Vector): Vector {
+        return createVector(
+            map(value.x, start1.x, stop1.x, start2.x, stop2.x),
+            map(value.y, start1.y, stop1.y, start2.y, stop2.y),
+            map(value.z, start1.z, stop1.z, start2.z, stop2.z),
+        )
+    }
+    fun map(value: Vector, start1: Vector, stop1: Vector, start2: Vector, stop2: Vector, withinBounds: Boolean): Vector {
+        return createVector(
+            map(value.x, start1.x, stop1.x, start2.x, stop2.x, withinBounds),
+            map(value.y, start1.y, stop1.y, start2.y, stop2.y, withinBounds),
+            map(value.z, start1.z, stop1.z, start2.z, stop2.z, withinBounds),
+        )
+    }
+
 }
 

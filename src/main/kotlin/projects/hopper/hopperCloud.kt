@@ -3,6 +3,7 @@ package projects.hopper
 import p5.NativeP5.*
 import p5.P5
 import p5.P5.*
+import p5.P5.MouseButton.*
 import p5.Sketch
 import p5.util.*
 import kotlin.math.PI
@@ -71,11 +72,15 @@ fun P5.genHopperPoints(hopperLayers: List<List<Int>>, seedHeight: Int): MutableL
 fun hopperClouds() = Sketch {
 
     Setup {
-
-        val canvas = createCanvas(1024, 1024, RenderMode.P2D)
+        val canvas = createCanvas(1024, 512, RenderMode.P2D)
         background(0)
         pixelDensity(1)
         noStroke()
+        val screenCenter = createVector(width/2, height/2)
+
+        val coordBuffer = createGraphics(1024, 512, RenderMode.P2D, hide=false).apply {
+            noStroke()
+        }
 
         val hopperColors = mapOf(
             0.0 to createVector(255, 240, 100),
@@ -109,8 +114,8 @@ fun hopperClouds() = Sketch {
         }
 
         fun genClouds(minHeight: Int, maxHeight: Int, radius: Int) = buildList {
-            for(x in -radius until radius step 3) {
-                for(y in -radius until radius step 3) {
+            for(x in -radius until radius) {
+                for(y in -radius until radius) {
                     if(x*x + y*y > radius*radius) continue
                     val n = simplexNoise(x/20.0, y/20.0)*3 + simplexNoise(x/10.0, y/10.0)
                     val z = map(n/4.0, -1, 1, -maxHeight, -minHeight).toDouble()
@@ -142,10 +147,10 @@ fun hopperClouds() = Sketch {
 
         val allPoints = hopperPoints + clouds
 
-        val sort1 = clouds + allPoints.sortedWith(compareBy<Point> {-it.z}.thenBy {- it.x + it.y })
-        val sort2 = clouds + allPoints.sortedWith(compareBy<Point> {-it.z}.thenBy {- it.x - it.y })
-        val sort3 = clouds + allPoints.sortedWith(compareBy<Point> {-it.z}.thenBy {  it.x - it.y })
-        val sort4 = clouds + allPoints.sortedWith(compareBy<Point> {-it.z}.thenBy {  it.x + it.y })
+        val sort1 = allPoints.sortedWith(compareBy<Point> {-it.z}.thenBy {- it.x + it.y })
+        val sort2 = allPoints.sortedWith(compareBy<Point> {-it.z}.thenBy {- it.x - it.y })
+        val sort3 = allPoints.sortedWith(compareBy<Point> {-it.z}.thenBy {  it.x - it.y })
+        val sort4 = allPoints.sortedWith(compareBy<Point> {-it.z}.thenBy {  it.x + it.y })
 
         val sorts = listOf(sort1, sort2, sort3, sort4)
 
@@ -154,7 +159,7 @@ fun hopperClouds() = Sketch {
         var tc = (1+(azimuth*0.25))*0.25
         var UP = createVector(0, -scale)
         var DOWN = createVector(0, scale)
-        var (UP_RIGHT, DOWN_RIGHT, DOWN_LEFT, UP_LEFT) = Array(4) { Vector.fromAngle(2*PI*(tf+3.0+it)/4.0)*createVector(1.0, elevation)*scale }
+        var (UP_RIGHT, DOWN_RIGHT, DOWN_LEFT, UP_LEFT) = Array(4) { (Vector.fromAngle(2*PI*(tf+3.0+it)/4.0)*createVector(1.0, elevation)*scale) }
 
         fun updateCamera() {
             ti = azimuth.toInt()
@@ -162,7 +167,7 @@ fun hopperClouds() = Sketch {
             tc = (1+(azimuth*0.25))*0.25
             UP = createVector(0, -scale)
             DOWN = createVector(0, scale)
-            val directions =  Array(4) { Vector.fromAngle(2*PI*(tf+3.0+it)/4.0)*createVector(1.0, elevation)*scale }
+            val directions =  Array(4) { (Vector.fromAngle(2*PI*(tf+3.0+it)/4.0)*createVector(1.0, elevation)*scale) }
             UP_RIGHT = directions[0]
             DOWN_RIGHT = directions[1]
             DOWN_LEFT = directions[2]
@@ -175,6 +180,7 @@ fun hopperClouds() = Sketch {
 
             loop()
             background(255, 255)
+            coordBuffer.background(0, 255)
             updateCamera()
             noStroke()
 
@@ -189,35 +195,31 @@ fun hopperClouds() = Sketch {
                         else -> x to y
                     }
 
+                    val pos = center + DOWN_LEFT*px + DOWN_RIGHT*py + DOWN*z + screenCenter
+                    coordBuffer.fill((location+128).toColor())
+
                     if (it is HopperPoint) {
-                        val pos = center + DOWN_LEFT*px + DOWN_RIGHT*py + DOWN*z + createVector(width/2, height/2)
-                        var c = color.toColor()
+                        var c = (color*(0.75-tc)).toColor()
                         fill(c)
-                        stroke(c)
-                        shapeBuilder2D { addVertices(pos, pos+UP_LEFT, pos+UP_LEFT+UP, pos+UP_LEFT+UP+UP_RIGHT, pos+UP+UP_RIGHT, pos+UP_RIGHT) }
-                        c = (color*(0.75-tc)).toColor()
-                        fill(c)
-                        stroke(c)
                         quad(pos, pos+UP_RIGHT, pos+UP_RIGHT+UP, pos+UP)
                         c = (color*tc).toColor()
                         fill(c)
-                        stroke(c)
                         quad(pos+1, pos+UP_LEFT, pos+UP_LEFT+UP, pos+UP)
-                        noStroke()
+                        c = color.toColor()
+                        fill(c)
+                        buildShape2D { listOf(pos+UP, pos+UP+UP_LEFT, pos+UP+UP_RIGHT+UP_LEFT, pos+UP+UP_RIGHT).dilate(1.1).addVertices() }
 
+                        coordBuffer.buildShape2D { addVertices(pos, pos+UP_LEFT, pos+UP_LEFT+UP, pos+UP_LEFT+UP+UP_RIGHT, pos+UP+UP_RIGHT, pos+UP_RIGHT) }
                     } else {
-                        val pos = center + DOWN_LEFT*(px+0.5) + DOWN_RIGHT*(py+0.5) + DOWN*(z+0.5) + createVector(width/2, height/2)
                         val U = UP*8
-                        val UR = UP_RIGHT*3
-                        val UL = UP_LEFT*3
+                        val UR = UP_RIGHT
+                        val UL = UP_LEFT
                         fill(color.toColor(128))
-//                        quad(pos, pos+UR, pos+UR+U, pos+U)
-//                        fill(color.toColor(128))
-//                        quad(pos, pos+UL, pos+UL+U, pos+U)
-//                        fill(color.toColor(128))
-//                        quad(pos+U, pos+U+UL, pos+U+UL+UR, pos+U+UR)
-                        shapeBuilder2D { addVertices(pos, pos+UL, pos+UL+U, pos+UL+U+UR, pos+U+UR, pos+UR) }
+                        buildShape2D(CLOSE) { addVertices(pos, pos+UL, pos+UL+U, pos+UL+U+UR, pos+U+UR, pos+UR) }
+
+                        coordBuffer.buildShape2D { addVertices(pos, pos+UL, pos+UL+U, pos+UL+U+UR, pos+U+UR, pos+UR) }
                     }
+
                 }
 
             }
@@ -227,12 +229,16 @@ fun hopperClouds() = Sketch {
 
 
         MouseDragged {
-            azimuth = if (mouseY > height/2) {
-                (azimuth - 4.0*movedX/width + 4.0)%4.0
-            } else {
-                (azimuth + 4.0*movedX/width)%4.0
+            when(mouseButton) {
+                CENTER -> {
+                    azimuth = (azimuth - map(mouseY, 0, height, -4, 4)*movedX/width + 4)%4.0
+                    elevation = (elevation + 4.0*(movedY/height)).toDouble().coerceIn(0.0, 1.0)
+                }
+                LEFT -> {
+                    center += createVector(movedX, movedY)
+                }
+                else -> return@MouseDragged
             }
-            elevation = (elevation + 4.0*(movedY/height)).toDouble().coerceIn(0.0, 1.0)
 
             draw()
         }
@@ -241,11 +247,7 @@ fun hopperClouds() = Sketch {
             updateCamera()
             val mouse = createVector(mouseX-width/2, mouseY-height/2)
             val p = createVector(mouse cross2 DOWN_RIGHT, DOWN_LEFT cross2 mouse)/(DOWN_LEFT cross2 DOWN_RIGHT)
-            if(delta > 0) {
-                scale *= 0.9
-            } else {
-                scale /= 0.9
-            }
+            scale *= if(delta > 0) 0.95 else 1.05
             updateCamera()
             val p2 = DOWN_LEFT*p.x + DOWN_RIGHT*p.y
             center += (mouse-p2)*scale

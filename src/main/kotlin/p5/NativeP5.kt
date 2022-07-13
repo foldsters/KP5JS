@@ -7,7 +7,9 @@ import kotlin.js.RegExp
 
 @JsModule("p5")
 @JsNonModule
-abstract external class NativeP5(sketch : (P5)->Unit) {
+abstract external class NativeP5 {
+    constructor(sketch: (P5) -> Unit)
+    constructor()
 
     class RendererGL {
         companion object {
@@ -283,6 +285,64 @@ abstract external class NativeP5(sketch : (P5)->Unit) {
     fun redraw()
     fun redraw(n: Int)
 
+    ////
+    fun parent(): Element
+    fun parent(parentString: String)
+    fun parent(parentElement: Element)
+    fun id(): String
+    fun id(idString: String)
+    @JsName("class")
+    fun `class`()
+    @JsName("class")
+    fun `class`(classString: String)
+    fun mouseOver(keepCallback: Boolean)
+    fun mouseOver(callback: ()->Unit)
+    fun mouseOut(keepCallback: Boolean)
+    fun mouseOut(callback: ()->Unit)
+    fun dragOver(keepCallback: Boolean)
+    fun dragOver(callback: ()->Unit)
+    fun dragLeave(keepCallback: Boolean)
+    fun dragLeave(callback: ()->Unit)
+    fun changed(keepCallback: Boolean)
+    fun changed(callback: ()->Unit)
+    fun input(keepCallback: Boolean)
+    fun input(callback: ()->Unit)
+    fun addClass(classString: String)
+    fun removeClass(classString: String)
+    fun hasClass(classString: String): Boolean
+    fun toggleClass(classString: String)
+    fun child()
+    fun child(classString: String)
+    fun child(classElement: Element)
+    fun center()
+    fun center(alignString: String)
+    fun html(): String
+    fun html(htmlString: String)
+    fun html(htmlString: String, append: Boolean)
+    fun position(): dynamic // TODO: Remove Dynamic
+    fun position(x: Number, y: Number)
+    fun position(x: Number, y: Number, positionTypeString: String)
+    fun style(property: String): String
+    fun style(property: String, value: String)
+    fun attribute(attr: String): String
+    fun attribute(attr: String, value: String)
+    fun removeAttribute(attr: String)
+    //fun value(valueString: String)
+    fun show()
+    fun hide()
+    fun size(): dynamic // TODO: Returns Object, Remove Dynamic
+    fun size(w: Number)
+    @JsName("size")
+    fun _size(w: String)
+    fun size(w: Number, h: Number)
+    @JsName("size")
+    fun _size(w: Number, h: String)
+    @JsName("size")
+    fun _size(w: String, h: Number)
+    fun drop(callback: (File)->Unit)
+    fun drop(callback: (File)->Unit, onDrop: ()->Unit)
+    ////
+
 
     // DOM
     open class Element(elt: String) {
@@ -350,9 +410,12 @@ abstract external class NativeP5(sketch : (P5)->Unit) {
         fun hide()
         fun size(): dynamic // TODO: Returns Object, Remove Dynamic
         fun size(w: Number)
+        @JsName("size")
         fun _size(w: String)
         fun size(w: Number, h: Number)
+        @JsName("size")
         fun _size(w: Number, h: String)
+        @JsName("size")
         fun _size(w: String, h: Number)
         fun remove()
         fun drop(callback: (File)->Unit)
@@ -487,10 +550,6 @@ abstract external class NativeP5(sketch : (P5)->Unit) {
 
     // RENDERING
 
-    class Graphics: Element {
-        fun reset()
-    }
-
     class Renderer: Element
 
     fun createCanvas(w: Number, h: Number): Renderer
@@ -499,9 +558,10 @@ abstract external class NativeP5(sketch : (P5)->Unit) {
     fun resizeCanvas(w: Number, h: Number)
     fun resizeCanvas(w: Number, h: Number, noRedraw: Boolean)
     fun noCanvas()
-    fun createGraphics(w: Number, h: Number): Graphics
     @JsName("createGraphics")
-    fun _createGraphics(w: Number, h: Number, rendererMode: String): Graphics
+    fun _createGraphics(w: Number, h: Number): NativeP5
+    @JsName("createGraphics")
+    fun _createGraphics(w: Number, h: Number, rendererMode: String): NativeP5
     @JsName("blendMode")
     fun _blendMode(mode: String)
     val drawingContext: dynamic
@@ -598,7 +658,8 @@ abstract external class NativeP5(sketch : (P5)->Unit) {
     val winMouseY: Number
     val pwinMouseX: Number
     val pwinMouseY: Number
-    val mouseButton: String
+    @JsName("mouseButton")
+    val _mouseButton: String
     val mouseIsPressed: Boolean
     var mouseMoved: (()->Unit)? // TODO: Add to SketchContext
     var mouseDragged: (()-> Unit)? // TODO: Add to SketchContext
@@ -674,6 +735,7 @@ abstract external class NativeP5(sketch : (P5)->Unit) {
     fun loadImage(path: String, successCallback: (Image)->Unit, failureCallback: (dynamic)->Unit): Image
     fun image(img: Image, x: Number, y: Number)
     fun image(img: Image, x: Number, y: Number, width: Number, height: Number)
+    fun image(img: NativeP5, x: Number, y: Number, width: Number, height: Number)
     fun image(img: Image, dx: Number, dy: Number, dWidth: Number, dHeight: Number, sx: Number, sy: Number)
     fun image(img: Image, dx: Number, dy: Number, dWidth: Number, dHeight: Number,
               sx: Number, sy: Number, sWidth: Number, sHeight: Number)
@@ -995,7 +1057,7 @@ abstract external class NativeP5(sketch : (P5)->Unit) {
         @JsName("setUniform")
         fun _setUniform(uniformName: String, data: Image)
         @JsName("setUniform")
-        fun _setUniform(uniformName: String, data: Graphics)
+        fun _setUniform(uniformName: String, data: NativeP5)
         @JsName("setUniform")
         fun _setUniform(uniformName: String, data: MediaElement)
         @JsName("setUniform")
@@ -1015,7 +1077,7 @@ abstract external class NativeP5(sketch : (P5)->Unit) {
     fun resetShader()
     fun texture(tex: Image)
     fun texture(tex: MediaElement)
-    fun texture(tex: Graphics)
+    fun texture(tex: NativeP5)
     fun texture(tex: Texture)
     @JsName("textureMode")
     fun _textureMode(mode: String) // TODO: Make Enum
