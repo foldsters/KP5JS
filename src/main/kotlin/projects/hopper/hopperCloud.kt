@@ -80,6 +80,11 @@ fun hopperClouds() = Sketch {
 
         val coordBuffer = createGraphics(1024, 512, RenderMode.P2D, hide=false).apply {
             noStroke()
+            pixelDensity(1)
+        }
+        val mouseBuffer = createGraphics(1024, 512, RenderMode.P2D, hide=false).apply {
+            noStroke()
+            pixelDensity(1)
         }
 
         val hopperColors = mapOf(
@@ -184,8 +189,6 @@ fun hopperClouds() = Sketch {
             updateCamera()
             noStroke()
 
-            console.log(azimuth, ti)
-
             DrawFor(sorts[ti], 500) {
                 with(it) {
                     val (px, py) = when(ti) {
@@ -196,7 +199,7 @@ fun hopperClouds() = Sketch {
                     }
 
                     val pos = center + DOWN_LEFT*px + DOWN_RIGHT*py + DOWN*z + screenCenter
-                    coordBuffer.fill((location+128).toColor())
+                    coordBuffer.fill((createVector(px, py, z) + 128).toColor())
 
                     if (it is HopperPoint) {
                         var c = (color*(0.75-tc)).toColor()
@@ -227,6 +230,21 @@ fun hopperClouds() = Sketch {
 
         draw()
 
+        fun updateMouseBuffer() {
+            mouseBuffer.background(0, 255)
+            mouseBuffer.withPixels {
+                for(x in 0..width step 3) {
+                    for(y in 0 .. height step 3) {
+                        val XYSC = createVector(x, y)
+                        val XYSC2 = XYSC - createVector(width/2, height/2)
+                        val XYWC = createVector(XYSC2 cross2 DOWN_RIGHT, DOWN_LEFT cross2 XYSC2)/(DOWN_LEFT cross2 DOWN_RIGHT)
+                        if (-128 <= XYWC.x && XYWC.x <= 128 && -128 <= XYWC.y && XYWC.y <= 128)
+                            colorArray[XYSC] = (XYWC + 128).toColor()
+                    }
+                }
+            }
+        }
+
 
         MouseDragged {
             when(mouseButton) {
@@ -239,24 +257,38 @@ fun hopperClouds() = Sketch {
                 }
                 else -> return@MouseDragged
             }
+            updateMouseBuffer()
 
             draw()
         }
 
         MouseWheel {
             updateCamera()
-            val mouse = createVector(mouseX-width/2, mouseY-height/2)
-            val p = createVector(mouse cross2 DOWN_RIGHT, DOWN_LEFT cross2 mouse)/(DOWN_LEFT cross2 DOWN_RIGHT)
-            scale *= if(delta > 0) 0.95 else 1.05
+            val mouseSC = createVector(mouseX, mouseY)
+            val mouseSC2 = createVector(mouseX-width/2, mouseY-height/2)
+            val mousePlaneWC = createVector(mouseSC2 cross2 DOWN_RIGHT, DOWN_LEFT cross2 mouseSC2)/(DOWN_LEFT cross2 DOWN_RIGHT)
+            var coordMapWC: Vector = createVector(0, 0)
+            coordBuffer.withPixels {
+                val bufferColor = colorArray[mouseSC]
+                coordMapWC = bufferColor.toVector() - 128
+            }
+            updateMouseBuffer()
+            println(coordMapWC, mousePlaneWC)
+            val factor = if(delta > 0) 0.95 else 1.05
+            val delta = (center-mouseSC2)*factor+mouseSC2-center
+            scale *= factor
             updateCamera()
-            val p2 = DOWN_LEFT*p.x + DOWN_RIGHT*p.y
-            center += (mouse-p2)*scale
+            val coordMapSC   = DOWN_LEFT*coordMapWC.x   + DOWN_RIGHT*coordMapWC.y
+            val mousePlaneSC = DOWN_LEFT*mousePlaneWC.x + DOWN_RIGHT*mousePlaneWC.y
+//            console.log(mouse2, p2, p3, mouse2-p2)
+            //center += (mouseSC2-coordMapSC)*scale
+            center += delta
             draw()
         }
 
         createButton("Reset").apply {
             mouseClicked {
-                scale = 1.0
+                scale = 4.0
                 azimuth = 2.0
                 elevation = 0.5
                 center = createVector(0, 0)

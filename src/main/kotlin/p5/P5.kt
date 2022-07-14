@@ -753,20 +753,23 @@ open class P5: NativeP5 {
     enum class ScalarMode {
         X,
         XY,
-        XYZ
+        XYZ;
     }
 
-    private var scalarMode: ScalarMode = ScalarMode.XY
+    private object _ScalarMode {
+        var scalarMode: ScalarMode = ScalarMode.XYZ
+    }
+
     fun scalarMode(axes: ScalarMode) {
-        scalarMode = axes
+        _ScalarMode.scalarMode = axes
     }
     fun scalarMode(): ScalarMode {
-        return scalarMode
+        return _ScalarMode.scalarMode
     }
 
     operator fun Vector.plus(other: Vector) = Vector.add(this, other)
     operator fun Vector.plus(other: Number): Vector {
-        return when(scalarMode) {
+        return when(_ScalarMode.scalarMode) {
             ScalarMode.X -> Vector.add(this, createVector(other, 0, 0))
             ScalarMode.XY -> Vector.add(this, createVector(other, other, 0))
             ScalarMode.XYZ -> Vector.add(this, createVector(other, other, other))
@@ -787,7 +790,7 @@ open class P5: NativeP5 {
 
     operator fun Vector.minus(other: Vector) = Vector.sub(this, other)
     operator fun Vector.minus(other: Number): Vector {
-        return when(scalarMode) {
+        return when(_ScalarMode.scalarMode) {
             ScalarMode.X -> Vector.sub(this, createVector(other, 0, 0))
             ScalarMode.XY -> Vector.sub(this, createVector(other, other, 0))
             ScalarMode.XYZ -> Vector.sub(this, createVector(other, other, other))
