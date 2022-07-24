@@ -14,14 +14,14 @@ import p5.NativeP5
 import p5.P5
 import p5.util.appendAll
 import p5.util.ifTrue
+import p5.util.println
 import kotlin.experimental.ExperimentalTypeInference
 import kotlin.math.max
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty
 
-fun P5.CreateShader(debug: Boolean=false, block: ShaderScope.()->Unit): P5.KShader {
-    val shaderScope = ShaderScope()
-    shaderScope.debug = debug
+fun P5.buildShader(useWEBGL2: Boolean = false, debug: Boolean = false, block: ShaderScope.() -> Unit): P5.KShader {
+    val shaderScope = ShaderScope(useWEBGL2, debug)
     block(shaderScope)
     if(debug) {
         println("Vertex Program:")
@@ -33,34 +33,45 @@ fun P5.CreateShader(debug: Boolean=false, block: ShaderScope.()->Unit): P5.KShad
     return createKShader(shaderScope.vertexCode, shaderScope.fragmentCode, shaderScope.uniformCallbackRoster)
 }
 
-class ShaderScope {
+class ShaderScope(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
 
-    var vertexCode = """#version 300 es
+    var vertexCode = if(useWEBGL2) """#version 300 es
 #ifdef GL_ES
 precision highp float;
 #endif
 in vec3 aPosition;
 void main() { 
-gl_Position = vec4((aPosition.xy*2.0)-1.0,1.0,1.0);
-}"""
+vec4 positionVec4 = vec4(aPosition, 1.0);
+positionVec4.xy = positionVec4.xy * 2.0 - 1.0;
+gl_Position = positionVec4;
+}""" else """#ifdef GL_ES
+precision highp float;
+#endif
+attribute vec3 aPosition;
+void main() {
+vec4 positionVec4 = vec4(aPosition, 1.0);
+positionVec4.xy = positionVec4.xy * 2.0 - 1.0; 
+gl_Position = positionVec4;
+}
+"""
     var fragmentCode = ""
-    var debug = false
     var uniformCallbackRoster: MutableMap<String, ()->Any> = mutableMapOf()
 
     fun Vertex(block: KGLSL.()->Unit): String {
-        val vertex = KGLSL()
-        vertex.debug = debug
+        val vertex = KGLSL(useWEBGL2, debug)
         block(vertex)
         vertexCode = vertex.instructions.sortedBy { it.id }.joinToString("\n") { it.render() }
         return vertexCode
     }
 
     fun Fragment(block: KGLSL.()->Unit): String {
-        val fragment = KGLSL()
-        fragment.debug = debug
+        val fragment = KGLSL(useWEBGL2, debug)
         block(fragment)
-        val preamble = """#version 300 es
+        val preamble = if(useWEBGL2) """#version 300 es
 #ifdef GL_ES
+precision highp float;
+#endif
+""" else """#ifdef GL_ES
 precision highp float;
 #endif
 """
@@ -73,22 +84,20 @@ precision highp float;
 
 
 @OptIn(ExperimentalTypeInference::class)
-class KGLSL {
+class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
 
     // Instructions to be Rendered at the End
     val instructions = mutableListOf<Instruction>()
-    private var uniqueExprId = 0
-    private fun genSnapshotId(): Int = uniqueExprId++
+    private var uniqueExprId = 0.0
+    private fun genSnapshotId(): Double = uniqueExprId++
 
     // Tracking variables for assignment
     private val seenVariableNames = mutableSetOf<String>()
 
-    var debug = false
-
     inner class Instruction(instructionNode: ShaderNode) {
-        val id: Int = instructionNode.getSnapshotNum()
+        val id: Double = instructionNode.getSnapshotNum()
         val text = instructionNode.render()
-        fun render() = text//if(debug) "$text //$id" else text
+        fun render() = if(debug) "$text //$id" else text
     }
 
 //     _   _           _        _____
@@ -104,6 +113,7 @@ class KGLSL {
         open var children: List<ShaderNode> = cs.toList()
         abstract fun render(): String
         abstract val nativeTypeName: String // For Variable Declaration
+        abstract val logTypeName: String
         abstract fun copy(): ShaderNode // For copying branches of the tree
     }
 
@@ -134,6 +144,8 @@ class KGLSL {
 
         override val nativeTypeName: String
             get() = throw IllegalStateException("Cannot Use LiteralNode as Shader Type")
+
+        override val logTypeName = "Literal Node"
     }
 
     // ASSIGNMENT STATEMENT: Renders to an assignment/declaration statement
@@ -143,7 +155,7 @@ class KGLSL {
         val declare: Boolean = false,
         val assign: Boolean = true,
         val modifiers: List<String> = listOf()
-    ): ShaderNode(expression) {
+    ): ShaderNode(expression.copy()) {
         override fun render(): String {
             return buildString {
                 appendAll(modifiers, " ")
@@ -153,9 +165,10 @@ class KGLSL {
                 append(";")
             }
         }
-        override fun copy() = AssignmentStatement(name, expression.copy() as GenExpr<*>, declare)
+        override fun copy() = AssignmentStatement(name, children[0].copy() as GenExpr<*>, declare)
         override val nativeTypeName: String
             get() = throw IllegalStateException("Cannot Use AssignmentNode as Shader Type")
+        override val logTypeName = "Assignment Statement"
     }
 
     // VARIABLE EXPR: Expressions that are just variable names
@@ -164,6 +177,8 @@ class KGLSL {
         override fun copy() = VariableExpr(name)
         override val nativeTypeName: String
             get() = throw IllegalStateException("Cannot Use VariableNode as Shader Type")
+        override val logTypeName = "Variable Expr"
+        val id = genSnapshotId()
     }
 
     // FUNCTION EXPR: Expressions of functions holding values
@@ -178,6 +193,7 @@ class KGLSL {
         }
         override val nativeTypeName: String
             get() = throw IllegalStateException("Cannot Use FunctionNode as Shader Type")
+        override val logTypeName = "Function Expr"
     }
 
     // OPERATOR EXPR: Expressions that have infix operators
@@ -206,13 +222,14 @@ class KGLSL {
         }
         override val nativeTypeName: String
             get() = throw IllegalStateException("Cannot Use OperatorNode as Shader Type")
+        override val logTypeName = "Operator Expr"
     }
 
     // COMPONENT EXPR: Expressions that are field selectors of vectors
     inner class ComponentExpr(val name: String, vararg cs: ShaderNode): ShaderNode(*cs) {
         override fun render(): String {
             require(children.isNotEmpty()) {"Error in rendering Component Node: Not Enough Children ($children)"}
-            if (children[0] is GenExpr<*>) {
+            if (children[0] is GenExpr<*> && children[0].children.isNotEmpty() && children[0].children[0] !is OperatorExpr) {
                 return "${children[0].render()}.$name"
             }
             return "(${children[0].render()}).$name"
@@ -221,7 +238,8 @@ class KGLSL {
             return ComponentExpr(name, *(children.copy().toTypedArray()))
         }
         override val nativeTypeName: String
-            get() = throw IllegalStateException("Cannot Use ComponentNode as Shader Type")
+            get() = throw IllegalStateException("Cannot Use ComponentExpr as Shader Type")
+        override val logTypeName = "Component Expr"
     }
 
     val uniformCallbackRoster: MutableMap<String, ()->Any> = mutableMapOf()
@@ -248,6 +266,7 @@ class KGLSL {
         var id = genSnapshotId()
         var needsAssignmet = false
         var uniformCallback: Callback<*>? = null
+        var builtIn = false
 
         abstract fun new(vararg cs: ShaderNode): GenExpr<T>
 
@@ -256,7 +275,7 @@ class KGLSL {
             name = varName
             uniformCallback?.register(varName)
             uniformCallback = null
-            if(seenVariableNames.add(name!!)) {
+            if(seenVariableNames.add(name!!) && !builtIn) {
                 instructions.add(Instruction(AssignmentStatement(varName, this.copy() as T, true, assign, modifiers)))
             }
             children = listOf(VariableExpr(varName))
@@ -268,7 +287,7 @@ class KGLSL {
             name = varName
             uniformCallback?.register(varName)
             uniformCallback = null
-            if(seenVariableNames.add(name!!)) {
+            if(seenVariableNames.add(name!!) && !builtIn) {
                 instructions.add(Instruction(AssignmentStatement(varName, this.copy() as GenExpr<*>, true, assign, modifiers)))
             }
             children = value.children.copy()
@@ -305,6 +324,7 @@ class KGLSL {
     abstract inner class BoolExpr(vararg cs: ShaderNode): GenBExpr<BoolExpr>(*cs), ExprLen1 {
         override fun new(vararg cs: ShaderNode): BoolExpr = BoolExprImpl(*cs)
         override val nativeTypeName = "bool"
+        override val logTypeName = "Boolean Expr"
     }
 
     // BVECEXPR: Abstract base class of float vector expressions
@@ -346,6 +366,7 @@ class KGLSL {
         override fun new(vararg cs: ShaderNode): BVec2Expr = BVec2ExprImpl(*cs)
         override val nativeTypeName = "bvec2"
         override val numComponents = 2
+        override val logTypeName = "Boolean Vec2 Expr"
     }
 
     private inner class BVec3ExprImpl(vararg cs: ShaderNode): BVec3Expr(*cs)
@@ -353,6 +374,7 @@ class KGLSL {
         override fun new(vararg cs: ShaderNode): BVec3Expr = BVec3ExprImpl(*cs)
         override val nativeTypeName = "bvec3"
         override val numComponents = 3
+        override val logTypeName = "Boolean Vec3 Expr"
 
         // Components and Swizzling
         var z    by C1; var xz   by C2; var yz   by C2; var zx   by C2; var zy   by C2; val zz   by C2
@@ -398,6 +420,7 @@ class KGLSL {
         override fun new(vararg cs: ShaderNode): BVec4Expr = BVec4ExprImpl(*cs)
         override val nativeTypeName = "bvec4"
         override val numComponents = 4
+        override val logTypeName = "Boolean Vec4 Expr"
 
         // Components and Swizzling
         var z    by C1; var w    by C1; var xz   by C2; var xw   by C2; var yz   by C2; var yw   by C2
@@ -529,6 +552,7 @@ class KGLSL {
     abstract inner class IntExpr(vararg cs: ShaderNode): GenIExpr<IntExpr>(*cs), ExprLen1 {
         override val nativeTypeName = "int"
         override fun new(vararg cs: ShaderNode): IntExpr = IntExprImpl(*cs)
+        override val logTypeName = "Int Expr"
     }
 
     // IVECEXPR: Abstract base class of float vector expressions
@@ -571,6 +595,7 @@ class KGLSL {
         override fun new(vararg cs: ShaderNode): IVec2Expr = IVec2ExprImpl(*cs)
         override val nativeTypeName = "ivec2"
         override val numComponents = 2
+        override val logTypeName = "Int Vec2 Expr"
     }
 
     private inner class IVec3ExprImpl(vararg cs: ShaderNode): IVec3Expr(*cs)
@@ -578,6 +603,7 @@ class KGLSL {
         override fun new(vararg cs: ShaderNode): IVec3Expr = IVec3ExprImpl(*cs)
         override val nativeTypeName = "ivec3"
         override val numComponents = 3
+        override val logTypeName = "Int Vec3 Expr"
 
         // Components and Swizzling
         var z    by C1; var xz   by C2; var yz   by C2; var zx   by C2; var zy   by C2; val zz   by C2
@@ -623,6 +649,7 @@ class KGLSL {
         override fun new(vararg cs: ShaderNode): IVec4Expr = IVec4ExprImpl(*cs)
         override val nativeTypeName = "ivec4"
         override val numComponents = 4
+        override val logTypeName = "Int Vec4 Expr"
 
         // Components and Swizzling
         var z    by C1; var w    by C1; var xz   by C2; var xw   by C2; var yz   by C2; var yw   by C2
@@ -751,6 +778,7 @@ class KGLSL {
     abstract inner class FloatExpr (vararg cs: ShaderNode): GenFExpr<FloatExpr>(*cs), ExprLen1 {
         override val nativeTypeName = "float"
         override fun new(vararg cs: ShaderNode): FloatExpr = FloatExprImpl(*cs)
+        override val logTypeName = "Float Expr"
     }
 
     // VECEXPR: Abstract base class of float vector expressions
@@ -794,6 +822,7 @@ class KGLSL {
         override fun new(vararg cs: ShaderNode): Vec2Expr = Vec2ExprImpl(*cs)
         override val nativeTypeName = "vec2"
         override val numComponents = 2
+        override val logTypeName = "Float Vec2 Expr"
     }
 
     private inner class Vec3ExprImpl(vararg cs: ShaderNode): Vec3Expr(*cs)
@@ -801,6 +830,7 @@ class KGLSL {
         override fun new(vararg cs: ShaderNode): Vec3Expr = Vec3ExprImpl(*cs)
         override val nativeTypeName = "vec3"
         override val numComponents = 3
+        override val logTypeName = "Float Vec3 Expr"
 
         // Components and Swizzling
         var z    by C1; var xz   by C2; var yz   by C2; var zx   by C2; var zy   by C2; val zz   by C2
@@ -846,6 +876,7 @@ class KGLSL {
         override fun new(vararg cs: ShaderNode): Vec4Expr = Vec4ExprImpl(*cs)
         override val nativeTypeName = "vec4"
         override val numComponents = 4
+        override val logTypeName = "Float Vec4 Expr"
 
         // Components and Swizzling
         var z    by C1; var w    by C1; var xz   by C2; var xw   by C2; var yz   by C2; var yw   by C2
@@ -983,25 +1014,30 @@ class KGLSL {
     inner class Sampler2D(vararg cs: ShaderNode): GenExpr<Sampler2D>(*cs) {
         override val nativeTypeName = "sampler2D"
         override fun new(vararg cs: ShaderNode) = Sampler2D(*cs)
+        override val logTypeName = "Sampler Expr"
     }
 
-    fun texture(sampler: Sampler2D, P: Vec2Expr): Vec4Expr = functionOf("texture", sampler, P)
+    fun texture(sampler: Sampler2D, P: Vec2Expr): Vec4Expr = functionOf(if (useWEBGL2) "texture" else "texture2D", sampler, P)
     fun textureGrad(sampler: Sampler2D, P: Vec2Expr, dPdx: Vec2Expr, dPdy: Vec2Expr): Vec4Expr = functionOf("textureGrad", sampler, P, dPdx, dPdy)
 
     //
 
-    fun ShaderNode.getSnapshotNum(): Int {
-        var result: Int = when(this) {
+    fun ShaderNode.getSnapshotNum(): Double {
+        logIndent++
+        var result: Double = when(this) {
             is GenExpr<*> -> id
             is LiteralExpr<*> -> id
-            else -> -1
+            is VariableExpr -> id
+            else -> -1.0
         }
         if (children.isNotEmpty()) {
             result = max(result, children.maxOf { it.getSnapshotNum() })
         }
-        if (result == -1) {
-            result = genSnapshotId()
+        if (result == -1.0) {
+            println("Unknown Id", logTypeName)
+            result = genSnapshotId() + 0.5
         }
+        logIndent--
         return result
     }
 
@@ -1023,7 +1059,8 @@ class KGLSL {
     fun Uniform(block: ()->Double): FloatExpr            = Uniform<FloatExpr>().apply { uniformCallback = Callback(block) }
     fun Uniform(block: ()->NativeP5.Texture): Sampler2D  = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
     fun Uniform(block: ()->NativeP5.Image): Sampler2D    = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
-    fun Uniform(block: ()-> NativeP5): Sampler2D = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
+    fun Uniform(block: ()-> P5): Sampler2D = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
+    fun Uniform(block: ()-> NativeP5.Renderer): Sampler2D = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
     inline fun <reified T: VecExpr<T>>  Uniform(noinline block: ()->Array<Number>): T = Uniform<T>().apply { uniformCallback = Callback(block) }
 
     inline fun <reified T: GenExpr<*>> Out(): T {
@@ -1033,9 +1070,15 @@ class KGLSL {
         return result
     }
 
+    inline fun <reified T: GenExpr<*>> BuiltIn(): T {
+        val result = new<T>(LiteralExpr("<Unknown Builtin>"))
+        result.builtIn = true
+        return result
+    }
+
     inline fun <reified T: GenExpr<*>> In(): T {
         val result = new<T>(LiteralExpr("<Unknown In>"))
-        result.modifiers = listOf("in")
+        result.modifiers = listOf (if (useWEBGL2) "in" else "varying")
         result.assign = false
         return result
     }
@@ -1065,20 +1108,21 @@ class KGLSL {
         return iteratorVarName
     }
 
-    inner class If(cond: BoolExpr, block: ()->Unit) {
-        init {
-            +"if(${cond.render()}) {"
-            block()
-            +"}"
-        }
+    inline fun If(cond: BoolExpr, block: () -> Unit): _If {
+        +"if(${cond.render()}) {"
+        block()
+        +"}"
+        return _If()
+    }
+    inner class _If {
 
-        fun Else(block: ()->Unit) {
+        inline fun Else(block: ()->Unit) {
             +"else {"
             block()
             +"}"
         }
 
-        fun ElseIf(cond: BoolExpr, block: ()->Unit): If {
+        inline fun ElseIf(cond: BoolExpr, block: ()->Unit): _If {
             +"else if(${cond.render()}) {"
             block()
             +"}"
@@ -1153,11 +1197,29 @@ class KGLSL {
         +"}"
     }
 
+    object Exit
+
+    var gl_FragColor by BuiltIn<Vec4Expr>()
+
+    @OverloadResolutionByLambdaReturnType
     fun Main(block: ()->Vec4Expr) {
-        var fragColor by Out<Vec4Expr>()
+        if(useWEBGL2) {
+            var fragColor by Out<Vec4Expr>()
+            +"void main() {"
+            val result = block()
+            fragColor = result
+            +"}"
+        } else {
+            +"void main() {"
+            val result = block()
+            gl_FragColor = result
+            +"}"
+        }
+
+    }
+    fun Main(block: ()->Exit) {
         +"void main() {"
-        val result = block()
-        fragColor = result
+        block()
         +"}"
     }
 
@@ -1287,6 +1349,7 @@ class KGLSL {
     // Operators
     fun <T: GenExpr<T>> equalTo(left: T, right: T): BoolExpr = operatorOf("==", left, right)
     infix fun <T: GenExpr<T>> T.EQ(other: T) = equalTo(this, other)
+    @JsName("GE_EQ_GE") infix fun <T: GenExpr<T>> T.`==`(other: T) = equalTo(this, other)
 
     operator fun BoolExpr.not(): BoolExpr = functionOf("!", this)
     infix fun BoolExpr.AND(other: BoolExpr): BoolExpr = operatorOf("&&", this, other)
@@ -1509,17 +1572,17 @@ class KGLSL {
     fun ivec2(x: Int, y: Int):                      IVec2Expr = IVec2ExprImpl(int(x), int(y))
     fun ivec3(x: Int, y: Int, z: Int):              IVec3Expr = IVec3ExprImpl(int(x), int(y), int(z))
     fun ivec4(x: Int, y: Int, z: Int, w: Int):      IVec4Expr = IVec4ExprImpl(int(x), int(y), int(z), int(w))
-    fun ivec4(xy: IVec2Expr,  z: Int, w: IntExpr):  IVec4Expr = IVec4ExprImpl(xy.x, xy.y, int(z), int(w))
-    fun ivec4(xy: IVec2Expr,  z: IntExpr,  w: Int): IVec4Expr = IVec4ExprImpl(xy.x, xy.y, int(z), int(w))
-    fun ivec4(xy: IVec2Expr,  z: Int, w: Int):      IVec4Expr = IVec4ExprImpl(xy.x, xy.y, int(z), int(w))
-    fun ivec4(x: IntExpr,  yz: IVec2Expr,  w: Int): IVec4Expr = IVec4ExprImpl(int(x), yz.x, yz.y, int(w))
-    fun ivec4(x: Int, yz: IVec2Expr,  w: IntExpr):  IVec4Expr = IVec4ExprImpl(int(x), yz.x, yz.y, int(w))
-    fun ivec4(x: Int, yz: IVec2Expr,  w: Int):      IVec4Expr = IVec4ExprImpl(int(x), yz.x, yz.y, int(w))
-    fun ivec4(x: IntExpr,  y: Int, zw: IVec2Expr):  IVec4Expr = IVec4ExprImpl(int(x), int(y), zw.x, zw.y)
-    fun ivec4(x: Int, y: IntExpr,  zw: IVec2Expr):  IVec4Expr = IVec4ExprImpl(int(x), int(y), zw.x, zw.y)
-    fun ivec4(x: Int, y: Int, zw: IVec2Expr):       IVec4Expr = IVec4ExprImpl(int(x), int(y), zw.x, zw.y)
-    fun ivec4(xyz: IVec3Expr, w: Int):              IVec4Expr = IVec4ExprImpl(xyz.x, xyz.y, xyz.z, int(w))
-    fun ivec4(x: Int, yzw: IVec3Expr):              IVec4Expr = IVec4ExprImpl(int(x), yzw.x, yzw.y, yzw.z)
+    fun ivec4(xy: IVec2Expr,  z: Int, w: IntExpr):  IVec4Expr = IVec4ExprImpl(xy, int(z), int(w))
+    fun ivec4(xy: IVec2Expr,  z: IntExpr,  w: Int): IVec4Expr = IVec4ExprImpl(xy, int(z), int(w))
+    fun ivec4(xy: IVec2Expr,  z: Int, w: Int):      IVec4Expr = IVec4ExprImpl(xy, int(z), int(w))
+    fun ivec4(x: IntExpr,  yz: IVec2Expr,  w: Int): IVec4Expr = IVec4ExprImpl(int(x), yz, int(w))
+    fun ivec4(x: Int, yz: IVec2Expr,  w: IntExpr):  IVec4Expr = IVec4ExprImpl(int(x), yz, int(w))
+    fun ivec4(x: Int, yz: IVec2Expr,  w: Int):      IVec4Expr = IVec4ExprImpl(int(x), yz, int(w))
+    fun ivec4(x: IntExpr,  y: Int, zw: IVec2Expr):  IVec4Expr = IVec4ExprImpl(int(x), int(y), zw)
+    fun ivec4(x: Int, y: IntExpr,  zw: IVec2Expr):  IVec4Expr = IVec4ExprImpl(int(x), int(y), zw)
+    fun ivec4(x: Int, y: Int, zw: IVec2Expr):       IVec4Expr = IVec4ExprImpl(int(x), int(y), zw)
+    fun ivec4(xyz: IVec3Expr, w: Int):              IVec4Expr = IVec4ExprImpl(xyz, int(w))
+    fun ivec4(x: Int, yzw: IVec3Expr):              IVec4Expr = IVec4ExprImpl(int(x), yzw)
 
     fun <T: FloatExpr, U: Double> vec2(x: T, y: U):             Vec2Expr = Vec2ExprImpl(float(x), float(y))
     fun <T: FloatExpr, U: Double> vec2(x: U, y: T):             Vec2Expr = Vec2ExprImpl(float(x), float(y))
@@ -1547,15 +1610,15 @@ class KGLSL {
     fun vec2(x: Double, y: Double):                       Vec2Expr = Vec2ExprImpl(float(x), float(y))
     fun vec3(x: Double, y: Double, z: Double):            Vec3Expr = Vec3ExprImpl(float(x), float(y), float(z))
     fun vec4(x: Double, y: Double, z: Double, w: Double): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
-    fun vec4(xy: Vec2Expr,  z: Double, w: FloatExpr):     Vec4Expr = Vec4ExprImpl(xy.x, xy.y, float(z), float(w))
-    fun vec4(xy: Vec2Expr,  z: FloatExpr,  w: Double):    Vec4Expr = Vec4ExprImpl(xy.x, xy.y, float(z), float(w))
-    fun vec4(xy: Vec2Expr,  z: Double, w: Double):        Vec4Expr = Vec4ExprImpl(xy.x, xy.y, float(z), float(w))
-    fun vec4(x: FloatExpr,  yz: Vec2Expr,  w: Double):    Vec4Expr = Vec4ExprImpl(float(x), yz.x, yz.y, float(w))
-    fun vec4(x: Double, yz: Vec2Expr,  w: FloatExpr):     Vec4Expr = Vec4ExprImpl(float(x), yz.x, yz.y, float(w))
-    fun vec4(x: Double, yz: Vec2Expr,  w: Double):        Vec4Expr = Vec4ExprImpl(float(x), yz.x, yz.y, float(w))
-    fun vec4(x: FloatExpr,  y: Double, zw: Vec2Expr):     Vec4Expr = Vec4ExprImpl(float(x), float(y), zw.x, zw.y)
-    fun vec4(x: Double, y: FloatExpr,  zw: Vec2Expr):     Vec4Expr = Vec4ExprImpl(float(x), float(y), zw.x, zw.y)
-    fun vec4(x: Double, y: Double, zw: Vec2Expr):         Vec4Expr = Vec4ExprImpl(float(x), float(y), zw.x, zw.y)
+    fun vec4(xy: Vec2Expr,  z: Double, w: FloatExpr):     Vec4Expr = Vec4ExprImpl(xy, float(z), float(w))
+    fun vec4(xy: Vec2Expr,  z: FloatExpr,  w: Double):    Vec4Expr = Vec4ExprImpl(xy, float(z), float(w))
+    fun vec4(xy: Vec2Expr,  z: Double, w: Double):        Vec4Expr = Vec4ExprImpl(xy, float(z), float(w))
+    fun vec4(x: FloatExpr,  yz: Vec2Expr,  w: Double):    Vec4Expr = Vec4ExprImpl(float(x), yz, float(w))
+    fun vec4(x: Double, yz: Vec2Expr,  w: FloatExpr):     Vec4Expr = Vec4ExprImpl(float(x), yz, float(w))
+    fun vec4(x: Double, yz: Vec2Expr,  w: Double):        Vec4Expr = Vec4ExprImpl(float(x), yz, float(w))
+    fun vec4(x: FloatExpr,  y: Double, zw: Vec2Expr):     Vec4Expr = Vec4ExprImpl(float(x), float(y), zw)
+    fun vec4(x: Double, y: FloatExpr,  zw: Vec2Expr):     Vec4Expr = Vec4ExprImpl(float(x), float(y), zw)
+    fun vec4(x: Double, y: Double, zw: Vec2Expr):         Vec4Expr = Vec4ExprImpl(float(x), float(y), zw)
     fun vec4(xyz: Vec3Expr, w: Double):                   Vec4Expr = Vec4ExprImpl(xyz, float(w))
     fun vec4(x: Double, yzw: Vec3Expr):                   Vec4Expr = Vec4ExprImpl(float(x), yzw)
 
@@ -1586,20 +1649,43 @@ class KGLSL {
     fun vec3(x: Int, y: Int, z: Int):         Vec3Expr = Vec3ExprImpl(float(x), float(y), float(z))
     fun vec4(x: Int, y: Int, z: Int, w: Int): Vec4Expr = Vec4ExprImpl(float(x), float(y), float(z), float(w))
 
-    fun vec4(xy: Vec2Expr,  z: Int, w: FloatExpr):  Vec4Expr = Vec4ExprImpl(xy.x, xy.y, float(z), float(w))
-    fun vec4(xy: Vec2Expr,  z: FloatExpr,  w: Int): Vec4Expr = Vec4ExprImpl(xy.x, xy.y, float(z), float(w))
-    fun vec4(xy: Vec2Expr,  z: Int, w: Int):        Vec4Expr = Vec4ExprImpl(xy.x, xy.y, float(z), float(w))
-    fun vec4(x: FloatExpr,  yz: Vec2Expr,  w: Int): Vec4Expr = Vec4ExprImpl(float(x), yz.x, yz.y, float(w))
-    fun vec4(x: Int, yz: Vec2Expr,  w: FloatExpr):  Vec4Expr = Vec4ExprImpl(float(x), yz.x, yz.y, float(w))
-    fun vec4(x: Int, yz: Vec2Expr,  w: Int):        Vec4Expr = Vec4ExprImpl(float(x), yz.x, yz.y, float(w))
-    fun vec4(x: FloatExpr,  y: Int, zw: Vec2Expr):  Vec4Expr = Vec4ExprImpl(float(x), float(y), zw.x, zw.y)
-    fun vec4(x: Int, y: FloatExpr,  zw: Vec2Expr):  Vec4Expr = Vec4ExprImpl(float(x), float(y), zw.x, zw.y)
-    fun vec4(x: Int, y: Int, zw: Vec2Expr):         Vec4Expr = Vec4ExprImpl(float(x), float(y), zw.x, zw.y)
-    fun vec4(xyz: Vec3Expr, w: Int):                Vec4Expr = Vec4ExprImpl(xyz.x, xyz.y, xyz.z, float(w))
-    fun vec4(x: Int, yzw: Vec3Expr):                Vec4Expr = Vec4ExprImpl(float(x), yzw.x, yzw.y, yzw.z)
+    fun vec4(xy: Vec2Expr,  z: Int, w: FloatExpr):  Vec4Expr = Vec4ExprImpl(xy, float(z), float(w))
+    fun vec4(xy: Vec2Expr,  z: FloatExpr,  w: Int): Vec4Expr = Vec4ExprImpl(xy, float(z), float(w))
+    fun vec4(xy: Vec2Expr,  z: Int, w: Int):        Vec4Expr = Vec4ExprImpl(xy, float(z), float(w))
+    fun vec4(x: FloatExpr,  yz: Vec2Expr,  w: Int): Vec4Expr = Vec4ExprImpl(float(x), yz, float(w))
+    fun vec4(x: Int, yz: Vec2Expr,  w: FloatExpr):  Vec4Expr = Vec4ExprImpl(float(x), yz, float(w))
+    fun vec4(x: Int, yz: Vec2Expr,  w: Int):        Vec4Expr = Vec4ExprImpl(float(x), yz, float(w))
+    fun vec4(x: FloatExpr,  y: Int, zw: Vec2Expr):  Vec4Expr = Vec4ExprImpl(float(x), float(y), zw)
+    fun vec4(x: Int, y: FloatExpr,  zw: Vec2Expr):  Vec4Expr = Vec4ExprImpl(float(x), float(y), zw)
+    fun vec4(x: Int, y: Int, zw: Vec2Expr):         Vec4Expr = Vec4ExprImpl(float(x), float(y), zw)
+    fun vec4(xyz: Vec3Expr, w: Int):                Vec4Expr = Vec4ExprImpl(xyz, float(w))
+    fun vec4(x: Int, yzw: Vec3Expr):                Vec4Expr = Vec4ExprImpl(float(x), yzw)
 
     // Built-In Values
-    val gl_FragCoord: Vec4Expr = Vec4ExprImpl(VariableExpr("gl_FragCoord"))
+    val gl_FragCoord by BuiltIn<Vec4Expr>()
+
+
+    // Utility Functions
+    fun center(coord: vec2, res: vec2): vec2 {
+        return (2.0*coord - res)/max(res.x, res.y)
+    }
+
+    inline fun <reified T: GenFExpr<T>> map(value: T, minIn: T, maxIn: T, minOut: T, maxOut: T): T {
+        return minOut+(value-minIn)*(maxOut-minOut)/(maxIn-minIn)
+    }
+    inline fun <reified T: VecExpr<T>, U: FloatExpr> map(value: T, minIn: U, maxIn: U, minOut: U, maxOut: U): T {
+        return minOut+(value-minIn)*(maxOut-minOut)/(maxIn-minIn)
+    }
+
+    var logIndent = 0
+    fun ShaderNode.log() {
+        println(" ".repeat(logIndent), logTypeName)
+        logIndent++
+        children.forEach {
+            it.log()
+        }
+        logIndent--
+    }
 }
 
 typealias float = KGLSL.FloatExpr

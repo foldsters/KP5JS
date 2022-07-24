@@ -15,7 +15,7 @@ fun uniformBridgeExample() = Sketch {
             position(0, height)
         }
 
-        val kshader = CreateShader(debug = true) {
+        val kshader = buildShader(debug = true) {
             Fragment {
 
                 fun center(coord: vec2, res: vec2) = (2.0*coord - res)/max(res.x, res.y)

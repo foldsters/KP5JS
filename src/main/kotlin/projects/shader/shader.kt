@@ -10,7 +10,7 @@ fun shader() = Sketch {
 
         createCanvas(512, 512, P5.RenderMode.WEBGL2)
 
-        val outShader = CreateShader(debug = true) {
+        val outShader = buildShader(debug = true) {
             Fragment {
 
                 var m by float(1.0)

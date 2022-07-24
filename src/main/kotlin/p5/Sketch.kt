@@ -3,7 +3,6 @@
 package p5
 
 import kotlinx.browser.window
-import p5.util.println
 
 fun Sketch(sketch: SketchScope.()->Unit) {
     window.onload = {
@@ -19,7 +18,6 @@ class SketchScope(val p5: P5) {
 
     fun Preload       (block: P5.()->Unit) { p5.preload = wrap(block) }
     fun Setup         (block: P5.()->Unit) { p5.setup = wrap(block) }
-    fun Draw          (block: P5.()->Unit) { p5.draw = wrap(block) }
     fun WindowResized (block: P5.()->Unit) { p5.windowResized = wrap(block) }
     fun DeviceMoved   (block: P5.()->Unit) { p5.deviceMoved = wrap(block) }
     fun DeviceTurned  (block: P5.()->Unit) { p5.deviceTurned = wrap(block) }
@@ -40,80 +38,113 @@ class SketchScope(val p5: P5) {
 
     // New Scopes
 
-    fun DrawWhile(cond: ()->Boolean, block: P5.()->Unit) {
-        p5.draw = wrap { if (cond()) block() else noLoop() }
+    class DrawContinuation {
+        var afterFrame: (()->Unit)? = null
+        var afterDone: (()->Unit)? = null
+
+        fun AfterFrame(continuation: ()->Unit) { afterFrame = continuation }
+        fun AfterDone(continuation: ()->Unit) { afterDone = continuation }
     }
 
-    fun <T> DrawFor(iter: Iterable<T>, stepsPerFrame: Int = 1, onLastFrame: (P5.()->Unit)?=null, block: P5.(T) -> Unit) {
-        val itor = iter.iterator()
-        p5.draw = wrap {
-            repeat(stepsPerFrame) {
-                if (itor.hasNext()) block(itor.next()) else {
-                    p5.draw = {
-                        onLastFrame?.invoke(this)
-                        noLoop()
-                        p5.draw = null
-                    }
+    fun Draw(steps: Int = 1, block: P5.()->Unit): DrawContinuation {
+        val nextDraw = DrawContinuation()
+        with(p5) {
+            draw = wrap {
+                repeat(steps) {
+                    loop()
+                    block()
                 }
+                nextDraw.afterFrame?.invoke()
+                nextDraw.afterDone?.invoke()
+                noLoop()
+                draw = null
             }
         }
+        return nextDraw
     }
 
-    fun <T> DrawForWithPixels(iter: Iterable<T>, stepsPerFrame: Int = 1, block: P5.PixelScope.(T) -> Unit) {
+    fun DrawWhile(cond: ()->Boolean, stepsPerFrame: Int = 1, block: P5.()->Unit): DrawContinuation {
+        val nextDraw = DrawContinuation()
+        with(p5) {
+            loop()
+            draw = wrap {
+                repeat(stepsPerFrame) {
+                    if (cond()) {
+                        block()
+                    } else {
+                        nextDraw.afterDone?.invoke()
+                        noLoop()
+                        draw = null
+                    }
+                }
+                nextDraw.afterFrame?.invoke()
+            }
+        }
+        return nextDraw
+    }
+
+    fun <T> DrawFor(iter: Iterable<T>, stepsPerFrame: Int = 1, block: P5.(T) -> Unit): DrawContinuation {
         val itor = iter.iterator()
-        p5.draw = wrap {
-            withPixels {
+        val nextDraw = DrawContinuation()
+        with(p5) {
+            loop()
+            draw = wrap {
                 repeat(stepsPerFrame) {
                     if (itor.hasNext()) block(itor.next()) else {
-                        noLoop()
-                        p5.draw = null
+                        draw = {
+                            nextDraw.afterDone?.invoke()
+                            noLoop()
+                            draw = null
+                        }
+                    }
+                }
+                nextDraw.afterFrame?.invoke()
+            }
+        }
+        return nextDraw
+    }
+
+    fun <T> DrawForWithPixels(iter: Iterable<T>, stepsPerFrame: Int = 1, block: P5.PixelScope.(T) -> Unit): DrawContinuation {
+        val itor = iter.iterator()
+        val nextDraw = DrawContinuation()
+        with(p5) {
+            loop()
+            draw = wrap {
+                withPixels {
+                    repeat(stepsPerFrame) {
+                        if (itor.hasNext()) block(itor.next()) else {
+                            nextDraw.afterFrame?.invoke()
+                            noLoop()
+                            draw = null
+                        }
                     }
                 }
             }
         }
+        return nextDraw
     }
 
-    fun <T> DrawFor(itor: Iterator<T>, block: P5.(T) -> Unit) {
-        p5.draw = wrap {
-            if (itor.hasNext()) block(itor.next()) else {
-                noLoop()
-                p5.draw = null
-            }
-        }
-    }
-
-    fun <T> DrawFor(itor: Iterator<T>, stepsPerFrame: Int, block: P5.(T) -> Unit) {
-        p5.draw = wrap {
-            repeat(stepsPerFrame) {
-                if (itor.hasNext()) block(itor.next()) else {
-                    noLoop()
-                    p5.draw = null
-                }
-            }
-        }
-    }
-
-    enum class DrawFragmentMode {
-        //PIXEL,
-        //ROW,
-        FRAME_COMPLETE,
-        //FRAME_ELAPSED
-    }
-
-    fun DrawFragment(drawFragmentMode: DrawFragmentMode=DrawFragmentMode.FRAME_COMPLETE,
-                     block: P5.(Number, Number, Number)->NativeP5.Color ) {
-        p5.draw = wrap {
-            val t = millis()/1000.0
-            background(0)
-            withPixels {
-                repeat(height) { y ->
-                    repeat(width) { x ->
-                        colorArray[y, x] = block(x, y, t)
-                    }
-                }
-            }
-        }
-    }
+//    enum class DrawFragmentMode {
+//        //PIXEL,
+//        //ROW,
+//        FRAME_COMPLETE,
+//        //FRAME_ELAPSED
+//    }
+//
+//    fun DrawFragment(drawFragmentMode: DrawFragmentMode=DrawFragmentMode.FRAME_COMPLETE,
+//                     block: P5.(Number, Number, Number)->NativeP5.Color ) {
+//        p5.draw = wrap {
+//            val t = millis()/1000.0
+//            background(0)
+//            withPixels {
+//                repeat(height) { y ->
+//                    repeat(width) { x ->
+//                        colorArray[y, x] = block(x, y, t)
+//                    }
+//                }
+//            }
+//        }
+//    }
 
 
 }

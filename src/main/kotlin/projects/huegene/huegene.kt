@@ -82,7 +82,7 @@ fun huegene() = Sketch {
 
                         neighborhood.forEach { offset ->
                             val checkVector = chosenPoint + offset
-                            if (checkVector.x !in 0 until width || checkVector.y !in 0 until height) {
+                            if (checkVector.x.toInt() !in 0 until width || checkVector.y.toInt() !in 0 until height) {
                                 return@forEach
                             }
                             val checkColor = colorArray[checkVector]

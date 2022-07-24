@@ -2,19 +2,30 @@
 
 package p5
 
-import kotlin.js.Json
+import kotlinx.serialization.*
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.descriptors.buildClassSerialDescriptor
+import kotlinx.serialization.descriptors.element
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.*
+import kotlin.js.Json as JsonObject
 import kotlin.js.json
 import kotlin.reflect.KProperty
 import p5.openSimplexNoise.OpenSimplexNoise
-import kotlin.experimental.ExperimentalTypeInference
+import kotlin.math.floor
 import kotlin.reflect.KClass
+import p5.util.decodeFromString
+import p5.util.encodeToString
+import p5.util.ifNotNull
+import kotlin.reflect.KType
+import kotlin.reflect.typeOf
 
 @JsModule("p5")
 @JsNonModule
 @JsName("p5")
 private external val p5: dynamic
 
-@OptIn(ExperimentalTypeInference::class)
 open class P5: NativeP5 {
     constructor(): super()
     constructor(sketch: (P5) -> Unit): super(sketch)
@@ -175,7 +186,6 @@ open class P5: NativeP5 {
         }
     }
 
-
     enum class AlignMode(val nativeValue: String) {
         VERTICAL("vertical"),
         HORIZONTAL("horizontal")
@@ -256,20 +266,41 @@ open class P5: NativeP5 {
         WEBGL("webgl"),
         WEBGL2("webgl")
     }
+
+    fun getCanvas(): Renderer {
+        return canvases[this] ?: throw IllegalStateException("canvas has not been initialized yet")
+    }
+
+    fun createCanvas(w: Number, h: Number): Renderer {
+        val _canvas = _createCanvas(w, h)
+        canvases[this] = _canvas
+        return _canvas
+    }
     fun createCanvas(w: Number, h: Number, renderMode: RenderMode): Renderer {
         if (renderMode == RenderMode.WEBGL2) { enableWebgl2() }
-        val canvas = _createCanvas(w, h, renderMode.nativeValue)
-        if (renderMode == RenderMode.WEBGL2) { enableWebgl2()
+        val _canvas = _createCanvas(w, h, renderMode.nativeValue)
+        if (renderMode == RenderMode.WEBGL2) {
             drawingContext.getExtension("OES_standard_derivatives")
-            canvas.asDynamic().GL.getExtension("OES_standard_derivatives")
+            _canvas.asDynamic().GL.getExtension("OES_standard_derivatives")
         }
-        return canvas
+        canvases[this] = _canvas
+        return _canvas
     }
     fun createGraphics(w: Number, h: Number, hide: Boolean = true): P5 {
         return P5().apply { createCanvas(w, h).apply { if(hide) hide() } }
+//        return Sketch {
+//            Setup {
+//                createCanvas(w, h)
+//            }
+//        }
     }
     fun createGraphics(w: Number, h: Number, renderMode: RenderMode, hide: Boolean = true): P5 {
         return P5().apply { createCanvas(w, h, renderMode).apply { if(hide) hide() } }
+//        return Sketch {
+//            Setup {
+//                createCanvas(w, h, renderMode)
+//            }
+//        }
     }
 
     enum class BlendMode(val nativeValue: String) {
@@ -419,7 +450,10 @@ open class P5: NativeP5 {
     private var webgl2Enabled: Boolean = false
     fun enableWebgl2() {
         if (webgl2Enabled) { return }
-        js("""p5.RendererGL.prototype._initContext = function() {
+        val p5 = p5
+        js("""
+            console.log("enabling experimental WEBGL2 mode");
+            p5.RendererGL.prototype._initContext = function() {
                 try {
                     this.drawingContext = 
                         this.canvas.getContext("webgl2", this._pInst._glAttributes) ||
@@ -446,30 +480,55 @@ open class P5: NativeP5 {
         val uniforms: MutableMap<String, Any> = mutableMapOf()
 
         operator fun set(uniformName: String, data: Boolean) {
-            uniforms[uniformName] = data
-            nativeShader._setUniform(uniformName, data)
+            val oldValue = uniforms[uniformName]
+            if (data != oldValue) {
+                uniforms[uniformName] = data
+                nativeShader._setUniform(uniformName, data)
+            }
         }
         operator fun set(uniformName: String, data: Number) {
-            uniforms[uniformName] = data
-            nativeShader._setUniform(uniformName, data)
+            val oldValue = uniforms[uniformName]
+            if (data != oldValue) {
+                uniforms[uniformName] = data
+                nativeShader._setUniform(uniformName, data)
+            }
         }
         operator fun set(uniformName: String, data: Array<Number>) {
-            uniforms[uniformName] = data
-            nativeShader._setUniform(uniformName, data)
+            val oldValue = uniforms[uniformName]
+            if (data != oldValue) {
+                uniforms[uniformName] = data
+                nativeShader._setUniform(uniformName, data)
+            }
         }
         operator fun set(uniformName: String, data: Image) {
-            uniforms[uniformName] = data
-            nativeShader._setUniform(uniformName, data)
+            val oldValue = uniforms[uniformName]
+            if (data != oldValue) {
+                uniforms[uniformName] = data
+                nativeShader._setUniform(uniformName, data)
+            }
         }
-        operator fun set(uniformName: String, data: NativeP5) {
-            uniforms[uniformName] = data
-            nativeShader._setUniform(uniformName, data)
+        operator fun set(uniformName: String, data: P5) {
+            val oldValue = uniforms[uniformName]
+            if (data != oldValue) {
+                uniforms[uniformName] = data
+                nativeShader._setUniform(uniformName, data.getCanvas())
+            }
         }
         operator fun set(uniformName: String, data: MediaElement) {
-            uniforms[uniformName] = data
-            nativeShader._setUniform(uniformName, data)
+            val oldValue = uniforms[uniformName]
+            if (data != oldValue) {
+                uniforms[uniformName] = data
+                nativeShader._setUniform(uniformName, data)
+            }
         }
         operator fun set(uniformName: String, data: Texture) {
+            val oldValue = uniforms[uniformName]
+            if (data != oldValue) {
+                uniforms[uniformName] = data
+                nativeShader._setUniform(uniformName, data)
+            }
+        }
+        operator fun set(uniformName: String, data: Renderer) {
             uniforms[uniformName] = data
             nativeShader._setUniform(uniformName, data)
         }
@@ -485,10 +544,11 @@ open class P5: NativeP5 {
                     is Number -> set(k, v)
                     is Array<*> -> set(k, v as? Array<Number> ?: arrayOf())
                     is Image -> set(k, v)
-                    is NativeP5 -> set(k, v)
+                    is P5 -> set(k, v)
                     is MediaElement -> set(k, v)
                     is Texture -> set(k, v)
-                    else -> console.warn("Invalid Shader Uniform Type")
+                    is Renderer -> set(k ,v)
+                    else -> console.warn("Invalid Shader Uniform Type: $v")
                 }
             }
         }
@@ -721,7 +781,6 @@ open class P5: NativeP5 {
             }
 
             override fun set(vector: Vector, element: Color) {
-                //console.log(red(element).toInt(), green(element).toInt(), blue(element).toInt(), alpha(element).toInt())
                 redChannel[vector] = red(element).toInt()
                 greenChannel[vector] = green(element).toInt()
                 blueChannel[vector] = blue(element).toInt()
@@ -775,18 +834,7 @@ open class P5: NativeP5 {
             ScalarMode.XYZ -> Vector.add(this, createVector(other, other, other))
         }
     }
-
-//    operator fun Vector.plusAssign(other: Vector) = add(other)
-//    operator fun Vector.plusAssign(other: Number) {
-//        when(scalarMode) {
-//            ScalarMode.X -> add(createVector(other, 0, 0))
-//            ScalarMode.XY -> add(createVector(other, other, 0))
-//            ScalarMode.XYZ -> add(createVector(other, other, other))
-//        }
-//    }
-
     operator fun Vector.rem(other: Vector) = Vector.rem(this, other)
-//    operator fun Vector.remAssign(other: Vector) = rem(other)
 
     operator fun Vector.minus(other: Vector) = Vector.sub(this, other)
     operator fun Vector.minus(other: Number): Vector {
@@ -796,25 +844,12 @@ open class P5: NativeP5 {
             ScalarMode.XYZ -> Vector.sub(this, createVector(other, other, other))
         }
     }
-//    operator fun Vector.minusAssign(other: Vector) = sub(other)
-//    operator fun Vector.minusAssign(other: Number) {
-//        when(scalarMode) {
-//            ScalarMode.X -> sub(createVector(other, 0, 0))
-//            ScalarMode.XY -> sub(createVector(other, other, 0))
-//            ScalarMode.XYZ -> sub(createVector(other, other, other))
-//        }
-//    }
 
     operator fun Vector.times(other: Number) = Vector.mult(this, other)
     operator fun Vector.times(other: Vector) = Vector.mult(this, other)
-//    operator fun Vector.timesAssign(other: Number) = mult(other)
-//    operator fun Vector.timesAssign(other: Vector) = mult(other)
 
     operator fun Vector.div(other: Number) = Vector.div(this, other)
     operator fun Vector.div(other: Vector) = Vector.div(this, other)
-//    operator fun Vector.divAssign(other: Number) = div(other)
-//    operator fun Vector.divAssign(other: Vector) = div(other)
-
     infix fun Vector.dot(other: Vector) = dot(other)
     infix fun Vector.cross(other: Vector) = cross(other)
     fun dist(value: Vector, other: Vector) = value.dist(other)
@@ -969,7 +1004,7 @@ open class P5: NativeP5 {
         return createVector(red(this), green(this), blue(this))
     }
 
-    fun Json.setIfNotNull(propertyName: String, value: Any?) {
+    fun JsonObject.setIfNotNull(propertyName: String, value: Any?) {
         if (value != null) {
             set(propertyName, value)
         }
@@ -1235,7 +1270,7 @@ open class P5: NativeP5 {
 
     class KShader(nativeShader: _Shader, val uniformCallbackRoster: MutableMap<String,()->Any>): Shader(nativeShader) {
         fun update() {
-            updateUniforms( uniformCallbackRoster.mapValues { (_, value) -> value()} )
+            updateUniforms( uniformCallbackRoster.mapValues { (_, value) -> value() } )
         }
     }
 
@@ -1280,8 +1315,8 @@ open class P5: NativeP5 {
     }
 
     @OverloadResolutionByLambdaReturnType
-    fun cache(volatile: Boolean = false, initialValue: () -> String) = CacheProvider(String::class, initialValue, volatile)
-    fun cache(volatile: Boolean = false, initialValue: () -> Number)  = CacheProvider(Number::class, initialValue, volatile)
+    fun cache(volatile: Boolean = false, initialValue: () -> String)  = CacheProvider(String::class, initialValue, volatile)
+    fun cache(volatile: Boolean = false, initialValue: () -> Double)  = CacheProvider(Number::class, initialValue, volatile)
     fun cache(volatile: Boolean = false, initialValue: () -> Boolean) = CacheProvider(Boolean::class, initialValue, volatile)
     fun cache(volatile: Boolean = false, initialValue: () -> Color)   = CacheProvider(Color::class, initialValue, volatile)
     fun cache(volatile: Boolean = false, initialValue: () -> Vector)  = CacheProvider(Vector::class, initialValue, volatile)
@@ -1329,6 +1364,39 @@ open class P5: NativeP5 {
                 Vector::class -> storeItem(keyString, value as Vector)
                 else -> throw IllegalStateException("Cannot cache item of type ${classType.simpleName}")
             }
+            innerVar = value
+        }
+    }
+
+    inline fun <reified T: @Serializable Any> cacheSerial(volatile: Boolean = false, noinline initialValue: () -> T) = SerialCacheProvider(typeOf<T>(), initialValue, volatile)
+
+    inner class SerialCacheProvider<T : @Serializable Any>(val kType: KType, val initialValue: () -> T, val volatile: Boolean) {
+
+        var innerVar: T? = null
+
+        operator fun getValue(thisRef: Any?, property: KProperty<*>): T {
+            val keyString = property.name
+            if (!volatile) {
+                innerVar.ifNotNull { return it }
+            }
+            val storedSerializedItem = getItem<String>(keyString)
+            if (storedSerializedItem != null) {
+                val storedItem: T =  Json.decodeFromString(kType, storedSerializedItem)
+                console.log(storedItem)
+                innerVar = storedItem
+                return storedItem
+            }
+            val initVal = initialValue()
+            val serializedInitVal = Json.encodeToString(kType, initVal)
+            storeItem(keyString, serializedInitVal)
+            innerVar = initVal
+            return initVal
+        }
+
+        operator fun setValue(thisRef: Any?, property: KProperty<*>, value: T) {
+            val keyString = property.name
+            val serializedInitVal = Json.encodeToString(kType, value)
+            storeItem(keyString, serializedInitVal)
             innerVar = value
         }
     }
@@ -1384,6 +1452,108 @@ open class P5: NativeP5 {
             map(value.y, start1.y, stop1.y, start2.y, stop2.y, withinBounds),
             map(value.z, start1.z, stop1.z, start2.z, stop2.z, withinBounds),
         )
+    }
+
+    fun Color.toGrayscale(): Color {
+        return color((red(this) + green(this) + blue(this))/3.0)
+    }
+
+    operator fun Number.unaryMinus(): Number {
+        return -1*this
+    }
+
+    fun forceDown(it: Number): Number {
+        return floor(it.toDouble())
+    }
+
+    fun forceUp(it: Number): Number {
+        return floor(it.toDouble()) + 1.0
+    }
+
+    fun Number.toVector(): Vector {
+        return createVector() + this
+    }
+
+    companion object {
+        val canvases = mutableMapOf<P5, Renderer?>()
+    }
+
+    fun getURLParam(key: String): String? {
+        return js("getURLParams()[key]")
+    }
+
+    @OverloadResolutionByLambdaReturnType
+    fun url(default: ()->String)  = UrlParamProvider(String::class,  default)
+    fun url(default: ()->Double)  = UrlParamProvider(Double::class,  default)
+    fun url(default: ()->Int)     = UrlParamProvider(Int::class,     default)
+    fun url(default: ()->Boolean) = UrlParamProvider(Boolean::class, default)
+
+    inner class UrlParamProvider<T : Any>(val classType: KClass<T>, val default: ()->T) {
+        operator fun getValue(thisRef: Any?, property: KProperty<*>): T {
+            val keyString = property.name
+            val urlParamString = getURLParam(keyString)
+            return when(classType) {
+                String::class  -> urlParamString as T?
+                Double::class  -> urlParamString?.toDoubleOrNull() as T?
+                Int::class     -> urlParamString?.toIntOrNull() as T?
+                Boolean::class -> urlParamString?.toBooleanStrictOrNull() as T?
+                else -> {
+                    console.warn("Url Param Type ${classType::simpleName} is not supported")
+                    null
+                }
+            } ?: default()
+        }
+    }
+
+    fun urlString()  = NullableUrlParamProvider(String::class)
+    fun urlDouble()  = NullableUrlParamProvider(Double::class)
+    fun urlInt()     = NullableUrlParamProvider(Int::class)
+    fun urlBoolean() = NullableUrlParamProvider(Boolean::class)
+
+    inner class NullableUrlParamProvider<T : Any>(val classType: KClass<T>) {
+        operator fun getValue(thisRef: Any?, property: KProperty<*>): T? {
+            val keyString = property.name
+            val urlParamString = getURLParam(keyString)
+            return when(classType) {
+                String::class  -> urlParamString as T?
+                Double::class  -> urlParamString?.toDoubleOrNull() as T?
+                Int::class     -> urlParamString?.toIntOrNull() as T?
+                Boolean::class -> urlParamString?.toBooleanStrictOrNull() as T?
+                else -> {
+                    console.warn("Url Param Type ${classType::simpleName} is not supported")
+                    null
+                }
+            }
+        }
+    }
+
+    object VectorSerializer: KSerializer<Vector> {
+        override val descriptor: SerialDescriptor = buildClassSerialDescriptor("Vector") {
+            element<Double>("x")
+            element<Double>("y")
+            element<Double>("z")
+        }
+
+        override fun deserialize(decoder: Decoder): Vector {
+            val jsonInput = decoder as? JsonDecoder ?: error("Can be deserialized only by JSON")
+            val json = jsonInput.decodeJsonElement().jsonObject
+            val x = json.getValue("x").jsonPrimitive.double
+            val y = json.getValue("y").jsonPrimitive.double
+            val z = json.getValue("z").jsonPrimitive.double
+            val resultVector = Vector(x, y, z)
+            return resultVector
+        }
+
+        override fun serialize(encoder: Encoder, value: Vector) {
+            require(encoder is JsonEncoder)
+            val element = buildJsonObject {
+                put("x", value.x)
+                put("y", value.y)
+                put("z", value.z)
+            }
+            encoder.encodeJsonElement(element)
+        }
+
     }
 
 }

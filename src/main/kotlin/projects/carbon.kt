@@ -4,7 +4,7 @@ import p5.NativeP5
 import p5.P5
 import p5.Sketch
 
-fun carbon(filename: String, scaleFactor: Double=1.0) = Sketch {
+fun carbon(filename: String, scaleFactor: Double=1.0, imageFactor: Double=1.0) = Sketch {
 
     lateinit var img: NativeP5.Image
 
@@ -15,7 +15,7 @@ fun carbon(filename: String, scaleFactor: Double=1.0) = Sketch {
 
     Setup {
 
-        img.resize(img.width/2, img.height/2)
+        img.resize(img.width*imageFactor, img.height*imageFactor)
 
         val border = 400*scaleFactor
         val cornerRadius = 80*scaleFactor
@@ -38,7 +38,7 @@ fun carbon(filename: String, scaleFactor: Double=1.0) = Sketch {
         createCanvas(canvasWidth, canvasHeight)
 
         background(60, 63, 65)
-        fill(43)
+        fill(70, 72, 74)
         noStroke()
 
         drawingContext.shadowBlur = shadowRadius

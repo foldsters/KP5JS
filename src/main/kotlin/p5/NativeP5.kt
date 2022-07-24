@@ -2,6 +2,7 @@
 
 package p5
 
+import kotlinx.serialization.Serializable
 import kotlin.js.Json
 import kotlin.js.RegExp
 
@@ -58,8 +59,8 @@ abstract external class NativeP5 {
     fun getURL(): String
     fun getURLPath(): Array<String>
 
-    // TODO: How to return an arbitrary js object
-    // fun getURLParams()
+     @JsName("getURLParams")
+     fun _getURLParams()
 
 
     // COLOR
@@ -552,7 +553,8 @@ abstract external class NativeP5 {
 
     class Renderer: Element
 
-    fun createCanvas(w: Number, h: Number): Renderer
+    @JsName("createCanvas")
+    fun _createCanvas(w: Number, h: Number): Renderer
     @JsName("createCanvas")
     fun _createCanvas(w: Number, h: Number, rendererMode: String): Renderer
     fun resizeCanvas(w: Number, h: Number)
@@ -568,7 +570,7 @@ abstract external class NativeP5 {
     @JsName("setAttributes")
     fun _setAttributes(key: String, value: Boolean)
     @JsName("canvas")
-    val _canvas: dynamic // TODO: Remove dynamic
+    val _canvas: Element
 
 
     // TRANSFORM
@@ -925,10 +927,11 @@ abstract external class NativeP5 {
     fun map(value: Number, start1: Number, stop1: Number, start2: Number, stop2: Number): Number
     fun map(value: Number, start1: Number, stop1: Number, start2: Number, stop2: Number, withinBounds: Boolean): Number
 
-    open class Vector protected constructor() {
-        var x: Number
-        var y: Number
-        var z: Number
+    @Serializable(with = P5.VectorSerializer::class)
+    open class Vector(x: Double = definedExternally, y: Double = definedExternally, z: Double = definedExternally) {
+        var x: Double
+        var y: Double
+        var z: Double
         override fun toString(): String
         fun set(x: Number, y: Number, z: Number)
         fun set(value: Vector)
@@ -1057,11 +1060,11 @@ abstract external class NativeP5 {
         @JsName("setUniform")
         fun _setUniform(uniformName: String, data: Image)
         @JsName("setUniform")
-        fun _setUniform(uniformName: String, data: NativeP5)
-        @JsName("setUniform")
         fun _setUniform(uniformName: String, data: MediaElement)
         @JsName("setUniform")
         fun _setUniform(uniformName: String, data: Texture)
+        @JsName("setUniform")
+        fun _setUniform(uniformName: String, data: Renderer)
     }
 
     @JsName("loadShader")
