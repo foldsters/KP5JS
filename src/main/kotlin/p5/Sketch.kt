@@ -49,9 +49,9 @@ class SketchScope(val p5: P5) {
     fun Draw(steps: Int = 1, block: P5.()->Unit): DrawContinuation {
         val nextDraw = DrawContinuation()
         with(p5) {
+            loop()
             draw = wrap {
                 repeat(steps) {
-                    loop()
                     block()
                 }
                 nextDraw.afterFrame?.invoke()
@@ -123,28 +123,6 @@ class SketchScope(val p5: P5) {
         }
         return nextDraw
     }
-
-//    enum class DrawFragmentMode {
-//        //PIXEL,
-//        //ROW,
-//        FRAME_COMPLETE,
-//        //FRAME_ELAPSED
-//    }
-//
-//    fun DrawFragment(drawFragmentMode: DrawFragmentMode=DrawFragmentMode.FRAME_COMPLETE,
-//                     block: P5.(Number, Number, Number)->NativeP5.Color ) {
-//        p5.draw = wrap {
-//            val t = millis()/1000.0
-//            background(0)
-//            withPixels {
-//                repeat(height) { y ->
-//                    repeat(width) { x ->
-//                        colorArray[y, x] = block(x, y, t)
-//                    }
-//                }
-//            }
-//        }
-//    }
 
 
 }

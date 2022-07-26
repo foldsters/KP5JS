@@ -191,7 +191,7 @@ fun hopperClouds() = Sketch {
         val sorts = listOf(sort1, sort2, sort3, sort4)
 
         @Serializable
-        class Camera(var elevation: Double, var azimuth: Double, var scale: Double, var hScale: Double, var center: Vector) {
+        data class Camera(var elevation: Double, var azimuth: Double, var scale: Double, var hScale: Double, var center: Vector) {
             var UP = Vector(0.0, 0.0)
             var DOWN = Vector(0.0, 0.0)
             var DOWN_RIGHT = Vector(0.0, 0.0)

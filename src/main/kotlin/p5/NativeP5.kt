@@ -570,7 +570,7 @@ abstract external class NativeP5 {
     @JsName("setAttributes")
     fun _setAttributes(key: String, value: Boolean)
     @JsName("canvas")
-    val _canvas: Element
+    val htmlCanvas: Element
 
 
     // TRANSFORM

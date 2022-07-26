@@ -1004,7 +1004,7 @@ open class P5: NativeP5 {
         return createVector(red(this), green(this), blue(this))
     }
 
-    fun JsonObject.setIfNotNull(propertyName: String, value: Any?) {
+    inline fun JsonObject.setIfNotNull(propertyName: String, value: Any?) {
         if (value != null) {
             set(propertyName, value)
         }
@@ -1049,10 +1049,11 @@ open class P5: NativeP5 {
         dither: DitherMode? = null,
         debug: Boolean = false,
         autoStart: Boolean = true,
+        htmlCanvas: Element? = null,
         renderCallback: (()->Unit)? = null
     ): Loop {
         val options = json(
-            "canvas" to _canvas,
+            "canvas" to (htmlCanvas ?: this@P5.htmlCanvas),
             "gifOptions" to json(
                 "repeat" to gifRepeat,
                 "quality" to gifQuality,
@@ -1078,7 +1079,6 @@ open class P5: NativeP5 {
             setIfNotNull("noiseRadius", noiseRadius)
             setIfNotNull("noiseSeed", noiseSeed)
         }
-        options["canvas"] = _canvas
         val nativeLoop = js("window.createLoop(options)")
         val loop = Loop(nativeLoop)
         if (autoStart) {
