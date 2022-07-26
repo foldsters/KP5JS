@@ -46,18 +46,29 @@ class SketchScope(val p5: P5) {
         fun AfterDone(continuation: ()->Unit) { afterDone = continuation }
     }
 
-    fun Draw(steps: Int = 1, block: P5.()->Unit): DrawContinuation {
+    fun Draw(steps: Int? = null, stepsPerFrame: Int = 1, block: P5.()->Unit): DrawContinuation {
         val nextDraw = DrawContinuation()
         with(p5) {
             loop()
-            draw = wrap {
-                repeat(steps) {
-                    block()
+            draw = if(steps == null) {
+                wrap {
+                    repeat(stepsPerFrame) {
+                        block()
+                    }
+                    nextDraw.afterFrame?.invoke()
                 }
-                nextDraw.afterFrame?.invoke()
-                nextDraw.afterDone?.invoke()
-                noLoop()
-                draw = null
+            } else {
+                wrap {
+                    repeat(steps) {
+                        repeat(stepsPerFrame) {
+                            block()
+                        }
+                        nextDraw.afterFrame?.invoke()
+                    }
+                    nextDraw.afterDone?.invoke()
+                    noLoop()
+                    draw = {}
+                }
             }
         }
         return nextDraw
@@ -74,7 +85,7 @@ class SketchScope(val p5: P5) {
                     } else {
                         nextDraw.afterDone?.invoke()
                         noLoop()
-                        draw = null
+                        draw = {}
                     }
                 }
                 nextDraw.afterFrame?.invoke()
@@ -91,11 +102,9 @@ class SketchScope(val p5: P5) {
             draw = wrap {
                 repeat(stepsPerFrame) {
                     if (itor.hasNext()) block(itor.next()) else {
-                        draw = {
-                            nextDraw.afterDone?.invoke()
-                            noLoop()
-                            draw = null
-                        }
+                        nextDraw.afterDone?.invoke()
+                        noLoop()
+                        draw = {}
                     }
                 }
                 nextDraw.afterFrame?.invoke()
@@ -115,7 +124,7 @@ class SketchScope(val p5: P5) {
                         if (itor.hasNext()) block(itor.next()) else {
                             nextDraw.afterFrame?.invoke()
                             noLoop()
-                            draw = null
+                            draw = {}
                         }
                     }
                 }

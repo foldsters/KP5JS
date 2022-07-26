@@ -50,16 +50,19 @@ fun curler() = Sketch {
                 }
             }
         }
+
+        Draw {
+            val theta = 2.0*PI*frameCount.toDouble()/(15.0*15.0)
+            outShader["iTime"] = theta
+            arrayOf("rotX", "rotY", "rotZ", "swirl", "slope", "size", "sep").forEachIndexed { i, v ->
+                val num = sliders[i].value()
+                outShader[v] = num
+                paragraphs[i].html(num.toString())
+            }
+            rect(0, 0, width, height)
+            console.log(theta)
+        }
     }
 
-    Draw {
-        val theta = 2.0*PI*frameCount.toDouble()/(15.0*15.0)
-        outShader["iTime"] = theta
-        arrayOf("rotX", "rotY", "rotZ", "swirl", "slope", "size", "sep").forEachIndexed { i, v ->
-            val num = sliders[i].value()
-            outShader[v] = num
-            paragraphs[i].html(num.toString())
-        }
-        rect(0, 0, width, height)
-    }
+
 }

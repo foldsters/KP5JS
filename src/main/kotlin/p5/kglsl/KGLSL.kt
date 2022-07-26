@@ -244,11 +244,11 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
 
     val uniformCallbackRoster: MutableMap<String, ()->Any> = mutableMapOf()
 
-    interface ExprLen
-    interface ExprLen1: ExprLen
-    interface ExprLen2: ExprLen
-    interface ExprLen3: ExprLen
-    interface ExprLen4: ExprLen
+    interface ExprDim<T: ExprDim<T>>
+    interface ExprDim1: ExprDim<ExprDim1>
+    interface ExprDim2: ExprDim<ExprDim2>
+    interface ExprDim3: ExprDim<ExprDim3>
+    interface ExprDim4: ExprDim<ExprDim4>
 
 //      ____            _____
 //     / ___| ___ _ __ | ____|_  ___ __  _ __
@@ -305,6 +305,9 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
 
         override fun render(): String {
             require(children.isNotEmpty()) {"Error Rendering Gen Expr $name of type $nativeTypeName: No Children"}
+            if(children[0] is GenExpr<*> && children[0].nativeTypeName != nativeTypeName) {
+                return "$nativeTypeName(${children[0].render()})"
+            }
             return children[0].render()
         }
 
@@ -321,7 +324,7 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
 
     // BOOLEXPR: Expression of type bool
     private inner class BoolExprImpl(vararg cs: ShaderNode): BoolExpr(*cs)
-    abstract inner class BoolExpr(vararg cs: ShaderNode): GenBExpr<BoolExpr>(*cs), ExprLen1 {
+    abstract inner class BoolExpr(vararg cs: ShaderNode): GenBExpr<BoolExpr>(*cs), ExprDim1 {
         override fun new(vararg cs: ShaderNode): BoolExpr = BoolExprImpl(*cs)
         override val nativeTypeName = "bool"
         override val logTypeName = "Boolean Expr"
@@ -362,7 +365,7 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     }
 
     private inner class BVec2ExprImpl(vararg cs: ShaderNode): BVec2Expr(*cs)
-    abstract inner class BVec2Expr(vararg cs: ShaderNode): BVecExpr<BVec2Expr>(*cs), ExprLen2 {
+    abstract inner class BVec2Expr(vararg cs: ShaderNode): BVecExpr<BVec2Expr>(*cs), ExprDim2 {
         override fun new(vararg cs: ShaderNode): BVec2Expr = BVec2ExprImpl(*cs)
         override val nativeTypeName = "bvec2"
         override val numComponents = 2
@@ -370,7 +373,7 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     }
 
     private inner class BVec3ExprImpl(vararg cs: ShaderNode): BVec3Expr(*cs)
-    abstract inner class BVec3Expr(vararg cs: ShaderNode): BVecExpr<BVec3Expr>(*cs), ExprLen3 {
+    abstract inner class BVec3Expr(vararg cs: ShaderNode): BVecExpr<BVec3Expr>(*cs), ExprDim3 {
         override fun new(vararg cs: ShaderNode): BVec3Expr = BVec3ExprImpl(*cs)
         override val nativeTypeName = "bvec3"
         override val numComponents = 3
@@ -416,7 +419,7 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     }
 
     private inner class BVec4ExprImpl(vararg cs: ShaderNode): BVec4Expr(*cs)
-    abstract inner class BVec4Expr(vararg cs: ShaderNode): BVecExpr<BVec4Expr>(*cs), ExprLen4 {
+    abstract inner class BVec4Expr(vararg cs: ShaderNode): BVecExpr<BVec4Expr>(*cs), ExprDim4 {
         override fun new(vararg cs: ShaderNode): BVec4Expr = BVec4ExprImpl(*cs)
         override val nativeTypeName = "bvec4"
         override val numComponents = 4
@@ -549,7 +552,7 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
 
     // INTEXPR: Expression of type int
     private inner class IntExprImpl(vararg cs: ShaderNode): IntExpr(*cs)
-    abstract inner class IntExpr(vararg cs: ShaderNode): GenIExpr<IntExpr>(*cs), ExprLen1 {
+    abstract inner class IntExpr(vararg cs: ShaderNode): GenIExpr<IntExpr>(*cs), ExprDim1 {
         override val nativeTypeName = "int"
         override fun new(vararg cs: ShaderNode): IntExpr = IntExprImpl(*cs)
         override val logTypeName = "Int Expr"
@@ -591,7 +594,7 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     }
 
     private inner class IVec2ExprImpl(vararg cs: ShaderNode): IVec2Expr(*cs)
-    abstract inner class IVec2Expr(vararg cs: ShaderNode): IVecExpr<IVec2Expr>(*cs), ExprLen2 {
+    abstract inner class IVec2Expr(vararg cs: ShaderNode): IVecExpr<IVec2Expr>(*cs), ExprDim2 {
         override fun new(vararg cs: ShaderNode): IVec2Expr = IVec2ExprImpl(*cs)
         override val nativeTypeName = "ivec2"
         override val numComponents = 2
@@ -599,7 +602,7 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     }
 
     private inner class IVec3ExprImpl(vararg cs: ShaderNode): IVec3Expr(*cs)
-    abstract inner class IVec3Expr(vararg cs: ShaderNode): IVecExpr<IVec3Expr>(*cs), ExprLen3 {
+    abstract inner class IVec3Expr(vararg cs: ShaderNode): IVecExpr<IVec3Expr>(*cs), ExprDim3 {
         override fun new(vararg cs: ShaderNode): IVec3Expr = IVec3ExprImpl(*cs)
         override val nativeTypeName = "ivec3"
         override val numComponents = 3
@@ -645,7 +648,7 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     }
 
     private inner class IVec4ExprImpl(vararg cs: ShaderNode): IVec4Expr(*cs)
-    abstract inner class IVec4Expr(vararg cs: ShaderNode): IVecExpr<IVec4Expr>(*cs), ExprLen4 {
+    abstract inner class IVec4Expr(vararg cs: ShaderNode): IVecExpr<IVec4Expr>(*cs), ExprDim4 {
         override fun new(vararg cs: ShaderNode): IVec4Expr = IVec4ExprImpl(*cs)
         override val nativeTypeName = "ivec4"
         override val numComponents = 4
@@ -775,7 +778,7 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
 
     // FLOATEXPR: Expression of type float
     private inner class FloatExprImpl(vararg cs: ShaderNode): FloatExpr(*cs)
-    abstract inner class FloatExpr (vararg cs: ShaderNode): GenFExpr<FloatExpr>(*cs), ExprLen1 {
+    abstract inner class FloatExpr (vararg cs: ShaderNode): GenFExpr<FloatExpr>(*cs), ExprDim1 {
         override val nativeTypeName = "float"
         override fun new(vararg cs: ShaderNode): FloatExpr = FloatExprImpl(*cs)
         override val logTypeName = "Float Expr"
@@ -818,7 +821,7 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     }
 
     private inner class Vec2ExprImpl(vararg cs: ShaderNode): Vec2Expr(*cs)
-    abstract inner class Vec2Expr(vararg cs: ShaderNode): VecExpr<Vec2Expr>(*cs), ExprLen2 {
+    abstract inner class Vec2Expr(vararg cs: ShaderNode): VecExpr<Vec2Expr>(*cs), ExprDim2 {
         override fun new(vararg cs: ShaderNode): Vec2Expr = Vec2ExprImpl(*cs)
         override val nativeTypeName = "vec2"
         override val numComponents = 2
@@ -826,7 +829,7 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     }
 
     private inner class Vec3ExprImpl(vararg cs: ShaderNode): Vec3Expr(*cs)
-    abstract inner class Vec3Expr(vararg cs: ShaderNode): VecExpr<Vec3Expr>(*cs), ExprLen3 {
+    abstract inner class Vec3Expr(vararg cs: ShaderNode): VecExpr<Vec3Expr>(*cs), ExprDim3 {
         override fun new(vararg cs: ShaderNode): Vec3Expr = Vec3ExprImpl(*cs)
         override val nativeTypeName = "vec3"
         override val numComponents = 3
@@ -872,7 +875,7 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     }
 
     private inner class Vec4ExprImpl(vararg cs: ShaderNode): Vec4Expr(*cs)
-    abstract inner class Vec4Expr(vararg cs: ShaderNode): VecExpr<Vec4Expr>(*cs), ExprLen4 {
+    abstract inner class Vec4Expr(vararg cs: ShaderNode): VecExpr<Vec4Expr>(*cs), ExprDim4 {
         override fun new(vararg cs: ShaderNode): Vec4Expr = Vec4ExprImpl(*cs)
         override val nativeTypeName = "vec4"
         override val numComponents = 4
@@ -1055,11 +1058,11 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     }
 
     @OverloadResolutionByLambdaReturnType
-    fun Uniform(block: ()->Boolean): BoolExpr            = Uniform<BoolExpr>().apply  { uniformCallback = Callback(block) }
-    fun Uniform(block: ()->Double): FloatExpr            = Uniform<FloatExpr>().apply { uniformCallback = Callback(block) }
-    fun Uniform(block: ()->NativeP5.Texture): Sampler2D  = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
-    fun Uniform(block: ()->NativeP5.Image): Sampler2D    = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
-    fun Uniform(block: ()-> P5): Sampler2D = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
+    fun Uniform(block: ()->Boolean): BoolExpr             = Uniform<BoolExpr>().apply  { uniformCallback = Callback(block) }
+    fun Uniform(block: ()->Double): FloatExpr             = Uniform<FloatExpr>().apply { uniformCallback = Callback(block) }
+    fun Uniform(block: ()->NativeP5.Texture): Sampler2D   = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
+    fun Uniform(block: ()->NativeP5.Image): Sampler2D     = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
+    fun Uniform(block: ()-> P5): Sampler2D                = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
     fun Uniform(block: ()-> NativeP5.Renderer): Sampler2D = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
     inline fun <reified T: VecExpr<T>>  Uniform(noinline block: ()->Array<Number>): T = Uniform<T>().apply { uniformCallback = Callback(block) }
 
@@ -1329,6 +1332,8 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     fun float(x: Int): FloatExpr = float(x.toDouble())
     fun float(x: FloatExpr): FloatExpr = x
     fun float(x: VariableExpr): FloatExpr = FloatExprImpl(x)
+    fun float(x: Boolean): FloatExpr = FloatExprImpl(bool(x))
+    fun float(x: BoolExpr): FloatExpr = FloatExprImpl(x)
 
     fun vec2(x: FloatExpr, y: FloatExpr): Vec2Expr = Vec2ExprImpl(x, y)
 
@@ -1367,10 +1372,12 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     inline operator fun <reified T: IVecExpr<T>> IntExpr.times(other: T): T = operatorOf("*", this, other)
     inline operator fun <reified T: GenIExpr<T>> T.div(other: T): T = operatorOf("/", this, other)
     inline operator fun <reified T: IVecExpr<T>> T.div(other: IntExpr): T = operatorOf("/", this, other)
+    inline operator fun <reified T: GenIExpr<T>> T.unaryMinus(): T = functionOf("-", this)
     @JsName("IE_LT_IE") infix fun IntExpr.`<` (other: IntExpr): BoolExpr = operatorOf("<", this, other)
     @JsName("IE_GT_IE") infix fun IntExpr.`>` (other: IntExpr): BoolExpr = operatorOf(">", this, other)
     @JsName("IE_LE_IE") infix fun IntExpr.`<=`(other: IntExpr): BoolExpr = operatorOf("<=", this, other)
     @JsName("IE_GE_IE") infix fun IntExpr.`>=`(other: IntExpr): BoolExpr = operatorOf(">=", this, other)
+
 
     inline operator fun <reified T: GenFExpr<T>> T.plus(other: T): T = operatorOf("+", this, other)
     inline operator fun <reified T:  VecExpr<T>> T.plus(other: FloatExpr): T = operatorOf("+", this, other)
@@ -1383,6 +1390,7 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     inline operator fun <reified T:  VecExpr<T>> FloatExpr.times(other: T): T = operatorOf("*", this, other)
     inline operator fun <reified T: GenFExpr<T>> T.div(other: T): T = operatorOf("/", this, other)
     inline operator fun <reified T:  VecExpr<T>> T.div(other: FloatExpr): T = operatorOf("/", this, other)
+    inline operator fun <reified T: GenFExpr<T>> T.unaryMinus(): T = functionOf("-", this)
     infix fun FloatExpr.LT(other: FloatExpr): BoolExpr = operatorOf("<", this, other)
     infix fun FloatExpr.GT(other: FloatExpr): BoolExpr = operatorOf(">", this, other)
     infix fun FloatExpr.LE(other: FloatExpr): BoolExpr = operatorOf("<=", this, other)
@@ -1413,6 +1421,7 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     @JsName("IE_GT_I") infix fun IntExpr.`>` (other: Int): BoolExpr = operatorOf(">", this, int(other))
     @JsName("IE_LE_I") infix fun IntExpr.`<=`(other: Int): BoolExpr = operatorOf("<=", this, int(other))
     @JsName("IE_GE_I") infix fun IntExpr.`>=`(other: Int): BoolExpr = operatorOf(">=", this, int(other))
+    @JsName("IE_EQ_I") infix fun IntExpr.`==`(other: Int): BoolExpr = operatorOf("==", this, int(other))
 
     inline operator fun <reified T: GenFExpr<T>> T.plus(other: Double): T = operatorOf("+", this, float(other))
     inline operator fun <reified T: GenFExpr<T>> T.minus(other: Double): T = operatorOf("-", this, float(other))
@@ -1426,6 +1435,7 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     @JsName("FE_GT_D") infix fun FloatExpr.`>` (other: Double): BoolExpr = operatorOf(">", this, float(other))
     @JsName("FE_LE_D") infix fun FloatExpr.`<=`(other: Double): BoolExpr = operatorOf("<=", this, float(other))
     @JsName("FE_GE_D") infix fun FloatExpr.`>=`(other: Double): BoolExpr = operatorOf(">=", this, float(other))
+    @JsName("FE_EQ_D") infix fun FloatExpr.`==`(other: Double): BoolExpr = operatorOf("==", this, float(other))
 
     inline operator fun <reified T: GenIExpr<T>> Int.plus(other: T): T = operatorOf("+", int(this), other)
     inline operator fun <reified T: GenIExpr<T>> Int.minus(other: T): T = operatorOf("-", int(this), other)
@@ -1439,6 +1449,7 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     @JsName("I_GT_IE") infix fun Int.`>` (other: IntExpr): BoolExpr = operatorOf(">", int(this), other)
     @JsName("I_LE_IE") infix fun Int.`<=`(other: IntExpr): BoolExpr = operatorOf("<=", int(this), other)
     @JsName("I_GE_IE") infix fun Int.`>=`(other: IntExpr): BoolExpr = operatorOf(">=", int(this), other)
+    @JsName("I_EQ_IE") infix fun Int.`==`(other: IntExpr): BoolExpr = operatorOf("==", int(this), other)
 
     inline operator fun <reified T: GenFExpr<T>> Double.plus(other: T): T = operatorOf("+", float(this), other)
     inline operator fun <reified T: GenFExpr<T>> Double.minus(other: T): T = operatorOf("-", float(this), other)
@@ -1448,6 +1459,7 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     @JsName("D_GT_FE") infix fun Double.`>` (other: FloatExpr): BoolExpr = operatorOf(">", float(this), other)
     @JsName("D_LE_FE") infix fun Double.`<=`(other: FloatExpr): BoolExpr = operatorOf("<=", float(this), other)
     @JsName("D_GE_FE") infix fun Double.`>=`(other: FloatExpr): BoolExpr = operatorOf(">=", float(this), other)
+    @JsName("D_EQ_FE") infix fun Double.`==`(other: FloatExpr): BoolExpr = operatorOf("==", float(this), other)
 
     // Trig
     inline fun <reified T: GenFExpr<T>> radians(degrees: T): T     = functionOf("radians", degrees)
@@ -1500,7 +1512,7 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
 
     inline fun <reified T: GenFExpr<T>>   mix(x: T, y: T, a: T): T        = functionOf("mix", x, y, a)
     inline fun <reified T:  VecExpr<T>>   mix(x: T, y: T, a: FloatExpr): T = functionOf("mix", x, y, a)
-    inline fun <reified T, U, V: ExprLen> mix(x: T, y: T, a: U): T where T: GenExpr<T>, U : GenBExpr<U>, T: V, U: V = functionOf("mix", x, y, a)
+    inline fun <reified T, U, V: ExprDim<V>> mix(x: T, y: T, a: U): T where T: GenExpr<T>, U : GenBExpr<U>, T: V, U: V = functionOf("mix", x, y, a)
 
     inline fun <reified T: GenFExpr<T>> dFdx(p: T): T = functionOf("dFdx", p)
     inline fun <reified T: GenFExpr<T>> dFdy(p: T): T = functionOf("dFdy", p)
@@ -1511,8 +1523,8 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     inline fun <reified T: GenFExpr<T>> smoothstep(edge0: T, edge1: T, x: T): T = functionOf("smoothstep", edge0, edge1, x)
     inline fun <reified T:  VecExpr<T>> smoothstep(edge0: FloatExpr, edge1: FloatExpr, x: T): T = functionOf("smoothstep", edge0, edge1, x)
 
-    inline fun <T, reified U, V: ExprLen> isnan(x: T): U where T: GenFExpr<T>, U: GenBExpr<U>, T: V, U: V = functionOf("isnan", x)
-    inline fun <T, reified U, V: ExprLen> isinf(x: T): U where T: GenFExpr<T>, U: GenBExpr<U>, T: V, U: V = functionOf("isinf", x)
+    inline fun <T, reified U, V: ExprDim<V>> isnan(x: T): U where T: GenFExpr<T>, U: GenBExpr<U>, T: V, U: V = functionOf("isnan", x)
+    inline fun <T, reified U, V: ExprDim<V>> isinf(x: T): U where T: GenFExpr<T>, U: GenBExpr<U>, T: V, U: V = functionOf("isinf", x)
 
     inline fun <reified T: GenFExpr<T>> exp(x: T): T = functionOf("exp", x)
     inline fun <reified T: GenFExpr<T>> exp2(x: T): T = functionOf("exp2", x)
@@ -1523,11 +1535,12 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
 
     inline fun <reified T: GenFExpr<T>> pow(x: T, y: T): T = functionOf("pow", x, y)
 
+    fun <T: GenFExpr<T>> length(x: T): FloatExpr = functionOf("length", x)
     fun cross(x: Vec3Expr, y: Vec3Expr): Vec3Expr = functionOf("cross", x, y)
     fun <T: GenFExpr<T>> distance(p0: T, p1: T): FloatExpr = functionOf("distance", p0, p1)
     fun <T: GenFExpr<T>> dot(x: T, y: T): FloatExpr = functionOf("dot", x, y)
-    inline fun <T, reified U, V: ExprLen> equal(x: T, y: T): U    where T: GenExpr<T>, U: GenBExpr<U>, T: V, U: V = functionOf("equal", x, y)
-    inline fun <T, reified U, V: ExprLen> notequal(x: T, y: T): U where T: GenExpr<T>, U: GenBExpr<U>, T: V, U: V = functionOf("notequal", x, y)
+    inline fun <T, reified U, V: ExprDim<V>> equal(x: T, y: T): U    where T: GenExpr<T>, U: GenBExpr<U>, T: V, U: V = functionOf("equal", x, y)
+    inline fun <T, reified U, V: ExprDim<V>> notequal(x: T, y: T): U where T: GenExpr<T>, U: GenBExpr<U>, T: V, U: V = functionOf("notequal", x, y)
     inline fun <reified T: GenFExpr<T>> faceforward(N: T, I: T, Nref: T): T = functionOf("faceforward", N, I, Nref)
     inline fun <reified T:  VecExpr<T>> normalize(v: T): T = functionOf("normalize", v)
     inline fun <reified T: GenFExpr<T>> reflect(I: T, N: T): T = functionOf("reflect", I, N)
@@ -1536,14 +1549,14 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     fun all(x: BVecExpr<*>): BoolExpr = functionOf("all", x)
     fun any(x: BVecExpr<*>): BoolExpr = functionOf("any", x)
     inline fun <reified T: BVecExpr<T>> not(x: T): T = functionOf("not", x)
-    inline fun <T, reified U, V: ExprLen> greaterThan(x: T, y: T): U      where T:  VecExpr<T>, U: BVecExpr<U>, T: V, U: V = functionOf("greaterThan", x, y)
-    inline fun <T, reified U, V: ExprLen> greaterThan(x: T, y: T): U      where T: IVecExpr<T>, U: BVecExpr<U>, T: V, U: V = functionOf("greaterThan", x, y)
-    inline fun <T, reified U, V: ExprLen> greaterThanEqual(x: T, y: T): U where T:  VecExpr<T>, U: BVecExpr<U>, T: V, U: V = functionOf("greaterThanEqual", x, y)
-    inline fun <T, reified U, V: ExprLen> greaterThanEqual(x: T, y: T): U where T: IVecExpr<T>, U: BVecExpr<U>, T: V, U: V = functionOf("greaterThanEqual", x, y)
-    inline fun <T, reified U, V: ExprLen> lessThan(x: T, y: T): U         where T:  VecExpr<T>, U: BVecExpr<U>, T: V, U: V = functionOf("lessThan", x, y)
-    inline fun <T, reified U, V: ExprLen> lessThan(x: T, y: T): U         where T: IVecExpr<T>, U: BVecExpr<U>, T: V, U: V = functionOf("lessThan", x, y)
-    inline fun <T, reified U, V: ExprLen> lessThanEqual(x: T, y: T): U    where T:  VecExpr<T>, U: BVecExpr<U>, T: V, U: V = functionOf("lessThanEqual", x, y)
-    inline fun <T, reified U, V: ExprLen> lessThanEqual(x: T, y: T): U    where T: IVecExpr<T>, U: BVecExpr<U>, T: V, U: V = functionOf("lessThanEqual", x, y)
+    inline fun <T, reified U, V: ExprDim<V>> greaterThan(x: T, y: T): U      where T:  VecExpr<T>, U: BVecExpr<U>, T: V, U: V = functionOf("greaterThan", x, y)
+    inline fun <T, reified U, V: ExprDim<V>> greaterThan(x: T, y: T): U      where T: IVecExpr<T>, U: BVecExpr<U>, T: V, U: V = functionOf("greaterThan", x, y)
+    inline fun <T, reified U, V: ExprDim<V>> greaterThanEqual(x: T, y: T): U where T:  VecExpr<T>, U: BVecExpr<U>, T: V, U: V = functionOf("greaterThanEqual", x, y)
+    inline fun <T, reified U, V: ExprDim<V>> greaterThanEqual(x: T, y: T): U where T: IVecExpr<T>, U: BVecExpr<U>, T: V, U: V = functionOf("greaterThanEqual", x, y)
+    inline fun <T, reified U, V: ExprDim<V>> lessThan(x: T, y: T): U         where T:  VecExpr<T>, U: BVecExpr<U>, T: V, U: V = functionOf("lessThan", x, y)
+    inline fun <T, reified U, V: ExprDim<V>> lessThan(x: T, y: T): U         where T: IVecExpr<T>, U: BVecExpr<U>, T: V, U: V = functionOf("lessThan", x, y)
+    inline fun <T, reified U, V: ExprDim<V>> lessThanEqual(x: T, y: T): U    where T:  VecExpr<T>, U: BVecExpr<U>, T: V, U: V = functionOf("lessThanEqual", x, y)
+    inline fun <T, reified U, V: ExprDim<V>> lessThanEqual(x: T, y: T): U    where T: IVecExpr<T>, U: BVecExpr<U>, T: V, U: V = functionOf("lessThanEqual", x, y)
 
     // Literal Extensions
     fun <T: IntExpr, U: Int> ivec2(x: T, y: U):             IVec2Expr = IVec2ExprImpl(int(x), int(y))

@@ -9,6 +9,7 @@ import kotlinx.serialization.descriptors.element
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.*
+import p5.createLoop._createLoop
 import kotlin.js.Json as JsonObject
 import kotlin.js.json
 import kotlin.reflect.KProperty
@@ -1050,8 +1051,8 @@ open class P5: NativeP5 {
         debug: Boolean = false,
         autoStart: Boolean = true,
         htmlCanvas: Element? = null,
-        renderCallback: (()->Unit)? = null
-    ): Loop {
+        block: (Loop.()->Unit)? = null
+    ) {
         val options = json(
             "canvas" to (htmlCanvas ?: this@P5.htmlCanvas),
             "gifOptions" to json(
@@ -1079,16 +1080,18 @@ open class P5: NativeP5 {
             setIfNotNull("noiseRadius", noiseRadius)
             setIfNotNull("noiseSeed", noiseSeed)
         }
+        console.log("!!", ::_createLoop)
         val nativeLoop = js("window.createLoop(options)")
         val loop = Loop(nativeLoop)
         if (autoStart) {
-            loop.start(renderCallback ?: {})
+            loop.start {
+                block?.invoke(loop)
+            }
         }
-        return Loop(nativeLoop)
     }
 
     object SimplexNoise {
-        var simplexSeed = kotlin.random.Random.nextDouble() as Number
+        var simplexSeed = (kotlin.random.Random.nextDouble()*2048.0) as Number
         var Noise2D = OpenSimplexNoise.makeNoise2D(simplexSeed)
         var Noise3D = OpenSimplexNoise.makeNoise3D(simplexSeed)
         var Noise4D = OpenSimplexNoise.makeNoise4D(simplexSeed)

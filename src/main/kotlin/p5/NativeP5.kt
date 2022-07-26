@@ -47,7 +47,7 @@ abstract external class NativeP5 {
 
     val _targetFrameRate: Number
 
-    var windowResized : (()->Unit)?
+    var windowResized : ()->Unit
 
     val height : Int
     val width : Int
@@ -273,9 +273,9 @@ abstract external class NativeP5 {
 
     // STRUCTURE
 
-    var preload : (()->Unit)?
-    var draw : (()->Unit)?
-    var setup : (()->Unit)?
+    var preload : ()->Unit
+    var draw : ()->Unit
+    var setup : ()->Unit
     fun remove()
     var disableFriendlyErrors : Boolean
     fun noLoop()
@@ -632,17 +632,17 @@ abstract external class NativeP5 {
     val turnAxis: String
     fun setMoveThreshold(value: Number)
     fun setShakeThreshold(value: Number)
-    var deviceMoved: (()->Unit)? // TODO: Add to SketchContext
-    var deviceTurned: (()->Unit)? // TODO: Add to SketchContext
-    var deviceShaken: (()->Unit)? // TODO: Add to SketchContext
+    var deviceMoved: ()->Unit // TODO: Add to SketchContext
+    var deviceTurned: ()->Unit // TODO: Add to SketchContext
+    var deviceShaken: ()->Unit // TODO: Add to SketchContext
 
     // Keyboard
     val isKeyPressed: Boolean
     val key: String
     val keyCode: Number
-    var keyPressed: (()->Unit)? // TODO: Add to SketchContext
-    var keyReleased: (()->Unit)? // TODO: Add to SketchContext
-    var keyTyped: (()->Unit)? // TODO: Add to SketchContext
+    var keyPressed: ()->Unit // TODO: Add to SketchContext
+    var keyReleased: ()->Unit // TODO: Add to SketchContext
+    var keyTyped: ()->Unit // TODO: Add to SketchContext
     fun keyIsDown(code: Int): Boolean
 
     class WheelEvent {
@@ -663,21 +663,21 @@ abstract external class NativeP5 {
     @JsName("mouseButton")
     val _mouseButton: String
     val mouseIsPressed: Boolean
-    var mouseMoved: (()->Unit)? // TODO: Add to SketchContext
-    var mouseDragged: (()-> Unit)? // TODO: Add to SketchContext
-    var mousePressed: (()->Unit)? // TODO: Add to SketchContext
-    var mouseReleased: (()-> Unit)? // TODO: Add to SketchContext
-    var mouseClicked: (()->Unit)? // TODO: Add to SketchContext
-    var doubleClicked: (()-> Unit)? // TODO: Add to SketchContext
-    var mouseWheel: ((WheelEvent)-> Unit)? // TODO: Add to SketchContext, Remove Dynamic
+    var mouseMoved: ()->Unit // TODO: Add to SketchContext
+    var mouseDragged: ()-> Unit // TODO: Add to SketchContext
+    var mousePressed: ()->Unit // TODO: Add to SketchContext
+    var mouseReleased: ()-> Unit // TODO: Add to SketchContext
+    var mouseClicked: ()->Unit // TODO: Add to SketchContext
+    var doubleClicked: ()-> Unit // TODO: Add to SketchContext
+    var mouseWheel: (WheelEvent)-> Unit // TODO: Add to SketchContext, Remove Dynamic
     fun requestPointerLock()
     fun exitPointerLock()
 
     // Touch
     val touches: Array<dynamic> // TODO: Remove Dynamic
-    var touchStarted: (()->Unit)? // TODO: Add to SketchContext
-    var touchMoved: (()->Unit)? // TODO: Add to SketchContext
-    var touchEnded: (()->Unit)? // TODO: Add to SketchContext
+    var touchStarted: ()->Unit // TODO: Add to SketchContext
+    var touchMoved: ()->Unit // TODO: Add to SketchContext
+    var touchEnded: ()->Unit // TODO: Add to SketchContext
 
 
     // IMAGE
