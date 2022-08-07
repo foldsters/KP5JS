@@ -46,11 +46,11 @@ class SketchScope(val p5: P5) {
         fun AfterDone(continuation: ()->Unit) { afterDone = continuation }
     }
 
-    fun Draw(steps: Int? = null, stepsPerFrame: Int = 1, block: P5.()->Unit): DrawContinuation {
+    fun Draw(frames: Int? = null, stepsPerFrame: Int = 1, block: P5.()->Unit): DrawContinuation {
         val nextDraw = DrawContinuation()
         with(p5) {
             loop()
-            draw = if(steps == null) {
+            draw = if(frames == null) {
                 wrap {
                     repeat(stepsPerFrame) {
                         block()
@@ -59,7 +59,7 @@ class SketchScope(val p5: P5) {
                 }
             } else {
                 wrap {
-                    repeat(steps) {
+                    repeat(frames) {
                         repeat(stepsPerFrame) {
                             block()
                         }

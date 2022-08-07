@@ -12,66 +12,66 @@ import p5.util.*
 import kotlin.math.PI
 import kotlin.math.max
 
-fun P5.genHopperTop(crystalSize: Int): List<Int> {
-    fun spiral(): List<Int> = buildList {
-        var length = randInt(2, crystalSize)
-        while(length >= 2) {
-            add(length)
-            length = randInt(length/2, length-1)
-        }
-    }
+fun hopperClouds() = Sketch {
 
-    val hopper = spiral().reversed() + spiral()
-    return hopper.map {h -> h + (h+1)%2 }
-}
-
-fun P5.genHopperLayers(hopperTop: List<Int>) = buildList {
-    var layer = hopperTop
-    val minLayerLength = randInt(10, 20)
-    while(true) {
-        add(layer)
-        if (layer.sum() <= minLayerLength) break
-        layer = layer.map { h -> max(0, h-2) }
-    }
-}
-
-fun P5.genHopperPoints(hopperLayers: List<List<Int>>, seedHeight: Int): MutableList<Vector> {
-
-    val orientation = randInt(0, 4)
-    val majorSide = hopperLayers[0].indexOfMax() - 1
-
-    val dirs = listOf(
-        createVector(1, 0, 0),
-        createVector(0, 1, 0),
-        createVector(-1, 0, 0),
-        createVector(0, -1, 0)
-    )
-
-    fun direction(d: Int) = dirs[(d+orientation+4)%4]
-
-    var start = createVector(0, 0, 2*randInt(0, seedHeight/2))
-    start += direction(majorSide  )*randInt(seedHeight*2, seedHeight*4)*1.3
-    start += direction(majorSide-1)*randInt(-seedHeight*2, seedHeight*2)*1.3
-    start = start.map { it + it%2 }
-    var pos: Vector
-    val hopperPoints = mutableListOf<Vector>()
-
-    hopperLayers.forEach { layer ->
-        val startSide = layer.indexOfFirst { it > 0 }
-        start += direction(startSide) + direction(startSide+1) + createVector(0, 0, 1)
-        pos = start
-        layer.forEachIndexed { side, sideLength ->
-            val posCache = pos.copy()
-            repeat(sideLength) {
-                pos = posCache+direction(side)*it
-                hopperPoints.add(pos)
+    fun P5.genHopperTop(crystalSize: Int): List<Int> {
+        fun spiral(): List<Int> = buildList {
+            var length = randInt(2, crystalSize)
+            while(length >= 2) {
+                add(length)
+                length = randInt(length/2, length-1)
             }
         }
-    }
-    return hopperPoints
-}
 
-fun hopperClouds() = Sketch {
+        val hopper = spiral().reversed() + spiral()
+        return hopper.map {h -> h + (h+1)%2 }
+    }
+
+    fun P5.genHopperLayers(hopperTop: List<Int>) = buildList {
+        var layer = hopperTop
+        val minLayerLength = randInt(10, 20)
+        while(true) {
+            add(layer)
+            if (layer.sum() <= minLayerLength) break
+            layer = layer.map { h -> max(0, h-2) }
+        }
+    }
+
+    fun P5.genHopperPoints(hopperLayers: List<List<Int>>, seedHeight: Int): MutableList<Vector> {
+
+        val orientation = randInt(0, 4)
+        val majorSide = hopperLayers[0].indexOfMax() - 1
+
+        val dirs = listOf(
+            createVector(1, 0, 0),
+            createVector(0, 1, 0),
+            createVector(-1, 0, 0),
+            createVector(0, -1, 0)
+        )
+
+        fun direction(d: Int) = dirs[(d+orientation+4)%4]
+
+        var start = createVector(0, 0, 2*randInt(0, seedHeight/2))
+        start += direction(majorSide  )*randInt(seedHeight*2, seedHeight*4)*1.3
+        start += direction(majorSide-1)*randInt(-seedHeight*2, seedHeight*2)*1.3
+        start = start.map { it + it%2 }
+        var pos: Vector
+        val hopperPoints = mutableListOf<Vector>()
+
+        hopperLayers.forEach { layer ->
+            val startSide = layer.indexOfFirst { it > 0 }
+            start += direction(startSide) + direction(startSide+1) + createVector(0, 0, 1)
+            pos = start
+            layer.forEachIndexed { side, sideLength ->
+                val posCache = pos.copy()
+                repeat(sideLength) {
+                    pos = posCache+direction(side)*it
+                    hopperPoints.add(pos)
+                }
+            }
+        }
+        return hopperPoints
+    }
 
     Setup {
         val canvas = createCanvas(1920, 1080, RenderMode.P2D).apply {

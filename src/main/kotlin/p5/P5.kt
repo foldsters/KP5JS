@@ -1,4 +1,4 @@
-@file:Suppress("unused", "UnsafeCastFromDynamic", "UNUSED_PARAMETER", "UNCHECKED_CAST")
+@file:Suppress("unused", "UnsafeCastFromDynamic", "UNUSED_PARAMETER", "UNCHECKED_CAST", "UNUSED_VARIABLE")
 
 package p5
 
@@ -10,15 +10,16 @@ import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.*
 import p5.createLoop._createLoop
+import p5.kglsl.KGLSL
 import kotlin.js.Json as JsonObject
 import kotlin.js.json
 import kotlin.reflect.KProperty
 import p5.openSimplexNoise.OpenSimplexNoise
-import kotlin.math.floor
 import kotlin.reflect.KClass
 import p5.util.decodeFromString
 import p5.util.encodeToString
 import p5.util.ifNotNull
+import kotlin.math.*
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
@@ -934,29 +935,29 @@ open class P5: NativeP5 {
     }
 
 
-    operator fun Number.plus(other: Number): Number {
+    operator fun Number.plus(other: Number): Double {
         @Suppress("UNUSED_VARIABLE") val t = this
-        return js("t+other") as Number
+        return js("t+other") as Double
     }
 
-    operator fun Number.minus(other: Number): Number {
+    operator fun Number.minus(other: Number): Double {
         @Suppress("UNUSED_VARIABLE") val t = this
-        return js("t-other") as Number
+        return js("t-other") as Double
     }
 
-    operator fun Number.times(other: Number): Number {
+    operator fun Number.times(other: Number): Double {
         @Suppress("UNUSED_VARIABLE") val t = this
-        return js("t*other") as Number
+        return js("t*other") as Double
     }
 
-    operator fun Number.div(other: Number): Number {
+    operator fun Number.div(other: Number): Double {
         @Suppress("UNUSED_VARIABLE") val t = this
-        return js("t/other") as Number
+        return js("t/other") as Double
     }
 
-    operator fun Number.rem(other: Number): Number {
+    operator fun Number.rem(other: Number): Double {
         @Suppress("UNUSED_VARIABLE") val t = this
-        return js("t%other") as Number
+        return js("t%other") as Double
     }
 
     operator fun Number.compareTo(other: Number): Int {
@@ -968,9 +969,9 @@ open class P5: NativeP5 {
         } else 0
     }
 
-    fun Number.pow(other: Number): Number {
+    fun Number.pow(other: Number): Double {
         @Suppress("UNUSED_VARIABLE") val t = this
-        return js("Math.pow(t, other)") as Number
+        return js("Math.pow(t, other)") as Double
     }
 
     enum class DitherMode(val serpentine: Boolean = false) {
@@ -1427,12 +1428,12 @@ open class P5: NativeP5 {
         RIGHT("right")
     }
 
-    val mouseButton: MouseButton get() {
+    val mouseButton: MouseButton? get() {
         return when(_mouseButton) {
             MouseButton.CENTER.nativeValue -> MouseButton.CENTER
             MouseButton.LEFT.nativeValue -> MouseButton.LEFT
             MouseButton.RIGHT.nativeValue -> MouseButton.RIGHT
-            else -> throw IllegalStateException("Unknown Mouse Button")
+            else -> null
         }
     }
 
@@ -1557,6 +1558,21 @@ open class P5: NativeP5 {
             encoder.encodeJsonElement(element)
         }
 
+    }
+
+    fun Double.deadzone(radius: Double): Number {
+        if (this in -radius..radius) {
+            return 0.0
+        }
+        return sign(this)*sqrt(this*this - radius*radius)
+    }
+
+    fun Vector.rotate(around: Vector, angle: Double): Vector {
+        val v = this
+        val k = around.normalize()
+        val c = cos(angle)
+        val s = sin(angle)
+        return v*c + (k cross v)*s + (k dot v)*(1.0-c)
     }
 
 }

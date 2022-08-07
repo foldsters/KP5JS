@@ -159,3 +159,11 @@ fun <T: @Serializable Any> kotlinx.serialization.json.Json.encodeToString(kType:
         encodeToString(serializer(kType) as KSerializer<T>, value)
     }
 }
+
+fun String.mapLines(transform: (String)->String): String {
+    return split('\n').joinToString(separator = "\n", transform = transform)
+}
+
+fun String.mapLinesIndexed(transform: (Int, String)->String): String {
+    return split('\n').mapIndexed(transform).joinToString(separator = "\n")
+}
