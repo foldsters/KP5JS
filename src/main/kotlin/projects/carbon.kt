@@ -3,7 +3,6 @@ package projects
 import p5.NativeP5
 import p5.P5
 import p5.Sketch
-
 fun carbon(filename: String, scaleFactor: Double=1.0, imageFactor: Double=1.0) = Sketch {
 
     lateinit var img: NativeP5.Image

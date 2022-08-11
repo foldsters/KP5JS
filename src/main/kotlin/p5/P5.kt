@@ -9,28 +9,37 @@ import kotlinx.serialization.descriptors.element
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.*
+import p5.P5.Companion.sliderCaches
 import p5.createLoop._createLoop
-import p5.kglsl.KGLSL
 import kotlin.js.Json as JsonObject
 import kotlin.js.json
 import kotlin.reflect.KProperty
 import p5.openSimplexNoise.OpenSimplexNoise
+import p5.util.*
 import kotlin.reflect.KClass
-import p5.util.decodeFromString
-import p5.util.encodeToString
-import p5.util.ifNotNull
 import kotlin.math.*
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
+import kotlin.time.AbstractDoubleTimeSource
 
 @JsModule("p5")
 @JsNonModule
 @JsName("p5")
 private external val p5: dynamic
 
-open class P5: NativeP5 {
+class P5: NativeP5 {
     constructor(): super()
     constructor(sketch: (P5) -> Unit): super(sketch)
+
+    companion object {
+        val canvases = mutableMapOf<P5, Renderer?>()
+        var fillMode = FillMode.SOLID
+        var sliderNames = FieldMap<Slider, String?>(null)
+        var sliderCaches = FieldMap<Slider, Double?>(null)
+
+        var elementNames = FieldMap<Element, String?>(null)
+        var elementGetFromCaches = FieldMap<Element, Boolean>(false)
+    }
 
     // MODE EXTENSION FUNCTIONS
 
@@ -70,6 +79,11 @@ open class P5: NativeP5 {
     }
     fun colorMode(mode: ColorMode, max1: Number, max2: Number, max3: Number, maxA: Number) {
         _colorMode(mode.nativeValue, max1, max2, max3, maxA)
+    }
+
+    enum class FillMode {
+        GRADIENT,
+        SOLID
     }
 
     enum class ArcMode(val nativeValue: String) {
@@ -230,6 +244,9 @@ open class P5: NativeP5 {
     fun createImg(srcPath: String, altText: String, crossOrigin: CrossOriginMode, loadedCallback: (Element)->Unit): Element {
         return _createImg(srcPath, altText, crossOrigin.nativeValue, loadedCallback)
     }
+    fun createImg(srcPath: String, altText: String, loadedCallback: (Element)->Unit): Element {
+        return _createImg(srcPath, altText, CrossOriginMode.NONE.nativeValue, loadedCallback)
+    }
 
     enum class TargetMode(val nativeValue: String) {
         BLANK("_blank"),
@@ -290,19 +307,9 @@ open class P5: NativeP5 {
     }
     fun createGraphics(w: Number, h: Number, hide: Boolean = true): P5 {
         return P5().apply { createCanvas(w, h).apply { if(hide) hide() } }
-//        return Sketch {
-//            Setup {
-//                createCanvas(w, h)
-//            }
-//        }
     }
     fun createGraphics(w: Number, h: Number, renderMode: RenderMode, hide: Boolean = true): P5 {
         return P5().apply { createCanvas(w, h, renderMode).apply { if(hide) hide() } }
-//        return Sketch {
-//            Setup {
-//                createCanvas(w, h, renderMode)
-//            }
-//        }
     }
 
     enum class BlendMode(val nativeValue: String) {
@@ -575,19 +582,39 @@ open class P5: NativeP5 {
         _shader(s.nativeShader)
     }
 
-    fun withPixels(density: Int = 1, block: PixelScope.()->Unit) {
-        val pixelScope = PixelScope(density)
+    sealed class PixelSource { abstract val pixels: Array<Int> }
+    class P5PixelSource(val instance: P5): PixelSource() {
+        override val pixels: Array<Int> get() { return instance._pixels }
+    }
+    class ImagePixelSource(val instance: Image): PixelSource() {
+        override val pixels: Array<Int> get() { return instance._pixels }
+    }
+
+    fun <T> withPixels(density: Int = 1, block: PixelScope.()->T): T {
+        val pixelScope = PixelScope(density, P5PixelSource(this))
         if (density != pixelDensity()) {
             pixelDensity(density)
         }
         _loadPixels()
-        block(pixelScope)
+        val result = block(pixelScope)
         _updatePixels()
+        return result
     }
 
-    inner class PixelScope(val pd: Int) {
-        val pixels: Array<Int>
-            get() { return _pixels }
+    fun <T> Image.withPixels(density: Int = 1, block: PixelScope.()->T): T {
+        val pixelScope = PixelScope(density, ImagePixelSource(this))
+        if (density != pixelDensity()) {
+            pixelDensity(density)
+        }
+        _loadPixels()
+        val result = block(pixelScope)
+        _updatePixels()
+        return result
+    }
+
+    inner class PixelScope(val pd: Int, val pixelSource: PixelSource) {
+
+        val pixels: Array<Int> get() { return pixelSource.pixels }
 
         private fun RCToI(row: Int, col: Int): Int {
             return 4*pd*(pd*width*row + col)
@@ -598,147 +625,180 @@ open class P5: NativeP5 {
         }
 
         private fun RCToI(vector: Vector): Int {
-            return RCToI(vector.y.toDouble(), vector.x.toDouble())
+            return RCToI(vector.y, vector.x)
         }
 
-        val redChannel = object: PixelArray<Int> {
-            override fun set(index: Int, element: Int) {
-                _pixels[index*4] = element
-            }
-            override fun get(index: Int): Int {
-                return _pixels[index*4]
+        val redChannel = object: PixelArray<Double> {
+
+            fun encode(element: Double): Int {
+                return (element/maxRed*255.0).toInt()
             }
 
-            override fun set(row: Int, col: Int, element: Int) {
-                _pixels[RCToI(row, col)] = element
+            fun decode(element: Int): Double {
+                return (element*maxRed)/255.0
             }
 
-            override fun get(row: Int, col: Int): Int {
-                return _pixels[RCToI(row, col)]
+            override fun set(index: Int, element: Double) {
+                pixels[index*4] = encode(element)
+            }
+            override fun get(index: Int): Double {
+                return decode(pixels[index*4])
             }
 
-            override fun set(row: Double, col: Double, element: Int) {
-                _pixels[RCToI(row, col)] = element
+            override fun set(row: Int, col: Int, element: Double) {
+                pixels[RCToI(row, col)] = encode(element)
             }
 
-            override fun get(row: Double, col: Double): Int {
-                return _pixels[RCToI(row, col)]
+            override fun get(row: Int, col: Int): Double {
+                return decode(pixels[RCToI(row, col)])
             }
 
-            override fun set(vector: Vector, element: Int) {
-                _pixels[RCToI(vector)] = element
+            override fun set(row: Double, col: Double, element: Double) {
+                pixels[RCToI(row, col)] = encode(element)
             }
 
-            override fun get(vector: Vector): Int {
-                return _pixels[RCToI(vector)]
-            }
-        }
-
-        val greenChannel = object: PixelArray<Int> {
-            override fun set(index: Int, element: Int) {
-                _pixels[index*4 + 1] = element
-            }
-            override fun get(index: Int): Int {
-                return _pixels[index*4 + 1]
+            override fun get(row: Double, col: Double): Double {
+                return decode(pixels[RCToI(row, col)])
             }
 
-            override fun set(row: Int, col: Int, element: Int) {
-                _pixels[RCToI(row, col) + 1] = element
+            override fun set(vector: Vector, element: Double) {
+                pixels[RCToI(vector)] = encode(element)
             }
 
-            override fun get(row: Int, col: Int): Int {
-                return _pixels[RCToI(row, col) + 1]
-            }
-
-            override fun set(row: Double, col: Double, element: Int) {
-                _pixels[RCToI(row, col) + 1] = element
-            }
-
-            override fun get(row: Double, col: Double): Int {
-                return _pixels[RCToI(row, col) + 1]
-            }
-
-            override fun set(vector: Vector, element: Int) {
-                _pixels[RCToI(vector) + 1] = element
-            }
-
-            override fun get(vector: Vector): Int {
-                return _pixels[RCToI(vector) + 1]
+            override fun get(vector: Vector): Double {
+                return decode(pixels[RCToI(vector)])
             }
         }
 
-        val blueChannel = object: PixelArray<Int> {
-            override fun set(index: Int, element: Int) {
-                _pixels[index*4 + 2] = element
-            }
-            override fun get(index: Int): Int {
-                return _pixels[index*4 + 2]
+        val greenChannel = object: PixelArray<Double> {
+            fun encode(element: Double): Int {
+                return (element/maxGreen*255.0).toInt()
             }
 
-            override fun set(row: Int, col: Int, element: Int) {
-                _pixels[RCToI(row, col) + 2] = element
+            fun decode(element: Int): Double {
+                return (element*maxGreen)/255.0
             }
 
-            override fun get(row: Int, col: Int): Int {
-                return _pixels[RCToI(row, col) + 2]
+            override fun set(index: Int, element: Double) {
+                pixels[index*4 + 1] = encode(element)
+            }
+            override fun get(index: Int): Double {
+                return decode(pixels[index*4 + 1])
             }
 
-            override fun set(row: Double, col: Double, element: Int) {
-                _pixels[RCToI(row, col) + 2] = element
+            override fun set(row: Int, col: Int, element: Double) {
+                pixels[RCToI(row, col) + 1] = encode(element)
             }
 
-            override fun get(row: Double, col: Double): Int {
-                return _pixels[RCToI(row, col) + 2]
+            override fun get(row: Int, col: Int): Double {
+                return decode(pixels[RCToI(row, col) + 1])
             }
 
-            override fun set(vector: Vector, element: Int) {
-                _pixels[RCToI(vector) + 2] = element
+            override fun set(row: Double, col: Double, element: Double) {
+                pixels[RCToI(row, col) + 1] = encode(element)
             }
 
-            override fun get(vector: Vector): Int {
-                return _pixels[RCToI(vector) + 2]
+            override fun get(row: Double, col: Double): Double {
+                return decode(pixels[RCToI(row, col) + 1])
+            }
+
+            override fun set(vector: Vector, element: Double) {
+                pixels[RCToI(vector) + 1] = encode(element)
+            }
+
+            override fun get(vector: Vector): Double {
+                return decode(pixels[RCToI(vector) + 1])
             }
         }
 
-        val alphaChannel = object: PixelArray<Int> {
-            override fun set(index: Int, element: Int) {
-                _pixels[index*4 + 3] = element
-            }
-            override fun get(index: Int): Int {
-                return _pixels[index*4 + 3]
+        val blueChannel = object: PixelArray<Double> {
+            fun encode(element: Double): Int {
+                return (element/maxBlue*255.0).toInt()
             }
 
-            override fun set(row: Int, col: Int, element: Int) {
-                _pixels[RCToI(row, col) + 3] = element
+            fun decode(element: Int): Double {
+                return (element*maxBlue)/255.0
             }
 
-            override fun get(row: Int, col: Int): Int {
-                return _pixels[RCToI(row, col) + 3]
+            override fun set(index: Int, element: Double) {
+                pixels[index*4 + 2] = encode(element)
+            }
+            override fun get(index: Int): Double {
+                return decode(pixels[index*4 + 2])
             }
 
-            override fun set(row: Double, col: Double, element: Int) {
-                _pixels[RCToI(row, col) + 3] = element
+            override fun set(row: Int, col: Int, element: Double) {
+                pixels[RCToI(row, col) + 2] = encode(element)
             }
 
-            override fun get(row: Double, col: Double): Int {
-                return _pixels[RCToI(row, col) + 3]
+            override fun get(row: Int, col: Int): Double {
+                return decode(pixels[RCToI(row, col) + 2])
             }
 
-            override fun set(vector: Vector, element: Int) {
-                _pixels[RCToI(vector) + 3] = element
+            override fun set(row: Double, col: Double, element: Double) {
+                pixels[RCToI(row, col) + 2] = encode(element)
             }
 
-            override fun get(vector: Vector): Int {
-                return _pixels[RCToI(vector) + 3]
+            override fun get(row: Double, col: Double): Double {
+                return decode(pixels[RCToI(row, col) + 2])
+            }
+
+            override fun set(vector: Vector, element: Double) {
+                pixels[RCToI(vector) + 2] = encode(element)
+            }
+
+            override fun get(vector: Vector): Double {
+                return decode(pixels[RCToI(vector) + 2])
+            }
+        }
+
+        val alphaChannel = object: PixelArray<Double> {
+            fun encode(element: Double): Int {
+                return (element/maxAlpha*255.0).toInt()
+            }
+
+            fun decode(element: Int): Double {
+                return (element*maxAlpha)/255.0
+            }
+
+            override fun set(index: Int, element: Double) {
+                pixels[index*4 + 3] = encode(element)
+            }
+            override fun get(index: Int): Double {
+                return decode(pixels[index*4 + 3])
+            }
+
+            override fun set(row: Int, col: Int, element: Double) {
+                pixels[RCToI(row, col) + 3] = encode(element)
+            }
+
+            override fun get(row: Int, col: Int): Double {
+                return decode(pixels[RCToI(row, col) + 3])
+            }
+
+            override fun set(row: Double, col: Double, element: Double) {
+                pixels[RCToI(row, col) + 3] = encode(element)
+            }
+
+            override fun get(row: Double, col: Double): Double {
+                return decode(pixels[RCToI(row, col) + 3])
+            }
+
+            override fun set(vector: Vector, element: Double) {
+                pixels[RCToI(vector) + 3] = encode(element)
+            }
+
+            override fun get(vector: Vector): Double {
+                return decode(pixels[RCToI(vector) + 3])
             }
         }
 
         val colorArray = object: PixelArray<Color> {
             override fun set(index: Int, element: Color) {
-                redChannel[index] = red(element).toInt()
-                greenChannel[index] = green(element).toInt()
-                blueChannel[index] = blue(element).toInt()
-                alphaChannel[index] = (255.0*alpha(element).toDouble()).toInt()
+                redChannel[index] = red(element)
+                greenChannel[index] = green(element)
+                blueChannel[index] = blue(element)
+                alphaChannel[index] = alpha(element)
             }
 
             override fun get(index: Int): Color {
@@ -751,10 +811,10 @@ open class P5: NativeP5 {
             }
 
             override fun set(row: Int, col: Int, element: Color) {
-                redChannel[row, col] = red(element).toInt()
-                greenChannel[row, col] = green(element).toInt()
-                blueChannel[row, col] = blue(element).toInt()
-                alphaChannel[row, col] = (255.0*alpha(element).toDouble()).toInt()
+                redChannel[row, col] = red(element)
+                greenChannel[row, col] = green(element)
+                blueChannel[row, col] = blue(element)
+                alphaChannel[row, col] = alpha(element)
             }
 
             override fun get(row: Int, col: Int): Color {
@@ -767,10 +827,10 @@ open class P5: NativeP5 {
             }
 
             override fun set(row: Double, col: Double, element: Color) {
-                redChannel[row, col] = red(element).toInt()
-                greenChannel[row, col] = green(element).toInt()
-                blueChannel[row, col] = blue(element).toInt()
-                alphaChannel[row, col] = (255.0*alpha(element).toDouble()).toInt()
+                redChannel[row, col] = red(element)
+                greenChannel[row, col] = green(element)
+                blueChannel[row, col] = blue(element)
+                alphaChannel[row, col] = alpha(element)
             }
 
             override fun get(row: Double, col: Double): Color {
@@ -783,10 +843,10 @@ open class P5: NativeP5 {
             }
 
             override fun set(vector: Vector, element: Color) {
-                redChannel[vector] = red(element).toInt()
-                greenChannel[vector] = green(element).toInt()
-                blueChannel[vector] = blue(element).toInt()
-                alphaChannel[vector] = (255.0*alpha(element).toDouble()).toInt()
+                redChannel[vector] = red(element)
+                greenChannel[vector] = green(element)
+                blueChannel[vector] = blue(element)
+                alphaChannel[vector] = alpha(element)
             }
 
             override fun get(vector: Vector): Color {
@@ -986,7 +1046,6 @@ open class P5: NativeP5 {
     }
 
     fun Color.toArray(includeAlpha: Boolean=false): Array<Number> {
-        colorMode(ColorMode.RGB, 255, 1)
         return if (includeAlpha) {
             arrayOf(
                 red(this), green(this), blue(this), 255*alpha(this)
@@ -1113,14 +1172,6 @@ open class P5: NativeP5 {
 
     fun Button.fontSize(sizePx: Number) {
         style("font-size", "${sizePx}px")
-    }
-
-    operator fun Slider.getValue(thisRef: Any?, property: KProperty<*>): Number {
-        return value()
-    }
-
-    operator fun Slider.setValue(thisRef: Any?, property: KProperty<*>, value: Number) {
-        this.value(value)
     }
 
     operator fun ParagraphElement.getValue(thisRef: Any?, property: KProperty<*>): String {
@@ -1478,12 +1529,9 @@ open class P5: NativeP5 {
         return createVector() + this
     }
 
-    companion object {
-        val canvases = mutableMapOf<P5, Renderer?>()
-    }
 
     fun getURLParam(key: String): String? {
-        return js("getURLParams()[key]")
+        return _getURLParams()[key]
     }
 
     @OverloadResolutionByLambdaReturnType
@@ -1573,6 +1621,151 @@ open class P5: NativeP5 {
         val c = cos(angle)
         val s = sin(angle)
         return v*c + (k cross v)*s + (k dot v)*(1.0-c)
+    }
+
+    fun circle(xy: Vector, d: Number) = circle(xy.x, xy.y, d)
+
+    fun rect(xy: Vector, width: Number) = rect(xy.x, xy.y, width)
+    fun rect(xy: Vector, width: Number, height: Number) = rect(xy.x, xy.y, width, height)
+    fun rect(xy: Vector, wh: Vector) = rect(xy.x, xy.y, wh.x, wh.y)
+    fun rect(xy: Vector, width: Number, height: Number, tl: Number, tr: Number, br: Number, bl:Number) = rect(xy.x, xy.y, width, height, tl, tr, br, bl)
+    fun rect(xy: Vector, wh: Vector, tl: Number, tr: Number, br: Number, bl:Number) = rect(xy.x, xy.y, wh.x, wh.y, tl, tr, br, bl)
+    fun rect(xy: Vector, width: Number, detailX: Int, detailY: Int) = rect(xy.x, xy.y, width, detailX, detailY)
+
+    fun createLinearGradient(x0: Number, y0: Number, x1: Number, y1: Number): Gradient {
+        return Gradient(drawingContext.createLinearGradient(x0, y0, x1, y1))
+    }
+
+    fun createLinearGradient(xy0: Vector, xy1: Vector): Gradient {
+        return Gradient(drawingContext.createLinearGradient(xy0.x, xy0.y, xy1.x, xy1.y))
+    }
+
+    fun createRadialGradient(x0: Number, y0: Number, r0: Number, x1: Number, y1: Number, r1: Number): Gradient {
+        return Gradient(drawingContext.createRadialGradient(x0, y0, r0, x1, y1, r1))
+    }
+
+    fun createRadialGradient(xy0: Vector, r0: Number, xy1: Vector, r1: Number): Gradient {
+        return Gradient(drawingContext.createRadialGradient(xy0.x, xy0.y, r0, xy1.x, xy1.y, r1))
+    }
+
+    fun createConicGradient(startAngle: Number, x: Number, y: Number): Gradient {
+        return Gradient(drawingContext.createConicGradient(startAngle, x, y))
+    }
+
+    fun createConicGradient(startAngle: Number, xy: Vector): Gradient {
+        return Gradient(drawingContext.createConicGradient(startAngle, xy.x, xy.y))
+    }
+
+    private fun resetFillStyle() {
+        if (fillMode != FillMode.SOLID) {
+            drawingContext.fillStyle = "rgba(0,0,0,0)"
+            fillMode = FillMode.SOLID
+        }
+    }
+
+    fun fill(gray: Number) {
+        resetFillStyle()
+        _fill(gray)
+    }
+    fun fill(gray: Number, alpha: Number){
+        resetFillStyle()
+        _fill(gray, alpha)
+    }
+    fun fill(v1: Number, v2: Number, v3: Number){
+        resetFillStyle()
+        _fill(v1, v2, v3)
+    }
+    fun fill(v1: Number, v2: Number, v3: Number, alpha: Number){
+        resetFillStyle()
+        _fill(v1, v2, v3, alpha)
+    }
+    fun fill(colorString : String){
+        resetFillStyle()
+        _fill(colorString)
+    }
+    fun fill(colorArray: Array<Number>){
+        resetFillStyle()
+        _fill(colorArray)
+    }
+    fun fill(color: Color){
+        resetFillStyle()
+        _fill(color)
+    }
+
+    inner class Gradient(val nativeGradient: dynamic) {
+        fun addColorStop(offset: Number, color: Color) {
+            println("alpha", alpha(color))
+            nativeGradient.addColorStop(offset, color.toString())
+        }
+    }
+
+    fun fill(gradient: Gradient) {
+        drawingContext.fillStyle = gradient.nativeGradient
+        fillMode = FillMode.GRADIENT
+    }
+
+    fun Element.size(width: Number, height: Number, scale: Number) {
+        size(width/scale, height/scale)
+        style("zoom", "${scale*100}%")
+    }
+
+    val maxRed:   Double get() = (_colorMaxes.rgb[0] as Number).toDouble()
+    val maxGreen: Double get() = (_colorMaxes.rgb[1] as Number).toDouble()
+    val maxBlue:  Double get() = (_colorMaxes.rgb[2] as Number).toDouble()
+    val maxAlpha: Double get() = (_colorMaxes.rgb[3] as Number).toDouble()
+
+    // Slider Extensions
+
+    var Element.name by elementNames
+    var Element.getFromCache by elementGetFromCaches
+
+    operator fun Slider.getValue(thisRef: Any?, property: KProperty<*>): Number {
+        name = property.name
+        if(getFromCache) {
+            getItem<Double>(property.name).ifNotNull {
+                println("found", property.name, it)
+                value(it)
+            }
+            getFromCache = false
+        }
+        return value()
+    }
+
+    operator fun Slider.setValue(thisRef: Any?, property: KProperty<*>, value: Number) {
+        name = property.name
+        storeItem(property.name, value)
+        value(value)
+    }
+
+    fun createSlider(min: Number, max: Number, cache: Boolean): Slider {
+        return createSlider(min, max).apply {
+            if(cache) {
+                getFromCache = true
+                changed { println("storing", name!!, value()) }
+            }
+        }
+    }
+
+    fun createSlider(min: Number, max: Number, defaultValue: Number, cache: Boolean): Slider {
+        return createSlider(min, max).apply {
+            if(cache) {
+                getFromCache = true
+                changed { storeItem(name!!, value()) }
+            }
+        }
+    }
+
+    fun createSlider(min: Number, max: Number, defaultValue: Number, step: Number, cache: Boolean): Slider {
+        return createSlider(min, max, defaultValue, step).apply {
+            if(cache) {
+                getFromCache = true
+                changed { storeItem(name!!, value()) }
+            }
+        }
+    }
+
+    fun Button.text(string: String) {
+        html(string)
     }
 
 }

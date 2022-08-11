@@ -3,6 +3,7 @@
 package p5
 
 import kotlinx.browser.window
+import p5.NativeP5.*
 
 fun Sketch(sketch: SketchScope.()->Unit) {
     window.onload = {
@@ -22,9 +23,6 @@ class SketchScope(val p5: P5) {
     fun DeviceMoved   (block: P5.()->Unit) { p5.deviceMoved = wrap(block) }
     fun DeviceTurned  (block: P5.()->Unit) { p5.deviceTurned = wrap(block) }
     fun DeviceShaken  (block: P5.()->Unit) { p5.deviceShaken = wrap(block) }
-    fun KeyPressed    (block: P5.()->Unit) { p5.keyPressed = wrap(block) }
-    fun KeyReleased   (block: P5.()->Unit) { p5.keyReleased = wrap(block) }
-    fun KeyTyped      (block: P5.()->Unit) { p5.keyTyped = wrap(block) }
     fun MouseMoved    (block: P5.()->Unit) { p5.mouseMoved = wrap(block) }
     fun MouseDragged  (block: P5.()->Unit) { p5.mouseDragged = wrap(block) }
     fun MousePressed  (block: P5.()->Unit) { p5.mousePressed = wrap(block) }
@@ -34,7 +32,10 @@ class SketchScope(val p5: P5) {
     fun TouchStarted  (block: P5.()->Unit) { p5.touchStarted = wrap(block) }
     fun TouchMoved    (block: P5.()->Unit) { p5.touchMoved = wrap(block) }
     fun TouchEnded    (block: P5.()->Unit) { p5.touchEnded = wrap(block) }
-    fun MouseWheel    (block: NativeP5.WheelEvent.()->Unit) { p5.mouseWheel = { wheelEvent -> block(wheelEvent) } }
+    fun KeyPressed    (block: KeyboardEvent.()->Unit) { p5.keyPressed =  { keyboardEvent -> block(keyboardEvent) } }
+    fun KeyReleased   (block: KeyboardEvent.()->Unit) { p5.keyReleased = { keyboardEvent -> block(keyboardEvent) } }
+    fun KeyTyped      (block: KeyboardEvent.()->Unit) { p5.keyTyped = { keyboardEvent -> block(keyboardEvent) } }
+    fun MouseWheel    (block: WheelEvent.()->Unit) { p5.mouseWheel = { wheelEvent -> block(wheelEvent) } }
 
     // New Scopes
 
@@ -46,42 +47,32 @@ class SketchScope(val p5: P5) {
         fun AfterDone(continuation: ()->Unit) { afterDone = continuation }
     }
 
-    fun Draw(frames: Int? = null, stepsPerFrame: Int = 1, block: P5.()->Unit): DrawContinuation {
+    fun Draw(stepsPerFrame: Int = 1, block: P5.(Int)->Unit): DrawContinuation {
         val nextDraw = DrawContinuation()
+        var frame = 0
         with(p5) {
             loop()
-            draw = if(frames == null) {
-                wrap {
-                    repeat(stepsPerFrame) {
-                        block()
-                    }
-                    nextDraw.afterFrame?.invoke()
+            draw = wrap {
+                repeat(stepsPerFrame) {
+                    block(frame)
+                    frame++
                 }
-            } else {
-                wrap {
-                    repeat(frames) {
-                        repeat(stepsPerFrame) {
-                            block()
-                        }
-                        nextDraw.afterFrame?.invoke()
-                    }
-                    nextDraw.afterDone?.invoke()
-                    noLoop()
-                    draw = {}
-                }
+                nextDraw.afterFrame?.invoke()
             }
         }
         return nextDraw
     }
 
-    fun DrawWhile(cond: ()->Boolean, stepsPerFrame: Int = 1, block: P5.()->Unit): DrawContinuation {
+    fun DrawWhile(cond: ()->Boolean, stepsPerFrame: Int = 1, block: P5.(Int)->Unit): DrawContinuation {
         val nextDraw = DrawContinuation()
+        var frame = 0
         with(p5) {
             loop()
             draw = wrap {
                 repeat(stepsPerFrame) {
                     if (cond()) {
-                        block()
+                        block(frame)
+                        frame++
                     } else {
                         nextDraw.afterDone?.invoke()
                         noLoop()
@@ -130,6 +121,39 @@ class SketchScope(val p5: P5) {
                 }
             }
         }
+        return nextDraw
+    }
+
+    fun <T> DrawUsing(frames: Int? = null, stepsPerFrame: Int = 1, with: T, using: (()->Unit)->Unit, block: T.()->Unit): DrawContinuation {
+        val nextDraw = DrawContinuation()
+        with(p5) {
+            loop()
+            draw = if(frames == null) {
+                wrap {
+                    using {
+                        repeat(stepsPerFrame) {
+                            block(with)
+                        }
+                        nextDraw.afterFrame?.invoke()
+                    }
+                }
+            } else {
+                wrap {
+                    using {
+                        repeat(frames) {
+                            repeat(stepsPerFrame) {
+                                block(with)
+                            }
+                            nextDraw.afterFrame?.invoke()
+                        }
+                        nextDraw.afterDone?.invoke()
+                        noLoop()
+                        draw = {}
+                    }
+                }
+            }
+        }
+
         return nextDraw
     }
 

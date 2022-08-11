@@ -1,9 +1,11 @@
 package p5.util
 
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.serializer
 import org.w3c.dom.Window
+import p5.P5
 import kotlin.js.Json
 import kotlin.reflect.KProperty
 import kotlin.reflect.KType
@@ -104,19 +106,15 @@ fun println(message: Any?, message2: Any?, vararg messages: Any?, sep: String = 
     println(result)
 }
 
-class CompanionCache<T, V> {
-    val values: MutableMap<T, V> = mutableMapOf()
+class FieldMap<T, V>(private val defaultValue: V) {
+    private val fields: MutableMap<T, V> = mutableMapOf()
 
-    operator fun getValue(thisRef: Any?, property: KProperty<*>): V? {
-        console.log("$thisRef")
-        console.log("???")
-        return values[thisRef]
+    operator fun getValue(thisRef: T, property: KProperty<*>): V {
+        return fields[thisRef] ?: defaultValue
     }
 
-    operator fun setValue(thisRef: Any?, property: KProperty<*>, value: V?) {
-        console.log("$thisRef")
-        console.log("???")
-        values[thisRef as T] = value!!
+    operator fun setValue(thisRef: T, property: KProperty<*>, value: V) {
+        fields[thisRef] = value
     }
 }
 
@@ -166,4 +164,8 @@ fun String.mapLines(transform: (String)->String): String {
 
 fun String.mapLinesIndexed(transform: (Int, String)->String): String {
     return split('\n').mapIndexed(transform).joinToString(separator = "\n")
+}
+
+operator fun <T> (()->T).getValue(thisRef: Any?, property: KProperty<*>): T {
+    return this()
 }

@@ -60,7 +60,7 @@ abstract external class NativeP5 {
     fun getURLPath(): Array<String>
 
      @JsName("getURLParams")
-     fun _getURLParams()
+     fun _getURLParams(): dynamic
 
 
     // COLOR
@@ -82,15 +82,15 @@ abstract external class NativeP5 {
     fun color(colorString: String): Color
     fun color(colorArray: Array<Number>): Color
 
-    fun alpha(color: Color): Number
-    fun blue(color: Color): Number
-    fun brightness(color: Color): Number
-    fun green(color: Color): Number
-    fun hue(color: Color): Number
+    fun alpha(color: Color): Double
+    fun blue(color: Color): Double
+    fun brightness(color: Color): Double
+    fun green(color: Color): Double
+    fun hue(color: Color): Double
     fun lerpColor(c1: Color, c2: Color, amt: Double): Color
-    fun lightness(color: Color): Number
-    fun red(color: Color): Number
-    fun saturation(): Number
+    fun lightness(color: Color): Double
+    fun red(color: Color): Double
+    fun saturation(): Double
 
     // Setting
     fun background(gray: Number)
@@ -112,13 +112,20 @@ abstract external class NativeP5 {
     fun _colorMode(mode: String, max1: Number, max2: Number, max3: Number)
     @JsName("colorMode")
     fun _colorMode(mode: String, max1: Number, max2: Number, max3: Number, maxA: Number)
-    fun fill(gray: Number)
-    fun fill(gray: Number, alpha: Number)
-    fun fill(v1: Number, v2: Number, v3: Number)
-    fun fill(v1: Number, v2: Number, v3: Number, alpha: Number)
-    fun fill(colorString : String)
-    fun fill(colorArray: Array<Number>)
-    fun fill(color: Color)
+    @JsName("fill")
+    fun _fill(gray: Number)
+    @JsName("fill")
+    fun _fill(gray: Number, alpha: Number)
+    @JsName("fill")
+    fun _fill(v1: Number, v2: Number, v3: Number)
+    @JsName("fill")
+    fun _fill(v1: Number, v2: Number, v3: Number, alpha: Number)
+    @JsName("fill")
+    fun _fill(colorString : String)
+    @JsName("fill")
+    fun _fill(colorArray: Array<Number>)
+    @JsName("fill")
+    fun _fill(color: Color)
     fun noFill()
     fun noStroke()
     fun stroke(gray: Number)
@@ -133,6 +140,7 @@ abstract external class NativeP5 {
     fun erase(strengthFill: Number, strengthStroke: Number)
     fun noErase()
 
+    val _colorMaxes: dynamic
 
     // SHAPE
 
@@ -276,7 +284,6 @@ abstract external class NativeP5 {
     var preload : ()->Unit
     var draw : ()->Unit
     var setup : ()->Unit
-    fun remove()
     var disableFriendlyErrors : Boolean
     fun noLoop()
     fun loop()
@@ -286,142 +293,7 @@ abstract external class NativeP5 {
     fun redraw()
     fun redraw(n: Int)
 
-    ////
-    fun parent(): Element
-    fun parent(parentString: String)
-    fun parent(parentElement: Element)
-    fun id(): String
-    fun id(idString: String)
-    @JsName("class")
-    fun `class`()
-    @JsName("class")
-    fun `class`(classString: String)
-    fun mouseOver(keepCallback: Boolean)
-    fun mouseOver(callback: ()->Unit)
-    fun mouseOut(keepCallback: Boolean)
-    fun mouseOut(callback: ()->Unit)
-    fun dragOver(keepCallback: Boolean)
-    fun dragOver(callback: ()->Unit)
-    fun dragLeave(keepCallback: Boolean)
-    fun dragLeave(callback: ()->Unit)
-    fun changed(keepCallback: Boolean)
-    fun changed(callback: ()->Unit)
-    fun input(keepCallback: Boolean)
-    fun input(callback: ()->Unit)
-    fun addClass(classString: String)
-    fun removeClass(classString: String)
-    fun hasClass(classString: String): Boolean
-    fun toggleClass(classString: String)
-    fun child()
-    fun child(classString: String)
-    fun child(classElement: Element)
-    fun center()
-    fun center(alignString: String)
-    fun html(): String
-    fun html(htmlString: String)
-    fun html(htmlString: String, append: Boolean)
-    fun position(): dynamic // TODO: Remove Dynamic
-    fun position(x: Number, y: Number)
-    fun position(x: Number, y: Number, positionTypeString: String)
-    fun style(property: String): String
-    fun style(property: String, value: String)
-    fun attribute(attr: String): String
-    fun attribute(attr: String, value: String)
-    fun removeAttribute(attr: String)
-    //fun value(valueString: String)
-    fun show()
-    fun hide()
-    fun size(): dynamic // TODO: Returns Object, Remove Dynamic
-    fun size(w: Number)
-    @JsName("size")
-    fun _size(w: String)
-    fun size(w: Number, h: Number)
-    @JsName("size")
-    fun _size(w: Number, h: String)
-    @JsName("size")
-    fun _size(w: String, h: Number)
-    fun drop(callback: (File)->Unit)
-    fun drop(callback: (File)->Unit, onDrop: ()->Unit)
-    ////
 
-
-    // DOM
-    open class Element(elt: String) {
-        fun parent(): Element
-        fun parent(parentString: String)
-        fun parent(parentElement: Element)
-        fun id(): String
-        fun id(idString: String)
-        @JsName("class")
-        fun `class`()
-        @JsName("class")
-        fun `class`(classString: String)
-        fun mousePressed(keepCallback: Boolean)
-        fun mousePressed(callback: ()->Unit)
-        fun doubleClicked(keepCallback: Boolean)
-        fun doubleClicked(callback: ()->Unit)
-        fun mouseWheel(keepCallback: Boolean)
-        fun mouseWheel(callback: (dynamic)->Unit) // TODO: Callback called with object, Remove Dynamic
-        fun mouseReleased(keepCallback: Boolean)
-        fun mouseReleased(callback: ()->Unit)
-        fun mouseClicked(keepCallback: Boolean)
-        fun mouseClicked(callback: ()->Unit)
-        fun mouseMoved(keepCallback: Boolean)
-        fun mouseMoved(callback: ()->Unit)
-        fun mouseOver(keepCallback: Boolean)
-        fun mouseOver(callback: ()->Unit)
-        fun mouseOut(keepCallback: Boolean)
-        fun mouseOut(callback: ()->Unit)
-        fun touchStarted(keepCallback: Boolean)
-        fun touchStarted(callback: ()->Unit)
-        fun touchMoved(keepCallback: Boolean)
-        fun touchMoved(callback: ()->Unit)
-        fun touchEnded(keepCallback: Boolean)
-        fun touchEnded(callback: ()->Unit)
-        fun dragOver(keepCallback: Boolean)
-        fun dragOver(callback: ()->Unit)
-        fun dragLeave(keepCallback: Boolean)
-        fun dragLeave(callback: ()->Unit)
-        fun changed(keepCallback: Boolean)
-        fun changed(callback: ()->Unit)
-        fun input(keepCallback: Boolean)
-        fun input(callback: ()->Unit)
-        fun addClass(classString: String)
-        fun removeClass(classString: String)
-        fun hasClass(classString: String): Boolean
-        fun toggleClass(classString: String)
-        fun child()
-        fun child(classString: String)
-        fun child(classElement: Element)
-        fun center()
-        fun center(alignString: String)
-        fun html(): String
-        fun html(htmlString: String)
-        fun html(htmlString: String, append: Boolean)
-        fun position(): dynamic // TODO: Remove Dynamic
-        fun position(x: Number, y: Number)
-        fun position(x: Number, y: Number, positionTypeString: String)
-        fun style(property: String): String
-        fun style(property: String, value: String)
-        fun attribute(attr: String): String
-        fun attribute(attr: String, value: String)
-        fun removeAttribute(attr: String)
-        //fun value(valueString: String)
-        fun show()
-        fun hide()
-        fun size(): dynamic // TODO: Returns Object, Remove Dynamic
-        fun size(w: Number)
-        @JsName("size")
-        fun _size(w: String)
-        fun size(w: Number, h: Number)
-        @JsName("size")
-        fun _size(w: Number, h: String)
-        @JsName("size")
-        fun _size(w: String, h: Number)
-        fun remove()
-        fun drop(callback: (File)->Unit)
-        fun drop(callback: (File)->Unit, onDrop: ()->Unit)
-    }
 
     class Button: Element
 
@@ -510,9 +382,9 @@ abstract external class NativeP5 {
     fun createP(htmlString: String): ParagraphElement
     fun createSpan(htmlString: String): Element
     fun createImg(srcPath: String, altText: String): Element
-    @JsName("createImage")
+    @JsName("createImg")
     fun _createImg(srcPath: String, altText: String, crossOrigin: String): Element
-    @JsName("createImage")
+    @JsName("createImg")
     fun _createImg(srcPath: String, altText: String, crossOrigin: String, loadedCallback: (Element)->Unit): Element
     fun createA(href: String, html: String): Element
     @JsName("createA")
@@ -632,17 +504,43 @@ abstract external class NativeP5 {
     val turnAxis: String
     fun setMoveThreshold(value: Number)
     fun setShakeThreshold(value: Number)
-    var deviceMoved: ()->Unit // TODO: Add to SketchContext
-    var deviceTurned: ()->Unit // TODO: Add to SketchContext
-    var deviceShaken: ()->Unit // TODO: Add to SketchContext
+    var deviceMoved: ()->Unit
+    var deviceTurned: ()->Unit
+    var deviceShaken: ()->Unit
+
+    class KeyboardEvent {
+        val altKey: Boolean
+        val bubbles: Boolean
+        val cancelBubble: Boolean
+        val cancelable: Boolean
+        val charCode: Int
+        val code: String
+        val composed: Boolean
+        val ctrlKey: Boolean
+        val currentTarget: dynamic
+        val defaultPrevented: Boolean
+        val detail: Number
+        val eventPhase: Number
+        val isComposing: Boolean
+        val key: String
+        val keyCode: Int
+        val location: Number
+        val metaKey: Boolean
+        val repeat: Boolean
+        val returnValue: Boolean
+        val shiftKey: Boolean
+        val timeStamp: Double
+        val type: String
+        val which: Int
+    }
 
     // Keyboard
     val isKeyPressed: Boolean
     val key: String
     val keyCode: Number
-    var keyPressed: ()->Unit // TODO: Add to SketchContext
-    var keyReleased: ()->Unit // TODO: Add to SketchContext
-    var keyTyped: ()->Unit // TODO: Add to SketchContext
+    var keyPressed: (KeyboardEvent)->Unit
+    var keyReleased: (KeyboardEvent)->Unit
+    var keyTyped: (KeyboardEvent)->Unit
     fun keyIsDown(code: Int): Boolean
 
     class WheelEvent {
@@ -663,31 +561,33 @@ abstract external class NativeP5 {
     @JsName("mouseButton")
     val _mouseButton: String
     val mouseIsPressed: Boolean
-    var mouseMoved: ()->Unit // TODO: Add to SketchContext
-    var mouseDragged: ()-> Unit // TODO: Add to SketchContext
-    var mousePressed: ()->Unit // TODO: Add to SketchContext
-    var mouseReleased: ()-> Unit // TODO: Add to SketchContext
-    var mouseClicked: ()->Unit // TODO: Add to SketchContext
-    var doubleClicked: ()-> Unit // TODO: Add to SketchContext
-    var mouseWheel: (WheelEvent)-> Unit // TODO: Add to SketchContext, Remove Dynamic
+    var mouseMoved: ()->Unit
+    var mouseDragged: ()-> Unit
+    var mousePressed: ()->Unit
+    var mouseReleased: ()-> Unit
+    var mouseClicked: ()->Unit
+    var doubleClicked: ()-> Unit
+    var mouseWheel: (WheelEvent)-> Unit
     fun requestPointerLock()
     fun exitPointerLock()
 
     // Touch
     val touches: Array<dynamic> // TODO: Remove Dynamic
-    var touchStarted: ()->Unit // TODO: Add to SketchContext
-    var touchMoved: ()->Unit // TODO: Add to SketchContext
-    var touchEnded: ()->Unit // TODO: Add to SketchContext
+    var touchStarted: ()->Unit
+    var touchMoved: ()->Unit
+    var touchEnded: ()->Unit
 
 
     // IMAGE
-
     class Image {
         val width: Number
         val height: Number
-        val pixels: Array<Int>
-        fun loadPixels()
-        fun updatePixels()
+        @JsName("pixels")
+        val _pixels: Array<Int>
+        @JsName("loadPixels")
+        fun _loadPixels()
+        @JsName("updatePixels")
+        fun _updatePixels()
         fun get(): Image
         fun get(x: Number, y: Number): Image
         fun get(x: Number, y: Number, w: Number, h: Number): Image
@@ -1087,7 +987,83 @@ abstract external class NativeP5 {
     @JsName("textureMode")
     fun _textureWrap(wrapX: String, wrapY: String) // TODO: Make Enum
 
+}
 
-
+@JsName("Element")
+abstract external class Element(elt: String) {
+    fun parent(): Element
+    fun parent(parentString: String)
+    fun parent(parentElement: Element)
+    fun id(): String
+    fun id(idString: String)
+    @JsName("class")
+    fun `class`()
+    @JsName("class")
+    fun `class`(classString: String)
+    fun mousePressed(keepCallback: Boolean)
+    fun mousePressed(callback: ()->Unit)
+    fun doubleClicked(keepCallback: Boolean)
+    fun doubleClicked(callback: ()->Unit)
+    fun mouseWheel(keepCallback: Boolean)
+    fun mouseWheel(callback: (dynamic)->Unit) // TODO: Callback called with object, Remove Dynamic
+    fun mouseReleased(keepCallback: Boolean)
+    fun mouseReleased(callback: ()->Unit)
+    fun mouseClicked(keepCallback: Boolean)
+    fun mouseClicked(callback: ()->Unit)
+    fun mouseMoved(keepCallback: Boolean)
+    fun mouseMoved(callback: ()->Unit)
+    fun mouseOver(keepCallback: Boolean)
+    fun mouseOver(callback: ()->Unit)
+    fun mouseOut(keepCallback: Boolean)
+    fun mouseOut(callback: ()->Unit)
+    fun touchStarted(keepCallback: Boolean)
+    fun touchStarted(callback: ()->Unit)
+    fun touchMoved(keepCallback: Boolean)
+    fun touchMoved(callback: ()->Unit)
+    fun touchEnded(keepCallback: Boolean)
+    fun touchEnded(callback: ()->Unit)
+    fun dragOver(keepCallback: Boolean)
+    fun dragOver(callback: ()->Unit)
+    fun dragLeave(keepCallback: Boolean)
+    fun dragLeave(callback: ()->Unit)
+    fun changed(keepCallback: Boolean)
+    fun changed(callback: ()->Unit)
+    fun input(keepCallback: Boolean)
+    fun input(callback: ()->Unit)
+    fun addClass(classString: String)
+    fun removeClass(classString: String)
+    fun hasClass(classString: String): Boolean
+    fun toggleClass(classString: String)
+    fun child()
+    fun child(classString: String)
+    fun child(classElement: Element)
+    fun center()
+    fun center(alignString: String)
+    fun html(): String
+    fun html(htmlString: String)
+    fun html(htmlString: String, append: Boolean)
+    fun position(): dynamic // TODO: Remove Dynamic
+    fun position(x: Number, y: Number)
+    fun position(x: Number, y: Number, positionTypeString: String)
+    fun style(property: String): String?
+    fun style(property: String, value: String)
+    fun attribute(attr: String): String
+    fun attribute(attr: String, value: String)
+    fun removeAttribute(attr: String)
+    //fun value(valueString: String)
+    fun show()
+    fun hide()
+    fun size(): dynamic // TODO: Returns Object, Remove Dynamic
+    fun size(w: Number)
+    @JsName("size")
+    fun _size(w: String)
+    fun size(w: Number, h: Number)
+    @JsName("size")
+    fun _size(w: Number, h: String)
+    @JsName("size")
+    fun _size(w: String, h: Number)
+    fun remove()
+    fun drop(callback: (NativeP5.File)->Unit)
+    fun drop(callback: (NativeP5.File)->Unit, onDrop: ()->Unit)
 }
 

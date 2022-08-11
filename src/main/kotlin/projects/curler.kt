@@ -7,7 +7,7 @@ fun curler() = Sketch {
 
     lateinit var outShader: P5.Shader
     lateinit var sliders: List<NativeP5.Slider>
-    lateinit var paragraphs: Array<NativeP5.Element>
+    lateinit var paragraphs: Array<Element>
 
     Preload {
         outShader = loadShader("out.vert", "out.frag")
