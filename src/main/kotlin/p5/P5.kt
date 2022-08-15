@@ -299,7 +299,7 @@ class P5: NativeP5 {
         if (renderMode == RenderMode.WEBGL2) { enableWebgl2() }
         val _canvas = _createCanvas(w, h, renderMode.nativeValue)
         if (renderMode == RenderMode.WEBGL2) {
-            drawingContext.getExtension("OES_standard_derivatives")
+            //drawingContext.getExtension("OES_standard_derivatives")
             _canvas.asDynamic().GL.getExtension("OES_standard_derivatives")
         }
         canvases[this] = _canvas
