@@ -36,8 +36,9 @@ fun carbon(filename: String, scaleFactor: Double=1.0, imageFactor: Double=1.0) =
 
         createCanvas(canvasWidth, canvasHeight)
 
+        img.withPixels { fill(colorArray[0, 0]) }
+
         background(60, 63, 65)
-        fill(70, 72, 74)
         noStroke()
 
         drawingContext.shadowBlur = shadowRadius

@@ -45,7 +45,7 @@ fun curler() = Sketch {
                 noLoop()
                 frameCount = 0
                 createLoop(duration = 15, framesPerSecond = 15, gif = true, gifRender = true, gifQuality = 50) {
-                    draw!!()
+                    draw()
                     frameCount++
                 }
             }

@@ -38,32 +38,24 @@ class SketchScope(val p5: P5) {
     fun KeyTyped      (block: KeyboardEvent.()->Unit) { p5.keyTyped = { keyboardEvent -> block(keyboardEvent) } }
     fun MouseWheel    (block: WheelEvent.()->Unit) { p5.mouseWheel = { wheelEvent -> block(wheelEvent) } }
 
-    private var shownElements = mutableListOf<Pair<Element, Boolean>>()
-    private var layout: ()->Unit = { }
+    private var topGrid: P5.Grid? = null
 
     // Layout
     fun Layout (block: P5.Grid.()->Unit) {
         with(p5) {
-            layout = {
-                pruneLayout()
-                val grid = Grid()
+            val grid = topGrid ?: Grid()
+            grid.action = {
                 grid.Stack {
                     block()
                 }
-                shownElements = grid.shownElements
             }
-            layout()
-        }
-    }
-
-    fun pruneLayout() {
-        shownElements.forEach {
-            if (it.second) it.first.remove() else it.first.hide()
+            grid.update()
+            topGrid = grid
         }
     }
 
     fun updateLayout() {
-        layout()
+        topGrid?.update()
     }
 
     // New Scopes

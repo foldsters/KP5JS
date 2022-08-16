@@ -9,6 +9,7 @@ import kotlinx.serialization.descriptors.element
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.*
+import org.jetbrains.compose.web.attributes.DirType
 import p5.createLoop._createLoop
 import kotlin.js.Json as JsonObject
 import kotlin.js.json
@@ -309,6 +310,12 @@ class P5: NativeP5 {
     }
     fun createGraphics(w: Number, h: Number, renderMode: RenderMode, hide: Boolean = true): P5 {
         return P5().apply { createCanvas(w, h, renderMode).apply { if(hide) hide() } }
+    }
+    fun createGraphics(hide: Boolean = true): P5 {
+        return P5().apply { createCanvas(0, 0).apply { if(hide) hide() } }
+    }
+    fun createGraphics(renderMode: RenderMode, hide: Boolean = true): P5 {
+        return P5().apply { createCanvas(0, 0, renderMode).apply { if(hide) hide() } }
     }
 
     enum class BlendMode(val nativeValue: String) {
@@ -1708,6 +1715,16 @@ class P5: NativeP5 {
         style("zoom", "${scale*100}%")
     }
 
+    fun Element.size(width: AUTO, height: Number, scale: Number) {
+        size(width, height/scale)
+        style("zoom", "${scale*100}%")
+    }
+
+    fun Element.size(width: Number, height: AUTO, scale: Number) {
+        size(width/scale, height)
+        style("zoom", "${scale*100}%")
+    }
+
     val maxRed:   Double get() = (_colorMaxes.rgb[0] as Number).toDouble()
     val maxGreen: Double get() = (_colorMaxes.rgb[1] as Number).toDouble()
     val maxBlue:  Double get() = (_colorMaxes.rgb[2] as Number).toDouble()
@@ -1772,7 +1789,8 @@ class P5: NativeP5 {
         private var itemStyleApplier: Element.() -> Unit = {},
         private val intrinsicItemStyleApplier: Element.() -> Unit = {},
     ) {
-        val divElement = createDiv("")
+        var divElement = createDiv("")
+        var action: ()->Unit = {}
 
         fun GridStyle(block: DivElement.(parentStyle: DivElement.()->Unit)->Unit) {
             gridStyleApplier = { block(gridStyleApplier) }
@@ -1782,7 +1800,7 @@ class P5: NativeP5 {
             itemStyleApplier = { block(itemStyleApplier) }
         }
         
-        fun Column(block: Grid.()->Unit = {}): Grid {
+        fun Column(block: Grid.()->Unit = {}): ()->Unit {
             val childGrid = Grid(
                 { gridStyleApplier() },
                 { itemStyleApplier() }
@@ -1797,14 +1815,19 @@ class P5: NativeP5 {
                 style("align-items", "center")
                 style("justify-items", "center")
             }
-            childGrid.block()
-            childGrid.applyGridStyle()
+            childGrid.action = {
+                childGrid.block()
+                childGrid.applyGridStyle()
+                childGrid.divElement.intrinsicItemStyleApplier()
+            }
+            childGrid.action()
             divElement.child(childGrid.divElement)
-            shownElements += childGrid.shownElements
-            return childGrid
+            containers.add(childGrid.divElement)
+            subGrids.add(childGrid)
+            return childGrid::update
         }
 
-        fun Row(block: Grid.() -> Unit = {}): Grid {
+        fun Row(block: Grid.() -> Unit = {}): ()->Unit {
             val childGrid = Grid(
                 { gridStyleApplier() },
                 { itemStyleApplier() })
@@ -1818,14 +1841,19 @@ class P5: NativeP5 {
                 style("align-items", "center")
                 style("justify-items", "center")
             }
-            childGrid.block()
-            childGrid.applyGridStyle()
+            childGrid.action = {
+                childGrid.block()
+                childGrid.applyGridStyle()
+                childGrid.divElement.intrinsicItemStyleApplier()
+            }
+            childGrid.action()
             divElement.child(childGrid.divElement)
-            shownElements += childGrid.shownElements
-            return childGrid
+            containers.add(childGrid.divElement)
+            subGrids.add(childGrid)
+            return childGrid::update
         }
 
-        fun Stack(block: Grid.() -> Unit = {}): Grid {
+        fun Stack(block: Grid.() -> Unit = {}): ()->Unit {
             val childGrid = Grid(
                 { gridStyleApplier() },
                 { itemStyleApplier() },
@@ -1840,19 +1868,37 @@ class P5: NativeP5 {
                 style("width", "min-content")
                 style("height", "min-content")
             }
-            childGrid.block()
-            childGrid.applyGridStyle()
+            childGrid.action = {
+                childGrid.block()
+                childGrid.applyGridStyle()
+                childGrid.divElement.intrinsicItemStyleApplier()
+            }
+            childGrid.action()
             divElement.child(childGrid.divElement)
-            shownElements += childGrid.shownElements
-            return childGrid
+            containers.add(childGrid.divElement)
+            subGrids.add(childGrid)
+            return childGrid::update
         }
         
-        fun add(element: Element) {
-            element.itemStyleApplier()
-            element.intrinsicItemStyleApplier()
-            element.show()
-            shownElements.add(element to false)
-            divElement.child(element)
+        fun add(element: Element, localStyleApplier: Element.() -> Unit = {}) {
+            val elementContainer = createDiv("")
+            elementContainer.apply {
+                child(element)
+                itemStyleApplier()
+                localStyleApplier()
+                intrinsicItemStyleApplier()
+                show()
+            }
+            element.apply {
+                if (this !is Renderer) {
+                    style("width", "100%")
+                    style("height", "100%")
+                }
+                show()
+            }
+            containers.add(elementContainer)
+            elements.add(element)
+            divElement.child(elementContainer)
         }
 
         fun addAll(vararg elements: Element) {
@@ -1863,7 +1909,36 @@ class P5: NativeP5 {
             divElement.gridStyleApplier()
         }
 
-        val shownElements = mutableListOf<Pair<Element, Boolean>>(divElement to true)
+        val subGrids = mutableListOf<Grid>()
+        val containers = mutableListOf<Element>()
+        val elements = mutableListOf<Element>()
+
+        fun clear() {
+            subGrids.forEach { it.clear() }
+            containers.forEach { it.remove() }
+            elements.forEach { it.hide() }
+        }
+
+        fun update() {
+            clear()
+            action()
+        }
+    }
+
+    fun Number.px(): String {
+        return "${this}px "
+    }
+
+    fun Number.percent(): String {
+        return "${this}% "
+    }
+
+    fun Number.fr(): String {
+        return "${this}fr "
+    }
+
+    fun Element.style(property: String, value: Number) {
+        style(property, value.toString())
     }
 
 

@@ -1,6 +1,6 @@
 
-import projects.layout.composeExample1
-import projects.layout.composeExample2
+import projects.carbon
+import projects.layout.layoutExample1
 
-fun main() = composeExample2()
+fun main() = layoutExample1()
 
