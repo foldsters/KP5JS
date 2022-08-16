@@ -9,7 +9,6 @@ import kotlinx.serialization.descriptors.element
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.*
-import p5.P5.Companion.sliderCaches
 import p5.createLoop._createLoop
 import kotlin.js.Json as JsonObject
 import kotlin.js.json
@@ -20,7 +19,6 @@ import kotlin.reflect.KClass
 import kotlin.math.*
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
-import kotlin.time.AbstractDoubleTimeSource
 
 @JsModule("p5")
 @JsNonModule
@@ -39,6 +37,7 @@ class P5: NativeP5 {
 
         var elementNames = FieldMap<Element, String?>(null)
         var elementGetFromCaches = FieldMap<Element, Boolean>(false)
+        var shownElements = mutableListOf<Element>()
     }
 
     // MODE EXTENSION FUNCTIONS
@@ -1767,6 +1766,107 @@ class P5: NativeP5 {
     fun Button.text(string: String) {
         html(string)
     }
+    
+    inner class Grid(
+        private var gridStyleApplier: DivElement.() -> Unit = {},
+        private var itemStyleApplier: Element.() -> Unit = {},
+        private val intrinsicItemStyleApplier: Element.() -> Unit = {},
+    ) {
+        val divElement = createDiv("")
+
+        fun GridStyle(block: DivElement.(parentStyle: DivElement.()->Unit)->Unit) {
+            gridStyleApplier = { block(gridStyleApplier) }
+        }
+
+        fun ItemStyle(block: Element.(parentStyle: Element.()->Unit)->Unit) {
+            itemStyleApplier = { block(itemStyleApplier) }
+        }
+        
+        fun Column(block: Grid.()->Unit = {}): Grid {
+            val childGrid = Grid(
+                { gridStyleApplier() },
+                { itemStyleApplier() }
+            )
+            childGrid.divElement.apply {
+                style("display", "grid")
+                style("grid-auto-flow", "row")
+                style("grid-gap", "0px")
+                style("grid-auto-column", "min-content")
+                style("grid-auto-row", "min-content")
+                style("width", "min-content")
+                style("align-items", "center")
+                style("justify-items", "center")
+            }
+            childGrid.block()
+            childGrid.applyGridStyle()
+            divElement.child(childGrid.divElement)
+            shownElements += childGrid.shownElements
+            return childGrid
+        }
+
+        fun Row(block: Grid.() -> Unit = {}): Grid {
+            val childGrid = Grid(
+                { gridStyleApplier() },
+                { itemStyleApplier() })
+            childGrid.divElement.apply {
+                style("display", "grid")
+                style("grid-auto-flow", "column")
+                style("grid-gap", "0px")
+                style("grid-auto-column", "min-content")
+                style("grid-auto-row", "min-content")
+                style("width", "min-content")
+                style("align-items", "center")
+                style("justify-items", "center")
+            }
+            childGrid.block()
+            childGrid.applyGridStyle()
+            divElement.child(childGrid.divElement)
+            shownElements += childGrid.shownElements
+            return childGrid
+        }
+
+        fun Stack(block: Grid.() -> Unit = {}): Grid {
+            val childGrid = Grid(
+                { gridStyleApplier() },
+                { itemStyleApplier() },
+                {
+                    style("grid-row", "1")
+                    style("grid-column", "1")
+                }
+            )
+            childGrid.divElement.apply {
+                style("display", "grid")
+                style("grid-gap", "0px")
+                style("width", "min-content")
+                style("height", "min-content")
+            }
+            childGrid.block()
+            childGrid.applyGridStyle()
+            divElement.child(childGrid.divElement)
+            shownElements += childGrid.shownElements
+            return childGrid
+        }
+        
+        fun add(element: Element) {
+            element.itemStyleApplier()
+            element.intrinsicItemStyleApplier()
+            element.show()
+            shownElements.add(element to false)
+            divElement.child(element)
+        }
+
+        fun addAll(vararg elements: Element) {
+            elements.forEach { add(it) }
+        }
+
+        private fun applyGridStyle() {
+            divElement.gridStyleApplier()
+        }
+
+        val shownElements = mutableListOf<Pair<Element, Boolean>>(divElement to true)
+    }
+
+
 
 }
 

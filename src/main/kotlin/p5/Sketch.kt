@@ -3,6 +3,7 @@
 package p5
 
 import kotlinx.browser.window
+import kotlinx.html.DIV
 import p5.NativeP5.*
 
 fun Sketch(sketch: SketchScope.()->Unit) {
@@ -14,7 +15,7 @@ fun Sketch(sketch: SketchScope.()->Unit) {
 class SketchScope(val p5: P5) {
 
     private fun wrap(f: P5.()->Unit): () -> Unit {
-        return { f(p5) }
+        return { p5.f() }
     }
 
     fun Preload       (block: P5.()->Unit) { p5.preload = wrap(block) }
@@ -36,6 +37,34 @@ class SketchScope(val p5: P5) {
     fun KeyReleased   (block: KeyboardEvent.()->Unit) { p5.keyReleased = { keyboardEvent -> block(keyboardEvent) } }
     fun KeyTyped      (block: KeyboardEvent.()->Unit) { p5.keyTyped = { keyboardEvent -> block(keyboardEvent) } }
     fun MouseWheel    (block: WheelEvent.()->Unit) { p5.mouseWheel = { wheelEvent -> block(wheelEvent) } }
+
+    private var shownElements = mutableListOf<Pair<Element, Boolean>>()
+    private var layout: ()->Unit = { }
+
+    // Layout
+    fun Layout (block: P5.Grid.()->Unit) {
+        with(p5) {
+            layout = {
+                pruneLayout()
+                val grid = Grid()
+                grid.Stack {
+                    block()
+                }
+                shownElements = grid.shownElements
+            }
+            layout()
+        }
+    }
+
+    fun pruneLayout() {
+        shownElements.forEach {
+            if (it.second) it.first.remove() else it.first.hide()
+        }
+    }
+
+    fun updateLayout() {
+        layout()
+    }
 
     // New Scopes
 

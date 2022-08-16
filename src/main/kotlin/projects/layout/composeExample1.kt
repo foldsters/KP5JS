@@ -1,4 +1,4 @@
-package projects.compose
+package projects.layout
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf

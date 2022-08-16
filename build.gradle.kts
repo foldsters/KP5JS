@@ -1,6 +1,7 @@
 plugins {
     kotlin("js") version "1.7.0"
     kotlin("plugin.serialization") version "1.7.0"
+    id("org.jetbrains.compose") version "1.2.0-alpha01-dev755"
 }
 
 group = "me.metag"
@@ -9,6 +10,8 @@ version = "1.0-SNAPSHOT"
 repositories {
     mavenCentral()
     maven("https://maven.pkg.jetbrains.space/public/p/kotlinx-html/maven")
+    maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
+    google()
 }
 
 kotlin {
@@ -23,13 +26,13 @@ kotlin {
 
     sourceSets {
         all {
-            languageSettings.optIn("kotlinx.serialization.ExperimentalSerializationApi")
-            languageSettings.optIn("kotlin.experimental.ExperimentalTypeInference")
-            languageSettings.optIn("kotlinx.serialization.InternalSerializationApi")
-            languageSettings.optIn("kotlin.RequiresOptIn")
+            languageSettings {
+                optIn("kotlinx.serialization.ExperimentalSerializationApi")
+                optIn("kotlin.experimental.ExperimentalTypeInference")
+                optIn("kotlinx.serialization.InternalSerializationApi")
+                optIn("kotlin.RequiresOptIn")
+            }
         }
-
-
     }
 }
 
@@ -39,6 +42,8 @@ dependencies {
     implementation(npm("createloop", "0.0.12"))
     implementation(npm("open-simplex-noise", "2.5.0"))
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.2")
+    implementation(compose.web.core)
+    implementation(compose.runtime)
 }
 
 rootProject.extensions.configure<org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension> {

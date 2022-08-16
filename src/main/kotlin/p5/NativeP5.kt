@@ -293,8 +293,6 @@ abstract external class NativeP5 {
     fun redraw()
     fun redraw(n: Int)
 
-
-
     class Button: Element
 
     class ParagraphElement: Element
@@ -371,6 +369,8 @@ abstract external class NativeP5 {
         val data: String
     }
 
+    open class DivElement: Element
+
     fun select(selectors: String): Element?
     fun select(selectors: String, containerString: String): Element?
     fun select(selectors: String, containerElement: Element): Element?
@@ -378,7 +378,7 @@ abstract external class NativeP5 {
     fun selectAll(selectors: String, containerString: String): Array<Element>
     fun selectAll(selectors: String, containerElement: Element): Array<Element>
     fun removeElements()
-    fun createDiv(htmlString: String): Element
+    fun createDiv(htmlString: String): DivElement
     fun createP(htmlString: String): ParagraphElement
     fun createSpan(htmlString: String): Element
     fun createImg(srcPath: String, altText: String): Element
