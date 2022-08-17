@@ -9,7 +9,6 @@ import kotlinx.serialization.descriptors.element
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.*
-import org.jetbrains.compose.web.attributes.DirType
 import p5.createLoop._createLoop
 import kotlin.js.Json as JsonObject
 import kotlin.js.json
@@ -38,7 +37,8 @@ class P5: NativeP5 {
 
         var elementNames = FieldMap<Element, String?>(null)
         var elementGetFromCaches = FieldMap<Element, Boolean>(false)
-        var shownElements = mutableListOf<Element>()
+        var elementIsMouseOverInit = FieldMap<Element, Boolean>(false)
+        var elementMouseOver: Element? = null
     }
 
     // MODE EXTENSION FUNCTIONS
@@ -1941,7 +1941,32 @@ class P5: NativeP5 {
         style(property, value.toString())
     }
 
+    fun setTimeout(delayMillis: Number, block: ()->Unit): Int {
+        return js("setTimeout(block, delayMillis)") as Int
+    }
 
+    private var Element._isMouseOverInit by elementIsMouseOverInit
+    val Element.isMouseOver: Boolean get() {
+        if(!_isMouseOverInit) {
+            mouseOver {
+                println("setting elementMouseOver")
+                elementMouseOver = this }
+            mouseOut { elementMouseOver = null }
+            _isMouseOverInit = true
+        }
+        return this == elementMouseOver
+    }
 
+    fun Element.mouseOverDelay(delayMillis: Number, block: () -> Unit) {
+        mouseOver {
+            println("about to show", elementMouseOver)
+            setTimeout(delayMillis) {
+                println("showing", elementMouseOver)
+                if(isMouseOver) {
+                    block()
+                }
+            }
+        }
+    }
 }
 

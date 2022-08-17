@@ -30,12 +30,29 @@ fun layoutExample1() = Sketch {
         }
         val sliderValue by { slider.value().toDouble() }
 
-        val button1 = createButton("1")
-        val button2 = createButton("2")
-        val button3 = createButton("3")
-
-        val helpText = createP("helpText")
+        var helpText: String? = null
         var updateHelpText: (()->Unit)? = null
+        fun showHelpText(text: String) {
+            helpText = text
+            updateHelpText?.invoke()
+        }
+        fun hideHelpText() {
+            helpText = null
+            updateHelpText?.invoke()
+        }
+
+        val button1 = createButton("1").apply {
+            mouseOverDelay(1000) { showHelpText("Button 1") }
+            mouseOut { hideHelpText() }
+        }
+        val button2 = createButton("2").apply {
+            mouseOverDelay(1000) { showHelpText("Button 2") }
+            mouseOut { hideHelpText() }
+        }
+        val button3 = createButton("3").apply {
+            mouseOverDelay(1000) { showHelpText("Button 3") }
+            mouseOut { hideHelpText() }
+        }
 
         noLoop()
         Draw {
@@ -99,25 +116,20 @@ fun layoutExample1() = Sketch {
 
             updateHelpText = Stack {
                 GridStyle {
-                    style("margin-left", (mouseX + 5).px())
-                    style("margin-top", (mouseY + 5).px())
-                    style("background-color", "#46484A") 
-                    style("color", "#A9B7C6")
-                    style("height", "min-content")
+                    style("margin-left", (mouseX + 10).px())
+                    style("margin-top", (mouseY + 10).px())
+                    style("background-color", "#00000088")
+                    style("color", "#FFFFFFFF")
+                    style("width", size.px())
+                    style("justify-items", "center")
+                    style("border-radius", 5.px())
                 }
-                add(helpText) {
-                    style("zoom", 4)
+                if (helpText != null) {
+                    add(createP(helpText!!)) {
+                        style("zoom", 2)
+                    }
                 }
             }
-
-        }
-
-        MouseMoved {
-            updateHelpText?.invoke()
-        }
-
-        MouseDragged {
-            updateHelpText?.invoke()
         }
     }
 }
