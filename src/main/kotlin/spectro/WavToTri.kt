@@ -1,6 +1,6 @@
 package spectro
 
-import p5.P5
+import p5.core.P5
 
 fun P5.wavToTri(wv: Number): Array<Number> {
 

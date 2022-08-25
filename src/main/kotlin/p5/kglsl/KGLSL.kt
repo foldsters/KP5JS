@@ -10,8 +10,7 @@
 
 package p5.kglsl
 
-import p5.NativeP5
-import p5.P5
+import p5.core.*
 import p5.util.appendAll
 import p5.util.ifTrue
 import p5.util.mapLinesIndexed
@@ -21,8 +20,8 @@ import kotlin.math.max
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty
 
-fun P5.buildShader(useWEBGL2: Boolean = false, debug: Boolean = false, block: ShaderScope.() -> Unit): P5.KShader {
-    val shaderScope = ShaderScope(useWEBGL2, debug)
+fun P5.buildShader(debug: Boolean = false, block: ShaderScope.() -> Unit): Shader {
+    val shaderScope = ShaderScope(isWebgl2Enabled, debug)
     block(shaderScope)
     if(debug) {
         println("Vertex Program:")
@@ -31,7 +30,7 @@ fun P5.buildShader(useWEBGL2: Boolean = false, debug: Boolean = false, block: Sh
         println("Fragment Program:")
         println(shaderScope.fragmentCode.mapLinesIndexed { i, s -> "${i+1}.".padEnd(5) + s })
     }
-    return createKShader(shaderScope.vertexCode, shaderScope.fragmentCode, shaderScope.uniformCallbackRoster)
+    return createShader(shaderScope.vertexCode, shaderScope.fragmentCode, shaderScope.uniformCallbacks)
 }
 
 class ShaderScope(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
@@ -58,7 +57,7 @@ gl_Position = positionVec4;
 }
 """
     var fragmentCode = ""
-    var uniformCallbackRoster: MutableMap<String, ()->Any> = mutableMapOf()
+    var uniformCallbacks: MutableMap<String, ()->Any> = mutableMapOf()
 
     fun Vertex(block: KGLSL.()->Unit): String {
         val vertex = KGLSL(useWEBGL2, debug)
@@ -81,7 +80,7 @@ precision highp int;
 #endif
 """
         fragmentCode = preamble + fragment.instructions.sortedBy { it.id }.joinToString("\n") { it.render() }
-        uniformCallbackRoster = fragment.uniformCallbackRoster
+        uniformCallbacks = fragment.uniformCallbacks
         return fragmentCode
     }
 
@@ -248,7 +247,7 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
         override val logTypeName = "Component Expr"
     }
 
-    val uniformCallbackRoster: MutableMap<String, ()->Any> = mutableMapOf()
+    val uniformCallbacks: MutableMap<String, ()->Any> = mutableMapOf()
 
     interface ExprDim<T: ExprDim<T>>
     interface ExprDim1: ExprDim<ExprDim1>
@@ -1067,17 +1066,17 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
 
     inner class Callback<T: Any>(val callback: ()->T) {
         fun register(name: String) {
-            uniformCallbackRoster[name] = callback
+            uniformCallbacks[name] = callback
         }
     }
 
     @OverloadResolutionByLambdaReturnType
-    fun Uniform(block: ()->Boolean): BoolExpr             = Uniform<BoolExpr>().apply  { uniformCallback = Callback(block) }
-    fun Uniform(block: ()->Double): FloatExpr             = Uniform<FloatExpr>().apply { uniformCallback = Callback(block) }
-    fun Uniform(block: ()->NativeP5.Texture): Sampler2D   = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
-    fun Uniform(block: ()->NativeP5.Image): Sampler2D     = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
-    fun Uniform(block: ()-> P5): Sampler2D                = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
-    fun Uniform(block: ()-> NativeP5.Renderer): Sampler2D = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
+    fun Uniform(block: ()->Boolean): BoolExpr    = Uniform<BoolExpr>().apply  { uniformCallback = Callback(block) }
+    fun Uniform(block: ()->Double): FloatExpr    = Uniform<FloatExpr>().apply { uniformCallback = Callback(block) }
+    fun Uniform(block: ()->Texture): Sampler2D   = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
+    fun Uniform(block: ()->Image): Sampler2D     = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
+    fun Uniform(block: ()->P5): Sampler2D        = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
+    fun Uniform(block: ()->P5.Renderer): Sampler2D  = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
     inline fun <reified T: VecExpr<T>>  Uniform(noinline block: ()->Array<Number>): T = Uniform<T>().apply { uniformCallback = Callback(block) }
 
     inline fun <reified T: GenExpr<*>> Out(): T {
@@ -1391,6 +1390,11 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     infix fun BoolExpr.AND(other: BoolExpr): BoolExpr = operatorOf("&&", this, other)
     infix fun BoolExpr.XOR(other: BoolExpr): BoolExpr = operatorOf("^^", this, other)
     infix fun BoolExpr.OR(other: BoolExpr): BoolExpr = operatorOf("||", this, other)
+
+    @JsName("NOT_BE")    fun `!`(expr: BoolExpr): BoolExpr = functionOf("!", expr)
+    @JsName("BE_AND_BE") infix fun BoolExpr.`&&`(other: BoolExpr): BoolExpr = operatorOf("&&", this, other)
+    @JsName("BE_XOR_BE") infix fun BoolExpr.`^^`(other: BoolExpr): BoolExpr = operatorOf("^^", this, other)
+    @JsName("BE_OR_BE")  infix fun BoolExpr.`||`(other: BoolExpr): BoolExpr = operatorOf("||", this, other)
 
     inline operator fun <reified T: GenIExpr<T>> T.plus(other: T): T = operatorOf("+", this, other)
     inline operator fun <reified T: IVecExpr<T>> T.plus(other: IntExpr): T = operatorOf("+", this, other)
@@ -1792,6 +1796,21 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
         val c = cos(angle)
         val s = sin(angle)
         return v*c + cross(k, v)*s + k*dot(k, v)*(1.0-c)
+    }
+
+    @JsName("TERNARY_FV")
+    inline fun <reified T: VecExpr<T>> `?`(cond: BoolExpr, ifTrue: T, ifFalse: T): T {
+        return ifTrue*float(cond) + ifFalse*float(`!`(cond))
+    }
+
+    @JsName("TENRARY_F")
+    fun `?`(cond: BoolExpr, ifTrue: FloatExpr, ifFalse: FloatExpr): FloatExpr {
+        return mix(ifTrue, ifFalse, cond)
+    }
+
+    @JsName("TENRARY_I")
+    fun `?`(cond: BoolExpr, ifTrue: IntExpr, ifFalse: IntExpr): IntExpr {
+        return int(mix(float(ifTrue), float(ifFalse), cond))
     }
 }
 

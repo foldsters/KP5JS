@@ -1,11 +1,13 @@
 package projects.som
 
 import p5.*
+import p5.core.*
 import p5.util.getValue
 import kotlin.math.max
+import p5.core.P5.*
 
 fun paletteGenerator() = Sketch {
-    lateinit var sourceImage: NativeP5.Image
+    lateinit var sourceImage: Image
 
     Preload {
         sourceImage = loadImage("stock/flower.png")
@@ -17,24 +19,24 @@ fun paletteGenerator() = Sketch {
 
         val swatchMaxDimension = 1024.0/max(paletteRows, paletteColumns)
 
-        val sourceCanvas = createGraphics(1024, 1024, P5.RenderMode.P2D, hide = false).apply {
+        val sourceCanvas = createGraphics(1024, 1024, RenderMode.P2D, hide = false).apply {
             image(sourceImage, 0, 0, width, height)
-            colorMode(P5.ColorMode.RGB, 1, 1, 1, 255)
+            colorMode(ColorMode.RGB, 1, 1, 1, 255)
         }
 
         val canvas = createCanvas(
             paletteColumns*swatchMaxDimension,
             paletteRows*swatchMaxDimension,
-            P5.RenderMode.P2D)
-        colorMode(P5.ColorMode.RGB, 1, 1, 1, 255)
+            RenderMode.P2D)
+        colorMode(ColorMode.RGB, 1, 1, 1, 255)
         pixelDensity(1)
         noStroke()
         noSmooth()
 
-        val palette = createGraphics(paletteColumns, paletteRows, P5.RenderMode.P2D)
+        val palette = createGraphics(paletteColumns, paletteRows, RenderMode.P2D)
         palette.noStroke()
         palette.pixelDensity(1)
-        palette.colorMode(P5.ColorMode.RGB, 1, 1, 1, 255)
+        palette.colorMode(ColorMode.RGB, 1, 1, 1, 255)
 
         val quality     by createSlider(0, 10, 3, 0.1, true).apply { size(width, 200, 3) }
         val blendStart  by createSlider(0, 1, 0.3, 1.0/255.0, true).apply { size(width, 200, 3) }
@@ -73,7 +75,7 @@ fun paletteGenerator() = Sketch {
                 val randomPixelId = randInt(imageSize.x*imageSize.y)
 
                 val randomPixelColor = sourceImage.withPixels { colorArray[randomPixelId].toVector() }
-                val pixelBag: MutableList<Pair<NativeP5.Vector, Double>> = mutableListOf()
+                val pixelBag: MutableList<Pair<Vector, Double>> = mutableListOf()
 
                 palette.withPixels {
                     for (row in 0 until paletteRows.toInt()) {

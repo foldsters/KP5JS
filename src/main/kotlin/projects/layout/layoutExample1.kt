@@ -1,6 +1,7 @@
 package projects.layout
 
 import p5.Sketch
+import p5.core.RenderMode
 import p5.util.*
 
 fun layoutExample1() = Sketch {
@@ -9,7 +10,7 @@ fun layoutExample1() = Sketch {
 
         val size = 256
 
-        val main = createCanvas(size*3, size*3)
+        val main = createCanvas(size*3, size*3, RenderMode.WEBGL)
         val subM = createGraphics()
         val subY = createGraphics()
         val subC = createGraphics()
@@ -42,15 +43,15 @@ fun layoutExample1() = Sketch {
         }
 
         val button1 = createButton("1").apply {
-            mouseOverDelay(1000) { showHelpText("Button 1") }
+//            mouseOverDelay(1000) { showHelpText("Button 1") }
             mouseOut { hideHelpText() }
         }
         val button2 = createButton("2").apply {
-            mouseOverDelay(1000) { showHelpText("Button 2") }
+//            mouseOverDelay(1000) { showHelpText("Button 2") }
             mouseOut { hideHelpText() }
         }
         val button3 = createButton("3").apply {
-            mouseOverDelay(1000) { showHelpText("Button 3") }
+//            mouseOverDelay(1000) { showHelpText("Button 3") }
             mouseOut { hideHelpText() }
         }
 

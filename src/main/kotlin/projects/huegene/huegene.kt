@@ -1,7 +1,9 @@
 package projects.huegene
 
-import p5.NativeP5
+import p5.native.NativeP5
 import p5.Sketch
+import p5.core.Color
+import p5.core.P5.*
 
 fun huegene() = Sketch {
 
@@ -14,7 +16,6 @@ fun huegene() = Sketch {
         val startColor = color(255, 255, 255, 255)
         val mutationChance = 0.5
         val colorStep = 10
-        val stepsPerFrame = 1000
 
         frameRate(60)
 
@@ -27,7 +28,7 @@ fun huegene() = Sketch {
             createVector(2, 1)
         )
 
-        fun mutateColor(c: NativeP5.Color): NativeP5.Color {
+        fun mutateColor(c: Color): Color {
             val mutations = Array(3) { if (random() < mutationChance) colorStep*((random()*2) - 1) else 0 }
             val newColor = color(
                 (red(c) + mutations[0]).toInt().coerceIn(0, 255),
@@ -66,59 +67,35 @@ fun huegene() = Sketch {
             }
         }
 
-        Draw {
+        DrawWhileWithPixels( { points.isNotEmpty() }, 5000) {
 
-            console.log("draw!", pointsAdded)
-            val frameStartTime = millis()
+            val chosenPoint = points.random()
+            val chosenColor = colorArray[chosenPoint]
+            val candidates = mutableListOf<Vector>()
 
-            withPixels {
-                var steps = stepsPerFrame
-                while (steps > 0) {
-                    while (points.isNotEmpty()) {
-
-                        val chosenPoint = points.random()
-                        val chosenColor = colorArray[chosenPoint]
-                        val candidates = mutableListOf<NativeP5.Vector>()
-
-                        neighborhood.forEach { offset ->
-                            val checkVector = chosenPoint + offset
-                            if (checkVector.x.toInt() !in 0 until width || checkVector.y.toInt() !in 0 until height) {
-                                return@forEach
-                            }
-                            val checkColor = colorArray[checkVector]
-                            if (alpha(checkColor) == 0.0) {
-                                candidates.add(checkVector)
-                            }
-                        }
-
-
-                        if (candidates.size < 2) {
-                            points.remove(chosenPoint)
-                        }
-                        if (candidates.isNotEmpty()) {
-                            //console.log("new point")
-                            val newPoint = candidates.random()
-                            val newColor = mutateColor(chosenColor)
-                            colorArray[newPoint] = newColor
-                            points.add(newPoint)
-                            pointsAdded++
-                            steps--
-                            break
-                        }
-
-                        if ((millis() - frameStartTime) > 500) {
-                            return@withPixels
-                        }
-
-                    }
-                    if (points.isEmpty()) {
-                        noLoop()
-                        console.log("Done: Points Added: ", pointsAdded)
-                        break
-                    }
+            neighborhood.forEach { offset ->
+                val checkVector = chosenPoint + offset
+                if (checkVector.x.toInt() !in 0 until width || checkVector.y.toInt() !in 0 until height) {
+                    return@forEach
+                }
+                val checkColor = colorArray[checkVector]
+                if (alpha(checkColor) == 0.0) {
+                    candidates.add(checkVector)
                 }
             }
-        }
 
+            if (candidates.size < 2) {
+                points.remove(chosenPoint)
+            }
+
+            if (candidates.isNotEmpty()) {
+                //console.log("new point")
+                val newPoint = candidates.random()
+                val newColor = mutateColor(chosenColor)
+                colorArray[newPoint] = newColor
+                points.add(newPoint)
+                pointsAdded++
+            }
+        }
     }
 }

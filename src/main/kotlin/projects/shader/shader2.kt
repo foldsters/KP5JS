@@ -1,14 +1,15 @@
 package projects.shader
 
-import p5.P5
+import p5.core.P5
 import p5.Sketch
+import p5.core.RenderMode
 import p5.kglsl.*
 
 fun uniformBridgeExample() = Sketch {
 
     Setup {
 
-        createCanvas(512, 100, P5.RenderMode.WEBGL2)
+        createCanvas(512, 100, RenderMode.WEBGL2)
 
         val slider by createSlider(-1, 1, 0, 0.01).apply {
             size(width, 10)

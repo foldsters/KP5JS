@@ -1,12 +1,11 @@
 package p5.util
 
-import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.serializer
 import org.w3c.dom.Window
-import p5.P5
 import kotlin.js.Json
+import kotlin.random.Random.Default.nextDouble
 import kotlin.reflect.KProperty
 import kotlin.reflect.KType
 
@@ -118,6 +117,24 @@ class FieldMap<T, V>(private val defaultValue: V) {
     }
 }
 
+class JsField<T, V>(val defaultValue: V) {
+    operator fun getValue(thisRef: T, property: KProperty<*>): V {
+        val fieldName = property.name
+        thisRef ?: error("No class reference provided for JsField $fieldName")
+        val result =  js("thisRef[fieldName]") as? V? ?: defaultValue
+        console.log(thisRef)
+        return result
+    }
+
+    operator fun setValue(thisRef: T, property: KProperty<*>, value: V) {
+        println("?")
+        val fieldName = property.name
+        thisRef ?: error("No class reference provided for JsField $fieldName")
+        console.log(thisRef)
+        js("thisRef[fieldName] = value")
+    }
+}
+
 fun <L1, L2, R> List<Pair<L1, R>>.runOnFirst(block: List<L1>.() -> List<L2>): List<Pair<L2, R>> {
     return block( map{ it.first } ).zip( map{it.second} )
 }
@@ -168,4 +185,24 @@ fun String.mapLinesIndexed(transform: (Int, String)->String): String {
 
 operator fun <T> (()->T).getValue(thisRef: Any?, property: KProperty<*>): T {
     return this()
+}
+
+inline fun <T, reified R> Array<T>.arrayMap(transform: (T)->R): Array<R> = Array(size) { transform(this[it]) }
+
+fun setTimeout(delayMillis: Number, block: ()->Unit): Int {
+    return js("setTimeout(block, delayMillis)") as Int
+}
+
+typealias Undefined = Nothing?
+fun Undefined.load() {}
+
+fun <T> weightedChoice(weightedCandidates: List<Pair<T, Double>>): T? {
+    if (weightedCandidates.isEmpty()) return null
+    val weightSum = weightedCandidates.sumOf { it.second }
+    var thresholdWeight = nextDouble()*weightSum
+    for ((candidate, weight) in weightedCandidates) {
+        if (thresholdWeight <= weight) return candidate
+        thresholdWeight -= weight
+    }
+    return null
 }

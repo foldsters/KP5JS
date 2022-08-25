@@ -1,8 +1,10 @@
 package projects.hopper
 
-import p5.NativeP5.*
-import p5.P5.*
+import p5.native.NativeP5.*
 import p5.Sketch
+import p5.core.P5
+import p5.core.P5.*
+import p5.core.RenderMode
 import p5.util.*
 import kotlin.math.max
 
@@ -11,7 +13,6 @@ fun hopper() = Sketch {
     Preload {}
 
     Setup {
-
         createCanvas(512, 512, RenderMode.P2D)
         background(0)
         pixelDensity(1)
@@ -44,6 +45,9 @@ fun hopper() = Sketch {
 
             val orientation = randInt(0, 4)
             val majorSide = hopperLayers[0].indexOfMax() - 1
+
+            val v = createVector(0, 1, 0)
+            console.log(v)
 
             val dirs = listOf(
                 createVector(1, 0, 0),
@@ -86,9 +90,9 @@ fun hopper() = Sketch {
         )
 
         abstract class Point(val location: Vector): Comparable<Point> {
-            val x: Double get() = location.x.toDouble()
-            val y: Double get() = location.y.toDouble()
-            val z: Double get() = location.z.toDouble()
+            val x: Double get() = location.x
+            val y: Double get() = location.y
+            val z: Double get() = location.z
 
             override fun compareTo(other: Point): Int = compareValuesBy(other, this, {it.z}, {-it.y}, {-it.x})
         }
@@ -110,13 +114,10 @@ fun hopper() = Sketch {
         DrawForWithPixels(hopperPoints.sorted(), 1000) {
             with(it) {
                 val s = location.xy.magSq()/1000.0
-                val m = max(0.7, z/(7 + s).toDouble()) - 0.4
+                val m = max(0.7, z/(7.0 + s)) - 0.4
                 val colorVector = colors.interpolate(m)*(z%2)
                 colorArray[location.xy + createVector(100, 100)] = colorVector.toColor()
             }
         }
     }
-
-
-
 }

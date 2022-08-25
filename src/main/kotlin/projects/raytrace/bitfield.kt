@@ -1,14 +1,15 @@
 package projects.raytrace
 
 import kotlinx.serialization.Serializable
-import p5.NativeP5.*
-import p5.P5
+import p5.native.NativeP5.*
+import p5.core.P5
 import p5.Sketch
+import p5.core.MouseButton
+import p5.core.RenderMode
+import p5.core.P5.*
 import p5.kglsl.*
-import kotlin.math.PI
 import kotlin.math.asin
 import kotlin.math.atan2
-import kotlin.math.cos
 
 fun bitfield() = Sketch {
 
@@ -27,7 +28,7 @@ fun bitfield() = Sketch {
         frameRate(30)
         pixelDensity(1)
 
-        val canvas = createCanvas(512, 512, P5.RenderMode.WEBGL2)
+        val canvas = createCanvas(512, 512, RenderMode.WEBGL2)
         val tracerData = RayTracerData(
             createVector(0.0, 0.0, 0.0),
             createVector(0.0, 0.0, 1.0),
@@ -37,7 +38,7 @@ fun bitfield() = Sketch {
             15.0
         )
 
-        val shaderProgram = buildShader(debug = true, useWEBGL2 = true) {
+        val shaderProgram = buildShader(debug = true) {
             Fragment {
 
                 val resolution by Uniform<vec2> { arrayOf(width, height) }
@@ -152,7 +153,7 @@ fun bitfield() = Sketch {
         Draw {
             background(0, 255)
 
-            if (mouseButton == P5.MouseButton.LEFT) {
+            if (mouseButton == MouseButton.LEFT) {
                 with(tracerData) {
                     val deltaYaw = (mouseX/width.toDouble() - 0.5).deadzone(0.02) * 0.1
                     val deltaPitch =  (mouseY/height.toDouble() - 0.5).deadzone(0.02) * 0.1
@@ -170,7 +171,7 @@ fun bitfield() = Sketch {
         }
 
         MouseWheel {
-            speed = if (delta < 0) speed/0.9 else speed*0.9
+            speed = if (deltaY < 0) speed/0.9 else speed*0.9
         }
 
     }

@@ -1,12 +1,13 @@
 package projects
 
 import p5.*
+import p5.core.*
 import kotlin.math.PI
 
 fun curler() = Sketch {
 
-    lateinit var outShader: P5.Shader
-    lateinit var sliders: List<NativeP5.Slider>
+    lateinit var outShader: Shader
+    lateinit var sliders: List<Slider>
     lateinit var paragraphs: Array<Element>
 
     Preload {
@@ -14,7 +15,7 @@ fun curler() = Sketch {
     }
 
     Setup {
-        val canvas = createCanvas(128, 128, P5.RenderMode.WEBGL2)
+        val canvas = createCanvas(128, 128, RenderMode.WEBGL2)
         noStroke()
         frameRate(15)
         shader(outShader)

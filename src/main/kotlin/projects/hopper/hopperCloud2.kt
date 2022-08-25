@@ -2,11 +2,9 @@ package projects.hopper
 
 import kotlinx.browser.window
 import kotlinx.serialization.Serializable
-import p5.NativeP5.*
-import p5.P5
-import p5.P5.*
-import p5.P5.MouseButton.*
+import p5.core.P5.*
 import p5.Sketch
+import p5.core.*
 import p5.kglsl.buildShader
 import p5.kglsl.vec2
 import p5.util.*
@@ -152,7 +150,7 @@ fun hopperClouds2() = Sketch {
 
         var camera by cacheSerial { Camera(0.5, 3.5, 4.0, 1.1, createVector(0, 0)) }
 
-        val edgeDetect = edgeBuffer.buildShader(useWEBGL2 = true, debug = true) {
+        val edgeDetect = edgeBuffer.buildShader(debug = true) {
 
             Fragment {
                 val mask by Uniform { hopperMask }
@@ -303,12 +301,18 @@ fun hopperClouds2() = Sketch {
                 stepsPerFrame = sort1.size
                 camera.center = createVector(0, 0)
                 noLoop()
-                createLoop(duration = 15, framesPerSecond = 15, gif = true, gifRender = true, gifQuality = 50, htmlCanvas = edgeBuffer.htmlCanvas) {
+                edgeBuffer.createLoop(
+                    duration = 2,
+                    framesPerSecond = 2,
+                    gif = true,
+                    gifRender = true,
+                    gifQuality = 50
+                ) {
                     background(0, 255)
                     hopperMask.background(0, 255)
                     camera.update()
                     println(progress)
-                    camera.azimuth = (progress * 4.0).toDouble()
+                    camera.azimuth = (progress * 4.0)
                     val ti = camera.azimuth.toInt()
                     sorts[ti].forEach {
                         drawPoint(it)
@@ -321,11 +325,11 @@ fun hopperClouds2() = Sketch {
 
         MouseDragged {
             when(mouseButton) {
-                CENTER -> {
-                    camera.azimuth = ((camera.azimuth - map(mouseY, 0, height, -4, 4)*movedX/width + 4)%4.0).toDouble()
-                    camera.elevation = (camera.elevation + 4.0*(movedY/height)).toDouble().coerceIn(0.0, 1.0)
+                MouseButton.CENTER -> {
+                    camera.azimuth = ((camera.azimuth - map(mouseY, 0, height, -4, 4)*movedX/width + 4)%4.0)
+                    camera.elevation = (camera.elevation + 4.0*(movedY/height)).coerceIn(0.0, 1.0)
                 }
-                LEFT -> {
+                MouseButton.LEFT -> {
                     camera.center += createVector(movedX, movedY)
                 }
                 else -> return@MouseDragged
@@ -335,7 +339,7 @@ fun hopperClouds2() = Sketch {
 
         MouseWheel {
             val mouseSC2 = createVector(mouseX-width/2, mouseY-height/2)
-            val factor = if(delta > 0) 0.95 else 1.05
+            val factor = if(deltaY > 0) 0.95 else 1.05
             camera.scale *= factor
             camera.center = (camera.center-mouseSC2)*factor+mouseSC2
             draw()

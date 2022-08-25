@@ -1,6 +1,6 @@
 package projects.examples
 
-import p5.P5
+import p5.core.P5
 import p5.Sketch
 import kotlin.math.PI
 import kotlin.math.min
