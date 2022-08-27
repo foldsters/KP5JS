@@ -5,6 +5,8 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.serializer
 import org.w3c.dom.Window
 import kotlin.js.Json
+import kotlin.math.ln
+import kotlin.math.log
 import kotlin.random.Random.Default.nextDouble
 import kotlin.reflect.KProperty
 import kotlin.reflect.KType
@@ -206,3 +208,66 @@ fun <T> weightedChoice(weightedCandidates: List<Pair<T, Double>>): T? {
     }
     return null
 }
+
+class MutableValue<T: Any?>(var value: T)
+fun <T: Any?> mutableValueOf(value: T) = MutableValue(value)
+
+inline fun <T, R> Iterable<T>.mapWith(transform: T.()->R): List<R> = map { transform(it) }
+
+inline fun <T, R: Comparable<R>> Collection<T>.takeMinBy(n: Int, crossinline selector: (T)->R): List<T> {
+    if(n > size.toDouble()) return toList()
+    if(n > ln(size.toDouble())) return sortedBy(selector).take(n)
+    val smallElements = ArrayList<T>()
+    val smallWeights  = ArrayList<R>()
+    var maxSmallWeight: R? = null
+    var maxSmallIndexByWeight: Int = -1
+    forEach { element ->
+        val weight = selector(element)
+        if (smallElements.size < n) {
+            if ((maxSmallWeight ?: weight) <= weight) {
+                maxSmallWeight = weight
+                maxSmallIndexByWeight = smallWeights.size
+            }
+            smallElements.add(element)
+            smallWeights.add(weight)
+        } else {
+            if(weight < maxSmallWeight!!) {
+                smallElements[maxSmallIndexByWeight] = element
+                smallWeights[maxSmallIndexByWeight] = weight
+                maxSmallWeight = weight
+                maxSmallIndexByWeight = smallWeights.indices.maxBy { smallWeights[it] }
+            }
+        }
+    }
+    return smallElements
+}
+
+inline fun <T, R: Comparable<R>> Collection<T>.takeMaxBy(n: Int, crossinline selector: (T)->R): List<T> {
+    if(n >= size.toDouble()) return toList()
+    if(n >= ln(size.toDouble())) return sortedBy(selector).takeLast(n)
+    val largeElements = ArrayList<T>()
+    val largeWeights  = ArrayList<R>()
+    var minLargeWeight: R? = null
+    var minLargeIndexByWeight: Int = -1
+    forEach { element ->
+        val weight = selector(element)
+        if (largeElements.size < n) {
+            if ((minLargeWeight ?: weight) >= weight) {
+                minLargeWeight = weight
+                minLargeIndexByWeight = largeWeights.size
+            }
+            largeElements.add(element)
+            largeWeights.add(weight)
+        } else {
+            if(weight > minLargeWeight!!) {
+                largeElements[minLargeIndexByWeight] = element
+                largeWeights[minLargeIndexByWeight] = weight
+                minLargeWeight = weight
+                minLargeIndexByWeight = largeWeights.indices.minBy { largeWeights[it] }
+            }
+        }
+    }
+    return largeElements
+}
+
+

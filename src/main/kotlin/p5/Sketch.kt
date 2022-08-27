@@ -7,7 +7,6 @@ import p5.core.AUTO
 import p5.core.KeyboardEvent
 import p5.core.P5
 import p5.core.WheelEvent
-import p5.native.NativeP5.*
 import p5.util.println
 import kotlin.math.max
 
@@ -67,7 +66,16 @@ class SketchScope(val p5: P5) {
         topGrid?.update()
     }
 
+    private var autoStepsPerFrame = 1
+    fun getAutoStepsPerFrame() = autoStepsPerFrame
+
     // New Scopes
+    fun autoAdjustSteps(block: (Int)->Unit) {
+        with(p5) {
+            val timeDelta = timeit { block(autoStepsPerFrame) }
+            autoStepsPerFrame = (0.9*autoStepsPerFrame*targetFrameTime()/timeDelta).toInt().coerceIn(max(1, autoStepsPerFrame/10), autoStepsPerFrame*10)
+        }
+    }
 
     class DrawContinuation {
         var afterFrame: (()->Unit)? = null
@@ -96,16 +104,17 @@ class SketchScope(val p5: P5) {
     fun Draw(stepsPerFrame: AUTO, block: P5.(Int)->Unit): DrawContinuation {
         val nextDraw = DrawContinuation()
         var frame = 0
-        var numStepsPerFrame = 1
+        autoStepsPerFrame = 1
         with(p5) {
             loop()
             draw = wrap {
-                repeat(numStepsPerFrame) {
-                    block(frame)
-                    frame++
+                autoAdjustSteps {
+                    repeat(it) {
+                        block(frame)
+                        frame++
+                    }
+                    nextDraw.afterFrame?.invoke()
                 }
-                nextDraw.afterFrame?.invoke()
-                numStepsPerFrame = (numStepsPerFrame/frameLagFactor()).toInt().coerceIn(max(1, numStepsPerFrame/10), numStepsPerFrame*10)
             }
         }
         return nextDraw
@@ -136,22 +145,23 @@ class SketchScope(val p5: P5) {
     fun DrawWhile(cond: ()->Boolean, stepsPerFrame: AUTO, block: P5.(Int)->Unit): DrawContinuation {
         val nextDraw = DrawContinuation()
         var frame = 0
-        var numStepsPerFrame = 1
+        autoStepsPerFrame = 1
         with(p5) {
             loop()
             draw = wrap {
-                repeat(numStepsPerFrame) {
-                    if (cond()) {
-                        block(frame)
-                        frame++
-                    } else {
-                        nextDraw.afterDone?.invoke()
-                        noLoop()
-                        draw = {}
+                autoAdjustSteps {
+                    repeat(it) {
+                        if (cond()) {
+                            block(frame)
+                            frame++
+                        } else {
+                            nextDraw.afterDone?.invoke()
+                            noLoop()
+                            draw = {}
+                        }
                     }
                 }
                 nextDraw.afterFrame?.invoke()
-                numStepsPerFrame = (numStepsPerFrame/frameLagFactor()).toInt().coerceIn(max(1, numStepsPerFrame/10), numStepsPerFrame*10)
             }
         }
         return nextDraw
@@ -179,19 +189,20 @@ class SketchScope(val p5: P5) {
     fun <T> DrawFor(iter: Iterable<T>, stepsPerFrame: AUTO, block: P5.(T) -> Unit): DrawContinuation {
         val itor = iter.iterator()
         val nextDraw = DrawContinuation()
-        var numStepsPerFrame = 1
+        autoStepsPerFrame = 1
         with(p5) {
             loop()
             draw = wrap {
-                repeat(numStepsPerFrame) {
-                    if (itor.hasNext()) block(itor.next()) else {
-                        nextDraw.afterDone?.invoke()
-                        noLoop()
-                        draw = {}
+                autoAdjustSteps {
+                    repeat(it) {
+                        if (itor.hasNext()) block(itor.next()) else {
+                            nextDraw.afterDone?.invoke()
+                            noLoop()
+                            draw = {}
+                        }
                     }
+                    nextDraw.afterFrame?.invoke()
                 }
-                nextDraw.afterFrame?.invoke()
-                numStepsPerFrame = (numStepsPerFrame/frameLagFactor()).toInt().coerceIn(max(1, numStepsPerFrame/10), numStepsPerFrame*10)
             }
         }
         return nextDraw
@@ -221,23 +232,24 @@ class SketchScope(val p5: P5) {
     fun <T> DrawForWithPixels(iter: Iterable<T>, stepsPerFrame: AUTO, block: P5.PixelScope.(T) -> Unit): DrawContinuation {
         val itor = iter.iterator()
         val nextDraw = DrawContinuation()
-        var numStepsPerFrame = 1
+        autoStepsPerFrame = 1
         with(p5) {
             loop()
             draw = wrap {
                 val timeDelta = timeit {
                     withPixels {
-                        repeat(numStepsPerFrame) {
-                            if (itor.hasNext()) block(itor.next()) else {
-                                nextDraw.afterDone?.invoke()
-                                noLoop()
-                                draw = {}
+                        autoAdjustSteps {
+                            repeat(it) {
+                                if (itor.hasNext()) block(itor.next()) else {
+                                    nextDraw.afterDone?.invoke()
+                                    noLoop()
+                                    draw = {}
+                                }
                             }
+                            nextDraw.afterFrame?.invoke()
                         }
-                        nextDraw.afterFrame?.invoke()
                     }
                 }
-                numStepsPerFrame = (numStepsPerFrame*targetFrameTime()/timeDelta).toInt().coerceIn(max(1, numStepsPerFrame/10), numStepsPerFrame*10)
             }
         }
         return nextDraw
@@ -269,28 +281,26 @@ class SketchScope(val p5: P5) {
 
     fun DrawWhileWithPixels(cond: ()->Boolean, stepsPerFrame: AUTO, block: P5.PixelScope.()->Unit): DrawContinuation {
         val nextDraw = DrawContinuation()
-        var numStepsPerFrame = 1
+        autoStepsPerFrame = 1
         with(p5) {
             loop()
             draw = wrap {
                 val timeDelta = timeit {
                     withPixels {
-                        repeat(numStepsPerFrame) {
-                            if (cond()) {
-                                block()
-                            } else {
-                                nextDraw.afterDone?.invoke()
-                                noLoop()
-                                draw = {}
+                        autoAdjustSteps {
+                            repeat(it) {
+                                if (cond()) {
+                                    block()
+                                } else {
+                                    nextDraw.afterDone?.invoke()
+                                    noLoop()
+                                    draw = {}
+                                }
                             }
+                            nextDraw.afterFrame?.invoke()
                         }
-                        nextDraw.afterFrame?.invoke()
                     }
                 }
-                numStepsPerFrame = (numStepsPerFrame*targetFrameTime()/timeDelta).toInt().coerceIn(max(1, numStepsPerFrame/10), numStepsPerFrame*10)
-                println("numStepsPerFrame", numStepsPerFrame)
-                println("timeDelta", timeDelta)
-                println("lagFactor", timeDelta/targetFrameTime())
             }
         }
         return nextDraw
@@ -330,28 +340,30 @@ class SketchScope(val p5: P5) {
 
     fun <T> DrawUsing(frames: Int? = null, stepsPerFrame: AUTO, with: T, using: (()->Unit)->Unit, block: T.()->Unit): DrawContinuation {
         val nextDraw = DrawContinuation()
-        var numStepsPerFrame = 1
+        autoStepsPerFrame = 1
         with(p5) {
             loop()
             draw = if(frames == null) {
                 wrap {
                     using {
-                        repeat(numStepsPerFrame) {
-                            block(with)
+                        autoAdjustSteps {
+                            repeat(it) {
+                                block(with)
+                            }
+                            nextDraw.afterFrame?.invoke()
                         }
-                        nextDraw.afterFrame?.invoke()
-                        numStepsPerFrame = (numStepsPerFrame/frameLagFactor()).toInt().coerceIn(max(1, numStepsPerFrame/10), numStepsPerFrame*10)
                     }
                 }
             } else {
                 wrap {
                     using {
                         repeat(frames) {
-                            repeat(numStepsPerFrame) {
-                                block(with)
+                            autoAdjustSteps {
+                                repeat(it) {
+                                    block(with)
+                                }
+                                nextDraw.afterFrame?.invoke()
                             }
-                            nextDraw.afterFrame?.invoke()
-                            numStepsPerFrame = (numStepsPerFrame/frameLagFactor()).toInt().coerceIn(max(1, numStepsPerFrame/10), numStepsPerFrame*10)
                         }
                         nextDraw.afterDone?.invoke()
                         noLoop()

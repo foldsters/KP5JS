@@ -433,7 +433,7 @@ external class NativeP5 {
     fun filter(filterType: String) // TODO: Make Enum
     fun filter(filterType: String, filterParam: Number) // TODO: Make Enum
     fun get(): NativeImage
-    fun get(x: Number, y: Number): NativeImage
+    fun get(x: Number, y: Number): Array<Double>
     fun get(x: Number, y: Number, w: Number, h: Number): NativeImage
     fun set(x: Number, y: Number, a: Number)
     fun set(x: Number, y: Number, a: Array<Number>)

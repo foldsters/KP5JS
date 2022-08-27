@@ -547,9 +547,18 @@ class P5(val nativeP5: NativeP5) {
     fun copy(srcImage: Image, sx: Int, sy: Int, sw: Int, sh: Int, dx: Int, dy: Int, dw: Int, dh: Int) = nativeP5.copy(srcImage.nativeImage, sx, sy, sw, sh, dx, dy, dw, dh)
     fun filter(filterMode: FilterMode) = nativeP5.filter(filterMode.nativeValue)
     fun filter(filterMode: FilterMode, filterParam: Number) = nativeP5.filter(filterMode.nativeValue, filterParam)
+
+    fun arrayToColor(array: Array<Double>): Color {
+        return color(maxRed*array[0]/255.0, maxGreen*array[1]/255, maxBlue*array[2]/255, maxAlpha*array[3]/255)
+    }
+
     fun get(): Image = Image(nativeP5.get())
-    fun get(x: Number, y: Number): Image = Image(nativeP5.get(x, y))
+    fun get(x: Number, y: Number): Color = arrayToColor(nativeP5.get(x, y))
+    fun get(xy: Vector): Color = get(xy.x.toInt(), xy.y.toInt())
     fun get(x: Number, y: Number, w: Number, h: Number): Image = Image(nativeP5.get(x, y, w, h))
+    fun get(xy: Vector, w: Number, h: Number): Image = Image(nativeP5.get(xy.x.toInt(), xy.y.toInt(), w, h))
+    fun get(xy: Vector, wh: Vector): Image = Image(nativeP5.get(xy.x.toInt(), xy.y.toInt(), wh.x.toInt(), wh.y.toInt()))
+
     fun set(x: Number, y: Number, a: Number) = nativeP5.set(x, y, a)
     fun set(x: Number, y: Number, a: Array<Number>) = nativeP5.set(x, y, a)
     fun set(x: Number, y: Number, a: Color) = nativeP5.set(x, y, a.nativeColor)
@@ -2074,6 +2083,9 @@ class P5(val nativeP5: NativeP5) {
         return (millis() - before).toDouble()
     }
 
-    //inline fun getName(s: Any?): String = js("Object.keys({s})[0]") as String
+    fun Vector.inFrame(): Boolean = (x.toInt() in 0 until width && y.toInt() in 0 until height)
+
+    fun Color.isOpaque(): Boolean = alpha(this) == maxAlpha
+    fun Color.isTransparent(): Boolean = !isOpaque()
 }
 

@@ -11,13 +11,14 @@ import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 
-fun huegeneFlow() = Sketch {
+fun huegeneFlowNoPixel() = Sketch {
 
     Setup {
         val canvas = createCanvas(512, 512)
         pixelDensity(1)
         frameRate(30)
         background(31, 31, 31, 254)
+        strokeWeight(2)
 
         val activePoints = mutableSetOf(createVector(width/2, height/2))
 
@@ -28,12 +29,12 @@ fun huegeneFlow() = Sketch {
         val colorStep = 10
         val noiseScl = 0.01
 
-        val radius = 12
-        val sectors = 12
+        val radius = 12 
+        val sectors = 60
         val neighborhood = buildList {
             (0..sectors).forEach {
-                val x = (12.0*sin(PI*it/(radius*2.0))).toInt()
-                val y = (12.0*cos(PI*it/(radius*2.0))).toInt()
+                val x = (12.0*sin(2.0*PI*it/(sectors))).toInt()
+                val y = (12.0*cos(2.0*PI*it/(sectors))).toInt()
                 val offset = createVector(x, y)
                 add(offset)
             }
@@ -99,8 +100,8 @@ fun huegeneFlow() = Sketch {
 
         val progress by { addedPoints/((height*width).toDouble()) }
 
-        val attemptsPerStep = 20
-        val takeBestAttemptsNum = 10//by { map(progress, 0, 1, 5, attemptsPerStep).toInt() }
+        val attemptsPerStep = 15
+        val takeBestAttemptsNum = 2//by { map(progress, 0, 1, 5, attemptsPerStep).toInt() }
 
         val progressText = createP("Progress: ")
         val percentActive = createP("Percent Active: ")
@@ -121,29 +122,24 @@ fun huegeneFlow() = Sketch {
 
         val plants = mutableMapOf<Vector, Plant>()
         val candidateBranches = mutableListOf<Branch>()
-        val pointAttempts = mutableMapOf<Vector, Double>()
+        //val pointAttempts = mutableMapOf<Vector, Double>()
 
-        fun PixelScope.makePlant(plantCenter: Vector): Plant {
-            val plantColor = colorArray[plantCenter]
+        fun makePlant(plantCenter: Vector): Plant {
+            val plantColor = get(plantCenter)
             val branches = neighborhood.mapTo(mutableListOf()) { offset ->
                 val weight = weightBranch(plantCenter, offset)
                 val branchPoints = (0..radius*2).map {
                     lerp(plantCenter, plantCenter+offset, it / (radius * 2.0)).toInts()
-                }.distinct().filter { it.inFrame() }
-                branchPoints.forEach {
-                    pointAttempts[it] = maxOf(pointAttempts[it] ?: weight, weight)
-                }
+                }.distinct().filter { it.inFrame() }.toMutableList()
                 Branch(branchPoints, plantCenter, weight, mutateColor(plantColor))
             }
             return Plant(plantCenter, branches)
         }
 
-        fun PixelScope.isSurrounded(plant: Plant): Boolean = touching.map{ colorArray[plant.plantCenter]}.all{ it.isOpaque() }
-
-        fun PixelScope.prunePlant(plant: Plant): Plant? {
+        fun prunePlant(plant: Plant): Plant? {
             plant.branches.forEach {branch ->
                 branch.points = branch.points.filter { point ->
-                    colorArray[point].isTransparent() //&& (pointAttempts[point] ?: branch.weight) <= branch.weight
+                    get(point).isTransparent()
                 }
             }
             plant.branches = plant.branches.filter { branch -> branch.points.isNotEmpty() }.toMutableList()
@@ -156,7 +152,7 @@ fun huegeneFlow() = Sketch {
             return plant
         }
 
-        DrawWhileWithPixels( { activePoints.isNotEmpty() }, AUTO) step@{
+        DrawWhile( { activePoints.isNotEmpty() }, AUTO) step@{
 
             candidateBranches.clear()
 
@@ -166,13 +162,13 @@ fun huegeneFlow() = Sketch {
                 prunePlant(plant)?.apply { candidateBranches += branches }
             }
             candidateBranches.takeMaxBy(takeBestAttemptsNum) { it.weight*it.points.size }.withEach {
-                points.forEach { branchPoint ->
-                    if(colorArray[branchPoint].isTransparent()) {
-                        addedPoints++
-                        activePoints.add(branchPoint)
-                    }
-                    colorArray[branchPoint] = color
+                stroke(color)
+                points.forEach {
+                    activePoints.add(it)
+                    if(get(it).isTransparent()) addedPoints++
                 }
+                line2D(points.first(), points.last())
+                plants[center]?.branches?.remove(this)
             }
         }.AfterFrame {
             updateLayout()

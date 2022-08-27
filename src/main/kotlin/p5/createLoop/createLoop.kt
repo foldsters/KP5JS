@@ -1,4 +1,4 @@
-@file:Suppress("UNUSED_PARAMETER")
+@file:Suppress("UNUSED_PARAMETER", "SYNTAX_ERROR")
 
 package p5.createLoop
 
