@@ -1,21 +1,22 @@
 package projects.shader
 
-import p5.P5
+import p5.core.P5
 import p5.Sketch
+import p5.core.RenderMode
 import p5.kglsl.*
 
 fun uniformBridgeExample() = Sketch {
 
     Setup {
 
-        createCanvas(512, 100, P5.RenderMode.WEBGL2)
+        createCanvas(512, 100, RenderMode.WEBGL2)
 
         val slider by createSlider(-1, 1, 0, 0.01).apply {
             size(width, 10)
             position(0, height)
         }
 
-        val kshader = CreateShader(debug = true) {
+        val kshader = buildShader(debug = true) {
             Fragment {
 
                 fun center(coord: vec2, res: vec2) = (2.0*coord - res)/max(res.x, res.y)

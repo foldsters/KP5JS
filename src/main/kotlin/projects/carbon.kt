@@ -1,12 +1,13 @@
 package projects
 
-import p5.NativeP5
-import p5.P5
 import p5.Sketch
+import p5.core.CenterMode
+import p5.core.Image
+import p5.core.ImageExtension
 
-fun carbon(filename: String, scaleFactor: Double=1.0) = Sketch {
+fun carbon(filename: String, scaleFactor: Double=1.0, imageFactor: Double=1.0) = Sketch {
 
-    lateinit var img: NativeP5.Image
+    lateinit var img: Image
 
     Preload {
         console.log("loading")
@@ -15,7 +16,7 @@ fun carbon(filename: String, scaleFactor: Double=1.0) = Sketch {
 
     Setup {
 
-        img.resize(img.width/2, img.height/2)
+        img.resize(img.width*imageFactor, img.height*imageFactor)
 
         val border = 400*scaleFactor
         val cornerRadius = 80*scaleFactor
@@ -37,8 +38,9 @@ fun carbon(filename: String, scaleFactor: Double=1.0) = Sketch {
 
         createCanvas(canvasWidth, canvasHeight)
 
+        img.withPixels { fill(colorArray[0, 0]) }
+
         background(60, 63, 65)
-        fill(43)
         noStroke()
 
         drawingContext.shadowBlur = shadowRadius
@@ -58,7 +60,7 @@ fun carbon(filename: String, scaleFactor: Double=1.0) = Sketch {
         drawingContext.shadowBlur = 0
 
         fill(255)
-        ellipseMode(P5.CenterMode.CORNER)
+        ellipseMode(CenterMode.CORNER)
 
         repeat(3) {
             fill(circleColors[it])
@@ -74,7 +76,7 @@ fun carbon(filename: String, scaleFactor: Double=1.0) = Sketch {
             fontSize(100)
             size(400, 200)
             mouseClicked {
-                saveCanvas("code_snippet", P5.ImageExtension.PNG)
+                saveCanvas("code_snippet", ImageExtension.PNG)
             }
         }
 

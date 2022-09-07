@@ -1,20 +1,21 @@
 package projects
 
 import p5.*
+import p5.core.*
 import kotlin.math.PI
 
 fun curler() = Sketch {
 
-    lateinit var outShader: P5.Shader
-    lateinit var sliders: List<NativeP5.Slider>
-    lateinit var paragraphs: Array<NativeP5.Element>
+    lateinit var outShader: Shader
+    lateinit var sliders: List<Slider>
+    lateinit var paragraphs: Array<Element>
 
     Preload {
         outShader = loadShader("out.vert", "out.frag")
     }
 
     Setup {
-        val canvas = createCanvas(128, 128, P5.RenderMode.WEBGL2)
+        val canvas = createCanvas(128, 128, RenderMode.WEBGL2)
         noStroke()
         frameRate(15)
         shader(outShader)
@@ -45,21 +46,24 @@ fun curler() = Sketch {
                 noLoop()
                 frameCount = 0
                 createLoop(duration = 15, framesPerSecond = 15, gif = true, gifRender = true, gifQuality = 50) {
-                    draw!!()
+                    draw()
                     frameCount++
                 }
             }
         }
+
+        Draw {
+            val theta = 2.0*PI*frameCount.toDouble()/(15.0*15.0)
+            outShader["iTime"] = theta
+            arrayOf("rotX", "rotY", "rotZ", "swirl", "slope", "size", "sep").forEachIndexed { i, v ->
+                val num = sliders[i].value()
+                outShader[v] = num
+                paragraphs[i].html(num.toString())
+            }
+            rect(0, 0, width, height)
+            console.log(theta)
+        }
     }
 
-    Draw {
-        val theta = 2.0*PI*frameCount.toDouble()/(15.0*15.0)
-        outShader["iTime"] = theta
-        arrayOf("rotX", "rotY", "rotZ", "swirl", "slope", "size", "sep").forEachIndexed { i, v ->
-            val num = sliders[i].value()
-            outShader[v] = num
-            paragraphs[i].html(num.toString())
-        }
-        rect(0, 0, width, height)
-    }
+
 }

@@ -1,15 +1,12 @@
 package projects.testing
 
-import p5.NativeP5
 import p5.Sketch
+import p5.core.Table
 
 
 fun perlinNoiseTesting() = Sketch {
 
     Setup {
-
-
-
         createCanvas(1024, 1024)
         background(0)
         frameRate(60)
@@ -17,7 +14,7 @@ fun perlinNoiseTesting() = Sketch {
         strokeWeight(1)
         val centerVec = createVector(0.5, 0.5)
 
-        val table = NativeP5.Table()
+        val table = Table()
         table.addColumn("value")
         table.addColumn("rawCount")
         table.addColumn("uniformCount")

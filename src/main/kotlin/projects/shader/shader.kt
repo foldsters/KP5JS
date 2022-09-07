@@ -1,16 +1,17 @@
 package projects.shader
 
-import p5.P5
+import p5.core.P5
 import p5.Sketch
+import p5.core.RenderMode
 import p5.kglsl.*
 
 fun shader() = Sketch {
 
     Setup {
 
-        createCanvas(512, 512, P5.RenderMode.WEBGL2)
+        createCanvas(512, 512, RenderMode.WEBGL2)
 
-        val outShader = CreateShader(debug = true) {
+        val outShader = buildShader(debug = true) {
             Fragment {
 
                 var m by float(1.0)

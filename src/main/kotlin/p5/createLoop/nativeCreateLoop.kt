@@ -2,4 +2,6 @@
 @file:JsNonModule
 package p5.createLoop
 
-external val _createloop: dynamic
+import p5.util.Undefined
+
+external val CreateLoop: Undefined

@@ -1,7 +1,7 @@
 package projects.lightning
 
-import p5.NativeP5
 import p5.Sketch
+import p5.core.P5.*
 import kotlin.math.abs
 
 fun perlinLightning() = Sketch {
@@ -10,7 +10,7 @@ fun perlinLightning() = Sketch {
         createCanvas(1920, 1920)
         background(0)
 
-        val gradientMap: Map<Number, NativeP5.Vector> = mapOf(
+        val gradientMap: Map<Number, Vector> = mapOf(
             0.0 to createVector(110, 30, 145),
             0.01 to createVector(100, 37, 137),
             0.011 to createVector(160, 110, 180),

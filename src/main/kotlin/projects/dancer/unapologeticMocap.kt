@@ -1,8 +1,8 @@
 package projects.dancer
 
-import p5.NativeP5
-import p5.P5
+import p5.core.P5.*
 import p5.Sketch
+import p5.core.*
 import p5.util.ifFalse
 import p5.util.toFixed
 
@@ -10,9 +10,9 @@ fun unapologeticMocap() = Sketch {
 
     Preload {
 
-        val pointFrameMap: MutableMap<Number, Array<NativeP5.Vector>> = mutableMapOf()
+        val pointFrameMap: MutableMap<Number, Array<Vector>> = mutableMapOf()
 
-        loadTable("dancer/points.csv", P5.TableMode.CSV, true) {
+        loadTable("dancer/points.csv", TableMode.CSV, true) {
             it.getRows().forEach { row->
                 with(row) {
                     pointFrameMap[getNum("frame")] = arrayOf(
@@ -26,7 +26,6 @@ fun unapologeticMocap() = Sketch {
 
 
         Setup {
-
             createCanvas(1920, 1080)
             val vid = createVideo("assets/dancer/unapologetic.mp4")
             vid.size(1920, 1080)
@@ -37,7 +36,7 @@ fun unapologeticMocap() = Sketch {
             val videoFPS = 23.98
             var videoFrame = 0.0
 
-            var frameSkip by createInput("1").apply {
+            val frameSkip by createInput("1").apply {
                 position(width + 100, 200)
                 size(400, 100)
                 style("font-size", "60px")
@@ -84,7 +83,7 @@ fun unapologeticMocap() = Sketch {
 
 
             var hasPoints = false
-            fun getPoints(frame: Number? = null): Array<NativeP5.Vector> {
+            fun getPoints(frame: Number? = null): Array<Vector> {
                 val vFrame = frame ?: videoFrame
                 if (vFrame !in pointFrameMap) {
                     hasPoints = false
@@ -94,9 +93,9 @@ fun unapologeticMocap() = Sketch {
                 return pointFrameMap[vFrame]!!
             }
 
-            fun pointsToTable(): NativeP5.Table {
+            fun pointsToTable(): Table {
 
-                val table = NativeP5.Table().apply {
+                val table = createTable().apply {
                     addColumn("frame")
                     addColumn("baseX")
                     addColumn("baseY")
@@ -119,7 +118,6 @@ fun unapologeticMocap() = Sketch {
                         set("handY", points[2].y)
                     }
                 }
-
                 return table
 
             }
@@ -129,7 +127,7 @@ fun unapologeticMocap() = Sketch {
                 size(400, 100)
                 style("font-size", "40px")
                 mouseClicked {
-                    saveTable(pointsToTable(), "points", P5.TableMode.CSV)
+                    saveTable(pointsToTable(), "points", TableMode.CSV)
                 }
             }
 
@@ -164,14 +162,14 @@ fun unapologeticMocap() = Sketch {
                 }
             }
 
-            MouseWheel { event ->
+            MouseWheel {
                 keyIsDown(17).ifFalse {
                     when {
-                        event.delta > 0 -> {
+                        deltaY > 0 -> {
                             videoFrame -= frameSkip.toDouble()
                             updateFrame()
                         }
-                        event.delta < 0 -> {
+                        deltaY < 0 -> {
                             videoFrame += frameSkip.toDouble()
                             updateFrame()
                         }

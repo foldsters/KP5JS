@@ -1,21 +1,20 @@
 package projects.dancer
 
-import p5.NativeP5
-import p5.P5
 import p5.Sketch
+import p5.core.*
 import p5.util.toFixed
 
 fun unapologeticShader() = Sketch {
 
-    lateinit var outShader: P5.Shader
+    lateinit var outShader: Shader
     lateinit var pointFrameMap: MutableMap<Int, Array<Array<Number>>>
-    lateinit var vid: NativeP5.MediaElement
+    lateinit var vid: MediaElement
 
     Preload {
         pointFrameMap = mutableMapOf()
         outShader = loadShader("out.vert", "dancer/out.frag")
 
-        loadTable("dancer/points_full.csv", P5.TableMode.CSV, true) {
+        loadTable("dancer/points_full.csv", TableMode.CSV, true) {
             it.getRows().forEach { row->
                 with(row) {
                     pointFrameMap[getNum("frame").toInt()] = arrayOf(
@@ -33,10 +32,10 @@ fun unapologeticShader() = Sketch {
     }
 
     Setup {
-        createCanvas(1920, 1080, P5.RenderMode.WEBGL2)
+        createCanvas(1920, 1080, RenderMode.WEBGL2)
         noStroke()
         pixelDensity(1)
-        val x = createGraphics(1920, 1080, P5.RenderMode.WEBGL2)
+        val x = createGraphics(1920, 1080, RenderMode.WEBGL2)
         x.asDynamic().noStroke()
         vid.size(1920, 1080)
         vid.hide()
