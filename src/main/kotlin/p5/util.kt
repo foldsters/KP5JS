@@ -6,7 +6,6 @@ import kotlinx.serialization.serializer
 import org.w3c.dom.Window
 import kotlin.js.Json
 import kotlin.math.ln
-import kotlin.math.log
 import kotlin.random.Random.Default.nextDouble
 import kotlin.reflect.KProperty
 import kotlin.reflect.KType
@@ -214,9 +213,11 @@ fun <T: Any?> mutableValueOf(value: T) = MutableValue(value)
 
 inline fun <T, R> Iterable<T>.mapWith(transform: T.()->R): List<R> = map { transform(it) }
 
-inline fun <T, R: Comparable<R>> Collection<T>.takeMinBy(n: Int, crossinline selector: (T)->R): List<T> {
+inline fun <T, R: Comparable<R>> Collection<T>.takeSmallestBy(n: Int, crossinline selector: (T)->R): List<T> {
     if(n > size.toDouble()) return toList()
     if(n > ln(size.toDouble())) return sortedBy(selector).take(n)
+    if(isEmpty()) return listOf()
+    if(n == 1) return listOf(minBy(selector))
     val smallElements = ArrayList<T>()
     val smallWeights  = ArrayList<R>()
     var maxSmallWeight: R? = null
@@ -242,9 +243,11 @@ inline fun <T, R: Comparable<R>> Collection<T>.takeMinBy(n: Int, crossinline sel
     return smallElements
 }
 
-inline fun <T, R: Comparable<R>> Collection<T>.takeMaxBy(n: Int, crossinline selector: (T)->R): List<T> {
+inline fun <T, R: Comparable<R>> Collection<T>.takeLargestBy(n: Int, crossinline selector: (T)->R): List<T> {
     if(n >= size.toDouble()) return toList()
     if(n >= ln(size.toDouble())) return sortedBy(selector).takeLast(n)
+    if(isEmpty()) return listOf()
+    if(n == 1) return listOf(maxBy(selector))
     val largeElements = ArrayList<T>()
     val largeWeights  = ArrayList<R>()
     var minLargeWeight: R? = null
@@ -269,5 +272,7 @@ inline fun <T, R: Comparable<R>> Collection<T>.takeMaxBy(n: Int, crossinline sel
     }
     return largeElements
 }
+
+fun Boolean.toInt() = if (this) 1 else 0
 
 

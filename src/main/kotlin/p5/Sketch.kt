@@ -7,7 +7,8 @@ import p5.core.AUTO
 import p5.core.KeyboardEvent
 import p5.core.P5
 import p5.core.WheelEvent
-import p5.util.println
+import p5.util.ifTrue
+import p5.util.toFixed
 import kotlin.math.max
 
 fun Sketch(sketch: SketchScope.()->Unit) {
@@ -72,8 +73,15 @@ class SketchScope(val p5: P5) {
     // New Scopes
     fun autoAdjustSteps(block: (Int)->Unit) {
         with(p5) {
-            val timeDelta = timeit { block(autoStepsPerFrame) }
-            autoStepsPerFrame = (0.9*autoStepsPerFrame*targetFrameTime()/timeDelta).toInt().coerceIn(max(1, autoStepsPerFrame/10), autoStepsPerFrame*10)
+            val thisFrameTime = timeit { block(autoStepsPerFrame) }
+            console.log(frameRate().toFixed(1), autoStepsPerFrame)
+            if(thisFrameTime > targetFrameTime()) {
+                autoStepsPerFrame = max(autoStepsPerFrame-1, 1)
+            } else {
+                autoStepsPerFrame++
+            }
+//            deltaTime
+//            autoStepsPerFrame = (0.9*autoStepsPerFrame*targetFrameTime()/timeDelta).toInt().coerceIn(max(1, autoStepsPerFrame/10), autoStepsPerFrame*10)
         }
     }
 
@@ -236,18 +244,16 @@ class SketchScope(val p5: P5) {
         with(p5) {
             loop()
             draw = wrap {
-                val timeDelta = timeit {
+                autoAdjustSteps {
                     withPixels {
-                        autoAdjustSteps {
-                            repeat(it) {
-                                if (itor.hasNext()) block(itor.next()) else {
-                                    nextDraw.afterDone?.invoke()
-                                    noLoop()
-                                    draw = {}
-                                }
+                        repeat(it) {
+                            if (itor.hasNext()) block(itor.next()) else {
+                                nextDraw.afterDone?.invoke()
+                                noLoop()
+                                draw = {}
                             }
-                            nextDraw.afterFrame?.invoke()
                         }
+                        nextDraw.afterFrame?.invoke()
                     }
                 }
             }
@@ -285,20 +291,18 @@ class SketchScope(val p5: P5) {
         with(p5) {
             loop()
             draw = wrap {
-                val timeDelta = timeit {
+                autoAdjustSteps {
                     withPixels {
-                        autoAdjustSteps {
-                            repeat(it) {
-                                if (cond()) {
-                                    block()
-                                } else {
-                                    nextDraw.afterDone?.invoke()
-                                    noLoop()
-                                    draw = {}
-                                }
+                        repeat(it) {
+                            if (cond()) {
+                                block()
+                            } else {
+                                nextDraw.afterDone?.invoke()
+                                noLoop()
+                                draw = {}
                             }
-                            nextDraw.afterFrame?.invoke()
                         }
+                        nextDraw.afterFrame?.invoke()
                     }
                 }
             }

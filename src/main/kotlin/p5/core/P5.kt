@@ -560,9 +560,13 @@ class P5(val nativeP5: NativeP5) {
     fun get(xy: Vector, wh: Vector): Image = Image(nativeP5.get(xy.x.toInt(), xy.y.toInt(), wh.x.toInt(), wh.y.toInt()))
 
     fun set(x: Number, y: Number, a: Number) = nativeP5.set(x, y, a)
+    fun set(xy: Vector, a: Number) = nativeP5.set(xy.x, xy.y, a)
     fun set(x: Number, y: Number, a: Array<Number>) = nativeP5.set(x, y, a)
+    fun set(xy: Vector, a: Array<Number>) = nativeP5.set(xy.x, xy.y, a)
     fun set(x: Number, y: Number, a: Color) = nativeP5.set(x, y, a.nativeColor)
+    fun set(xy: Vector, a: Color) = nativeP5.set(xy.x, xy.y, a.nativeColor)
     fun set(x: Number, y: Number, a: Image) = nativeP5.set(x, y, a.nativeImage)
+    fun set(xy: Vector, a: Image) = nativeP5.set(xy.x, xy.y, a.nativeImage)
 
     // IO
     fun loadStrings(filename: String): Array<String> = nativeP5.loadStrings(filename)

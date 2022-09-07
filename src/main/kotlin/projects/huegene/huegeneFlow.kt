@@ -4,22 +4,19 @@ import p5.Sketch
 import p5.core.AUTO
 import p5.core.Color
 import p5.core.P5.*
-import p5.core.P5.Vector.Companion.lerp
 import p5.util.*
-import kotlin.math.PI
 import kotlin.math.abs
-import kotlin.math.cos
-import kotlin.math.sin
 
 fun huegeneFlow() = Sketch {
 
     Setup {
-        val canvas = createCanvas(512, 512)
+        val canvas = createCanvas(1024, 1024)
         pixelDensity(1)
         frameRate(30)
         background(31, 31, 31, 254)
 
-        val activePoints = mutableSetOf(createVector(width/2, height/2))
+        val startLocation = createVector(width/2, height/2)
+        val activePoints = mutableMapOf(startLocation to 0.0)
 
         val startColor = color(128, 128, 255, 255)
         val startColorVector = createVector(red(startColor), green(startColor), blue(startColor))
@@ -28,19 +25,21 @@ fun huegeneFlow() = Sketch {
         val colorStep = 10
         val noiseScl = 0.01
 
-        val radius = 12
-        val sectors = 12
+        val outerRadius = 3
+        val innerRadius = 0
         val neighborhood = buildList {
-            (0..sectors).forEach {
-                val x = (12.0*sin(PI*it/(radius*2.0))).toInt()
-                val y = (12.0*cos(PI*it/(radius*2.0))).toInt()
-                val offset = createVector(x, y)
-                add(offset)
+            for(x in -outerRadius..outerRadius) {
+                for (y in -outerRadius..outerRadius) {
+                    if ((x*x + y*y) in (innerRadius*innerRadius)..(outerRadius*outerRadius) ) {
+                        add(createVector(x, y))
+                    }
+                }
             }
         }.distinct()
 
+        console.log(neighborhood)
+
         val touching = listOf(
-            createVector(0, 0),
             createVector(0, -1),
             createVector(0, 1),
             createVector(-1, 0),
@@ -84,23 +83,20 @@ fun huegeneFlow() = Sketch {
             return createVector(xNoise, yNoise).normalized()
         }
 
-        fun weightBranch(center: Vector, offset: Vector): Double {
-            return flow(center) dot offset.normalized()
+        fun PixelScope.getEndpoint(plantCenter: Vector): Pair<Vector, Double>? {
+            val flowDirection = flow(plantCenter)
+            return neighborhood.filter {
+                (it + plantCenter).inFrame() && colorArray[it + plantCenter].isTransparent()
+            }.map{ plantCenter+it to abs(it.normalized() dot flowDirection) * it.mag()}.maxByOrNull { it.second }
         }
 
         withPixels {
             colorArray[createVector(width/2, height/2)] = startColor
         }
 
-        data class Branch(var points: List<Vector>, val center: Vector, val weight: Double, val color: Color)
-        data class Plant(val plantCenter: Vector, var branches: MutableList<Branch>)
-
         var addedPoints = 0
 
         val progress by { addedPoints/((height*width).toDouble()) }
-
-        val attemptsPerStep = 20
-        val takeBestAttemptsNum = 10//by { map(progress, 0, 1, 5, attemptsPerStep).toInt() }
 
         val progressText = createP("Progress: ")
         val percentActive = createP("Percent Active: ")
@@ -119,66 +115,75 @@ fun huegeneFlow() = Sketch {
             }
         }
 
-        val plants = mutableMapOf<Vector, Plant>()
-        val candidateBranches = mutableListOf<Branch>()
-        val pointAttempts = mutableMapOf<Vector, Double>()
-
-        fun PixelScope.makePlant(plantCenter: Vector): Plant {
-            val plantColor = colorArray[plantCenter]
-            val branches = neighborhood.mapTo(mutableListOf()) { offset ->
-                val weight = weightBranch(plantCenter, offset)
-                val branchPoints = (0..radius*2).map {
-                    lerp(plantCenter, plantCenter+offset, it / (radius * 2.0)).toInts()
-                }.distinct().filter { it.inFrame() }
-                branchPoints.forEach {
-                    pointAttempts[it] = maxOf(pointAttempts[it] ?: weight, weight)
-                }
-                Branch(branchPoints, plantCenter, weight, mutateColor(plantColor))
-            }
-            return Plant(plantCenter, branches)
+        fun PixelScope.touchingIsTransparent(plantCenter: Vector): List<Vector> {
+            return touching.map { plantCenter+it }.filter { colorArray[it].isTransparent() && it.inFrame() }
         }
 
-        fun PixelScope.isSurrounded(plant: Plant): Boolean = touching.map{ colorArray[plant.plantCenter]}.all{ it.isOpaque() }
-
-        fun PixelScope.prunePlant(plant: Plant): Plant? {
-            plant.branches.forEach {branch ->
-                branch.points = branch.points.filter { point ->
-                    colorArray[point].isTransparent() //&& (pointAttempts[point] ?: branch.weight) <= branch.weight
+        fun PixelScope.getPlant(plantCenter: Vector): Pair<Vector, Double>? {
+            val plantColor = colorArray[plantCenter]
+            val touchingIsTransparent = touchingIsTransparent(plantCenter)
+            val plantEndToWeight = getEndpoint(plantCenter)
+            if(plantEndToWeight == null || touchingIsTransparent.size <= 2) {
+                touchingIsTransparent.forEach {
+                    colorArray[it] = color(progress*255)//mutateColor(plantColor)
+                    val plantCenterToWeight = getEndpoint(it) ?: return@forEach
+                    activePoints[it] = plantCenterToWeight.second
+                    addedPoints++
                 }
-            }
-            plant.branches = plant.branches.filter { branch -> branch.points.isNotEmpty() }.toMutableList()
-            if(plant.branches.isEmpty()) {
-                plants.remove(plant.plantCenter)
-                activePoints.remove(plant.plantCenter)
+                activePoints.remove(plantCenter)
                 return null
             }
-            plants[plant.plantCenter] = plant
-            return plant
+            return plantEndToWeight
         }
 
+
         DrawWhileWithPixels( { activePoints.isNotEmpty() }, AUTO) step@{
-
-            candidateBranches.clear()
-
-            repeat(attemptsPerStep) attempt@{
-                val plantCenter = activePoints.randomOrNull() ?: return@step
-                val plant = plants[plantCenter] ?: makePlant(plantCenter)
-                prunePlant(plant)?.apply { candidateBranches += branches }
-            }
-            candidateBranches.takeMaxBy(takeBestAttemptsNum) { it.weight*it.points.size }.withEach {
-                points.forEach { branchPoint ->
-                    if(colorArray[branchPoint].isTransparent()) {
-                        addedPoints++
-                        activePoints.add(branchPoint)
-                    }
-                    colorArray[branchPoint] = color
+            val plantCenterToWeight = activePoints.maxByOrNull { it.value } ?: return@step
+            val plantCenter = plantCenterToWeight.key
+            val plantEnd = getPlant(plantCenter) ?: return@step
+            activePoints[plantCenter] = plantEnd.second
+            val newColor = mutateColor(colorArray[plantCenter])
+            (0..outerRadius*2).map {
+                Vector.lerp(plantCenter, plantEnd.first, it / (outerRadius * 2.0)).toInts()
+            }.distinct().forEach { plantPoint ->
+                if (colorArray[plantPoint].isTransparent()) {
+                    colorArray[plantPoint] = color(progress*255)
+                    addedPoints++
+                    activePoints[plantPoint] = plantEnd.second
                 }
             }
         }.AfterFrame {
-            updateLayout()
+            progressText.html("Progress: ${(progress*100.0).toFixed(2)}%")
+            percentActive.html("Percent Active: ${(100.0*activePoints.size/(width*height.toDouble())).toFixed(2)}%")
         }.AfterDone {
             println("done")
         }
+
+//        DrawWhileWithPixels( { activePoints.isNotEmpty() }, AUTO) step@{
+//            val plantCenter = activePoints.randomOrNull() ?: return@step
+//            var plant = plants[plantCenter] ?: makePlant(plantCenter)
+//            plant = prunePlant(plant) ?: return@step
+//            plant.branches.withEach {
+//                val testWeight = weight*points.size
+//                if (testWeight >= weightAcceptanceLevel) {
+//                    points.forEach { branchPoint ->
+//                        if (colorArray[branchPoint].isTransparent()) {
+//                            addedPoints++
+//                            activePoints.add(branchPoint)
+//                        }
+//                        colorArray[branchPoint] = color
+//                    }
+//                    plants[center]?.branches?.remove(this)
+//                    accepted += 1
+//                }
+//                totalSeen += 1
+//                updateAcceptanceLevel()
+//            }
+//        }.AfterFrame {
+//            updateLayout()
+//        }.AfterDone {
+//            println("done")
+//        }
 
 
 
