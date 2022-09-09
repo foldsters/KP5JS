@@ -11,7 +11,7 @@ open external class NativeElement(elt: String) {
     fun id(): String
     fun id(idString: String)
     @JsName("class")
-    fun styleClass()
+    fun styleClass(): String
     @JsName("class")
     fun styleClass(classString: String)
     fun mousePressed(keepCallback: Boolean)

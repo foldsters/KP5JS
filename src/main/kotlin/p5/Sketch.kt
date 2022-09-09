@@ -2,22 +2,29 @@
 
 package p5
 
-import kotlinx.browser.window
-import p5.core.AUTO
-import p5.core.KeyboardEvent
-import p5.core.P5
-import p5.core.WheelEvent
-import p5.util.ifTrue
+import p5.core.*
+import p5.native.NativeP5
 import p5.util.toFixed
 import kotlin.math.max
 
-fun Sketch(sketch: SketchScope.()->Unit) {
-    window.onload = {
-        P5 { p -> sketch(SketchScope(p)) }
+var globalP5: P5? = null
+var globalP5Set = false
+
+var uuid = 0
+
+fun Sketch(primaryInstance: Boolean = false, sketch: SketchScope.()->Unit): P5 {
+    var innerP5: P5? = null
+    run {
+        NativeP5 {
+            val newP5 = P5(it)
+            sketch(SketchScope(primaryInstance, newP5))
+            innerP5 = newP5
+        }
     }
+    return innerP5 ?: error("Failed to Create P5 Instance")
 }
 
-class SketchScope(val p5: P5) {
+class SketchScope(val primaryInstance: Boolean, val p5: P5) {
 
     private fun wrap(f: P5.()->Unit): ()->Unit {
         return { p5.f() }
@@ -27,8 +34,8 @@ class SketchScope(val p5: P5) {
         return { p5.f(it) }
     }
 
-    fun Preload       (block: P5.()->Unit) { p5.preload = wrap(block) } //
-    fun Setup         (block: P5.()->Unit) { p5.setup = wrap(block) } //
+    fun Preload       (block: P5.()->Unit) { p5.preload = wrap(block) }
+    fun Setup         (block: P5.()->Unit) { p5.setup = wrap(block) }
     fun WindowResized (block: P5.()->Unit) { p5.windowResized = wrap(block) }
     fun DeviceMoved   (block: P5.()->Unit) { p5.deviceMoved = wrap(block) }
     fun DeviceTurned  (block: P5.()->Unit) { p5.deviceTurned = wrap(block) }
@@ -47,24 +54,13 @@ class SketchScope(val p5: P5) {
     fun KeyTyped      (block: KeyboardEvent.()->Unit) { p5.keyTyped = { keyboardEvent -> block(keyboardEvent) } }
     fun MouseWheel    (block: WheelEvent.()->Unit) { p5.mouseWheel = { wheelEvent -> block(wheelEvent) } }
 
-    private var topGrid: P5.Grid? = null
-
     // Layout
-    fun Layout (block: P5.Grid.()->Unit) {
-        with(p5) {
-            val grid = topGrid ?: Grid()
-            grid.action = {
-                grid.Stack {
-                    block()
-                }
-            }
-            grid.update()
-            topGrid = grid
-        }
+    fun Layout(block: P5.Grid.()->Unit) {
+        p5.relayout(block)
     }
 
     fun updateLayout() {
-        topGrid?.update()
+        p5.layout?.update() ?: console.warn("No layout found to update")
     }
 
     private var autoStepsPerFrame = 1

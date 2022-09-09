@@ -17,6 +17,7 @@ import kotlin.js.Json
 import kotlin.reflect.KProperty
 import p5.openSimplexNoise.OpenSimplexNoise
 import p5.util.*
+import p5.uuid
 import kotlin.js.json
 import kotlin.reflect.KClass
 import kotlin.math.*
@@ -28,21 +29,25 @@ import kotlin.reflect.typeOf
 @JsName("p5")
 private external val p5: dynamic
 
-class P5(val nativeP5: NativeP5) {
-    constructor(): this(NativeP5())
-    constructor(sketch: (P5) -> Unit): this(NativeP5 { nativeP5 -> sketch(P5(nativeP5)) })
+private var P5UUID = 0
 
-    // WRAPPERS
+class P5(val nativeP5: NativeP5) {
+    constructor() : this(NativeP5())
+
     fun NativeElement.toElement() = Element(this)
+
+    val instanceId = P5UUID++
 
     // ENVIRONMENT
 
     // Accessibility
     fun describe(text: String) = nativeP5.describe(text)
-    fun describe(text : String, display: DescriptionMode) = nativeP5.describe(text, display.nativeValue)
+    fun describe(text: String, display: DescriptionMode) = nativeP5.describe(text, display.nativeValue)
     fun textOutput() = nativeP5.textOutput()
     fun gridOutput() = nativeP5.gridOutput()
-    fun describeElement(name: String, text: String, display: DescriptionMode) = nativeP5.describeElement(name, text, display.nativeValue)
+    fun describeElement(name: String, text: String, display: DescriptionMode) =
+        nativeP5.describeElement(name, text, display.nativeValue)
+
     fun textOutput(display: DescriptionMode) = nativeP5.textOutput(display.nativeValue)
     fun gridOutput(display: DescriptionMode) = nativeP5.gridOutput(display.nativeValue)
 
@@ -62,7 +67,7 @@ class P5(val nativeP5: NativeP5) {
     fun cursor(type: String) = nativeP5.cursor(type)
     fun cursor(type: String, x: Int, y: Int) = nativeP5.cursor(type, x, y)
     fun frameRate(fps: Number) = nativeP5.frameRate(fps)
-    fun frameRate() : Double = nativeP5.frameRate()
+    fun frameRate(): Double = nativeP5.frameRate()
     fun noCursor() = nativeP5.noCursor()
     fun fullscreen(value: Boolean) = nativeP5.fullscreen(value)
     fun fullscreen(): Boolean = nativeP5.fullscreen()
@@ -77,7 +82,7 @@ class P5(val nativeP5: NativeP5) {
 
     // Creating and Rendering
     fun color(gray: Number): Color = Color(nativeP5.color(gray))
-    fun color(gray: Number, alpha : Number): Color = Color(nativeP5.color(gray, alpha))
+    fun color(gray: Number, alpha: Number): Color = Color(nativeP5.color(gray, alpha))
     fun color(v1: Number, v2: Number, v3: Number): Color = Color(nativeP5.color(v1, v2, v3))
     fun color(v1: Number, v2: Number, v3: Number, alpha: Number): Color = Color(nativeP5.color(v1, v2, v3, alpha))
     fun color(colorString: String): Color = Color(nativeP5.color(colorString))
@@ -88,7 +93,9 @@ class P5(val nativeP5: NativeP5) {
     fun brightness(color: Color): Double = nativeP5.brightness(color.nativeColor)
     fun green(color: Color): Double = nativeP5.green(color.nativeColor)
     fun hue(color: Color): Double = nativeP5.hue(color.nativeColor)
-    fun lerpColor(c1: Color, c2: Color, amt: Double): NativeColor = nativeP5.lerpColor(c1.nativeColor, c2.nativeColor, amt)
+    fun lerpColor(c1: Color, c2: Color, amt: Double): NativeColor =
+        nativeP5.lerpColor(c1.nativeColor, c2.nativeColor, amt)
+
     fun lightness(color: Color): Double = nativeP5.lightness(color.nativeColor)
     fun red(color: Color): Double = nativeP5.red(color.nativeColor)
     fun saturation(color: Color): Double = nativeP5.saturation(color.nativeColor)
@@ -106,8 +113,12 @@ class P5(val nativeP5: NativeP5) {
     fun colorMode(mode: ColorMode) = nativeP5.colorMode(mode.nativeValue)
     fun colorMode(mode: ColorMode, max: Number) = nativeP5.colorMode(mode.nativeValue, max)
     fun colorMode(mode: ColorMode, max1: Number, maxA: Number) = nativeP5.colorMode(mode.nativeValue, max1, maxA)
-    fun colorMode(mode: ColorMode, max1: Number, max2: Number, max3: Number) = nativeP5.colorMode(mode.nativeValue, max1, max2, max3)
-    fun colorMode(mode: ColorMode, max1: Number, max2: Number, max3: Number, maxA: Number) = nativeP5.colorMode(mode.nativeValue, max1, max2, max3, maxA)
+    fun colorMode(mode: ColorMode, max1: Number, max2: Number, max3: Number) =
+        nativeP5.colorMode(mode.nativeValue, max1, max2, max3)
+
+    fun colorMode(mode: ColorMode, max1: Number, max2: Number, max3: Number, maxA: Number) =
+        nativeP5.colorMode(mode.nativeValue, max1, max2, max3, maxA)
+
     // fill: modified below
     fun noFill() = nativeP5.noFill()
     fun noStroke() = nativeP5.noStroke()
@@ -115,7 +126,7 @@ class P5(val nativeP5: NativeP5) {
     fun stroke(gray: Number, alpha: Number) = nativeP5.stroke(gray, alpha)
     fun stroke(v1: Number, v2: Number, v3: Number) = nativeP5.stroke(v1, v2, v3)
     fun stroke(v1: Number, v2: Number, v3: Number, alpha: Number) = nativeP5.stroke(v1, v2, v3, alpha)
-    fun stroke(colorString : String) = nativeP5.stroke(colorString)
+    fun stroke(colorString: String) = nativeP5.stroke(colorString)
     fun stroke(colorArray: Array<Number>) = nativeP5.stroke(colorArray)
     fun stroke(color: Color) = nativeP5.stroke(color.nativeColor)
     fun erase() = nativeP5.erase()
@@ -127,45 +138,71 @@ class P5(val nativeP5: NativeP5) {
     fun arc(x: Number, y: Number, width: Number, height: Number, startRad: Number, stopRad: Number) {
         return nativeP5.arc(x, y, width, height, startRad, stopRad)
     }
+
     fun arc(xy: Vector, width: Number, height: Number, startRad: Number, stopRad: Number) {
         return nativeP5.arc(xy.x, xy.y, width, height, startRad, stopRad)
     }
+
     fun arc(xy: Vector, wh: Vector, startRad: Number, stopRad: Number) {
         return nativeP5.arc(xy.x, xy.y, wh.x, wh.y, startRad, stopRad)
     }
+
     fun arc(x: Number, y: Number, width: Number, height: Number, startRad: Number, stopRad: Number, mode: ArcMode) {
         return nativeP5.arc(x, y, width, height, startRad, stopRad, mode.nativeValue)
     }
-    fun arc(x: Number, y: Number, width: Number, height: Number, startRad: Number, stopRad: Number, mode: ArcMode, detail: Int) {
+
+    fun arc(
+        x: Number,
+        y: Number,
+        width: Number,
+        height: Number,
+        startRad: Number,
+        stopRad: Number,
+        mode: ArcMode,
+        detail: Int
+    ) {
         return nativeP5.arc(x, y, width, height, startRad, stopRad, mode.nativeValue, detail)
     }
+
     fun arc(xy: Vector, width: Number, height: Number, startRad: Number, stopRad: Number, mode: ArcMode) {
         return nativeP5.arc(xy.x, xy.y, width, height, startRad, stopRad, mode.nativeValue)
     }
+
     fun arc(xy: Vector, width: Number, height: Number, startRad: Number, stopRad: Number, mode: ArcMode, detail: Int) {
         return nativeP5.arc(xy.x, xy.y, width, height, startRad, stopRad, mode.nativeValue, detail)
     }
+
     fun arc(xy: Vector, wh: Vector, startRad: Number, stopRad: Number, mode: ArcMode) {
         return nativeP5.arc(xy.x, xy.y, wh.x, wh.y, startRad, stopRad, mode.nativeValue)
     }
+
     fun arc(xy: Vector, wh: Vector, startRad: Number, stopRad: Number, mode: ArcMode, detail: Int) {
         return nativeP5.arc(xy.x, xy.y, wh.x, wh.y, startRad, stopRad, mode.nativeValue, detail)
     }
+
     fun ellipse(x: Number, y: Number, width: Number) = nativeP5.ellipse(x, y, width)
     fun ellipse(xy: Vector, width: Number) = nativeP5.ellipse(xy.x, xy.y, width)
     fun ellipse(x: Number, y: Number, width: Number, height: Number) = nativeP5.ellipse(x, y, width, height)
     fun ellipse(xy: Vector, width: Number, height: Number) = nativeP5.ellipse(xy.x, xy.y, width, height)
     fun ellipse(xy: Vector, wh: Vector) = nativeP5.ellipse(xy.x, xy.y, wh.x, wh.y)
-    fun ellipse(x: Number, y: Number, width: Number, height: Number, detail: Int) = nativeP5.ellipse(x, y, width, height, detail)
-    fun ellipse(xy: Vector, width: Number, height: Number, detail: Int) = nativeP5.ellipse(xy.x, xy.y, width, height, detail)
+    fun ellipse(x: Number, y: Number, width: Number, height: Number, detail: Int) =
+        nativeP5.ellipse(x, y, width, height, detail)
+
+    fun ellipse(xy: Vector, width: Number, height: Number, detail: Int) =
+        nativeP5.ellipse(xy.x, xy.y, width, height, detail)
+
     fun ellipse(xy: Vector, wh: Vector, detail: Int) = nativeP5.ellipse(xy.x, xy.y, wh.x, wh.y, detail)
 
-    fun circle(x: Number, y:Number, d: Number) = nativeP5.circle(x, y, d)
+    fun circle(x: Number, y: Number, d: Number) = nativeP5.circle(x, y, d)
     fun circle(xy: Vector, d: Number) = nativeP5.circle(xy.x, xy.y, d)
 
-    fun line(x1: Number, y1: Number, x2: Number, y2: Number) = nativeP5.line(x1, y1, x2, y2) // TODO: Add canvas type switch
+    fun line(x1: Number, y1: Number, x2: Number, y2: Number) =
+        nativeP5.line(x1, y1, x2, y2) // TODO: Add canvas type switch
+
     fun line2D(v1: Vector, v2: Vector) = nativeP5.line(v1.x, v1.y, v2.x, v2.y)
-    fun line(x1: Number, y1: Number, z1: Number, x2: Number, y2: Number, z2: Number) = nativeP5.line(x1, y1, z1, x2, y2, z2)
+    fun line(x1: Number, y1: Number, z1: Number, x2: Number, y2: Number, z2: Number) =
+        nativeP5.line(x1, y1, z1, x2, y2, z2)
+
     fun line3D(v1: Vector, v2: Vector) = nativeP5.line(v1.x, v1.y, v1.z, v2.x, v2.y, v2.z)
 
     fun point(x: Number, y: Number) = nativeP5.point(x, y)
@@ -176,27 +213,32 @@ class P5(val nativeP5: NativeP5) {
         x1: Number, y1: Number, x2: Number, y2: Number,
         x3: Number, y3: Number, x4: Number, y4: Number
     ) = nativeP5.quad(x1, y1, x2, y2, x3, y3, x4, y4)
+
     fun quad(
         x1: Number, y1: Number, x2: Number, y2: Number,
         x3: Number, y3: Number, x4: Number, y4: Number, detailX: Int, detailY: Int
     ) = nativeP5.quad(x1, y1, x2, y2, x3, y3, x4, y4, detailX, detailY)
+
     fun quad(
         x1: Number, y1: Number, z1: Number, x2: Number, y2: Number, z2: Number,
         x3: Number, y3: Number, z3: Number, x4: Number, y4: Number, z4: Number
     ) = nativeP5.quad(x1, y1, z1, x2, y2, z2, x3, y3, z3, x4, y4, z4)
+
     fun quad(
         x1: Number, y1: Number, z1: Number, x2: Number, y2: Number, z2: Number,
         x3: Number, y3: Number, z3: Number, x4: Number, y4: Number, z4: Number, detailX: Int, detailY: Int
     ) = nativeP5.quad(x1, y1, z1, x2, y2, z2, x3, y3, z3, x4, y4, z4, detailX, detailY)
-    fun quad(v1: Vector, v2: Vector, v3: Vector, v4: Vector, xyz: Boolean=false) { // TODO: Add Canvas Switch
-        if(xyz) {
+
+    fun quad(v1: Vector, v2: Vector, v3: Vector, v4: Vector, xyz: Boolean = false) { // TODO: Add Canvas Switch
+        if (xyz) {
             nativeP5.quad(v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, v3.x, v3.y, v3.z, v4.x, v4.y, v4.z)
         } else {
             nativeP5.quad(v1.x, v1.y, v2.x, v2.y, v3.x, v3.y, v4.x, v4.y)
         }
     }
-    fun quad(v1: Vector, v2: Vector, v3: Vector, v4: Vector, detailX: Int, detailY: Int, xyz: Boolean=false) {
-        if(xyz) {
+
+    fun quad(v1: Vector, v2: Vector, v3: Vector, v4: Vector, detailX: Int, detailY: Int, xyz: Boolean = false) {
+        if (xyz) {
             nativeP5.quad(v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, v3.x, v3.y, v3.z, v4.x, v4.y, v4.z, detailX, detailY)
         } else {
             nativeP5.quad(v1.x, v1.y, v2.x, v2.y, v3.x, v3.y, v4.x, v4.y, detailX, detailY)
@@ -208,20 +250,37 @@ class P5(val nativeP5: NativeP5) {
     fun rect(x: Number, y: Number, width: Number, height: Number) = nativeP5.rect(x, y, width, height)
     fun rect(xy: Vector, width: Number, height: Number) = nativeP5.rect(xy.x, xy.y, width, height)
     fun rect(xy: Vector, wh: Vector) = nativeP5.rect(xy.x, xy.y, wh.x, wh.y)
-    fun rect(x: Number, y: Number, width: Number, height: Number, tl: Number, tr: Number, br: Number, bl:Number) = nativeP5.rect(x, y, width, height, tl, tr, br, bl)
-    fun rect(xy: Vector, width: Number, height: Number, tl: Number, tr: Number, br: Number, bl:Number) = nativeP5.rect(xy.x, xy.y, width, height, tl, tr, br, bl)
-    fun rect(xy: Vector, wh: Vector, tl: Number, tr: Number, br: Number, bl:Number) = nativeP5.rect(xy.x, xy.y, wh.x, wh.y, tl, tr, br, bl)
-    fun rect(x: Number, y: Number, width: Number, detailX: Int, detailY: Int) = nativeP5.rect(x, y, width, detailX, detailY)
+    fun rect(x: Number, y: Number, width: Number, height: Number, tl: Number, tr: Number, br: Number, bl: Number) =
+        nativeP5.rect(x, y, width, height, tl, tr, br, bl)
+
+    fun rect(xy: Vector, width: Number, height: Number, tl: Number, tr: Number, br: Number, bl: Number) =
+        nativeP5.rect(xy.x, xy.y, width, height, tl, tr, br, bl)
+
+    fun rect(xy: Vector, wh: Vector, tl: Number, tr: Number, br: Number, bl: Number) =
+        nativeP5.rect(xy.x, xy.y, wh.x, wh.y, tl, tr, br, bl)
+
+    fun rect(x: Number, y: Number, width: Number, detailX: Int, detailY: Int) =
+        nativeP5.rect(x, y, width, detailX, detailY)
+
     fun rect(xy: Vector, width: Number, detailX: Int, detailY: Int) = nativeP5.rect(xy.x, xy.y, width, detailX, detailY)
 
     fun square(x: Number, y: Number, size: Number) = nativeP5.square(x, y, size)
     fun square(xy: Vector, size: Number) = nativeP5.square(xy.x, xy.y, size)
-    fun square(x: Number, y: Number, size: Number, tl: Number, tr: Number, br: Number, bl:Number) = nativeP5.square(x, y, size, tl, tr, br, bl)
-    fun square(xy: Vector, size: Number, tl: Number, tr: Number, br: Number, bl:Number) = nativeP5.square(xy.x, xy.y, size, tl, tr, br, bl)
-    fun square(x: Number, y: Number, size: Number, detailX: Int, detailY: Int) = nativeP5.square(x, y, size, detailX, detailY)
-    fun square(xy: Vector, size: Number, detailX: Int, detailY: Int) = nativeP5.square(xy.x, xy.y, size, detailX, detailY)
+    fun square(x: Number, y: Number, size: Number, tl: Number, tr: Number, br: Number, bl: Number) =
+        nativeP5.square(x, y, size, tl, tr, br, bl)
 
-    fun triangle(x1: Number, y1: Number, x2: Number, y2: Number, x3: Number, y3: Number) = nativeP5.triangle(x1, y1, x2, y2, x3, y3)
+    fun square(xy: Vector, size: Number, tl: Number, tr: Number, br: Number, bl: Number) =
+        nativeP5.square(xy.x, xy.y, size, tl, tr, br, bl)
+
+    fun square(x: Number, y: Number, size: Number, detailX: Int, detailY: Int) =
+        nativeP5.square(x, y, size, detailX, detailY)
+
+    fun square(xy: Vector, size: Number, detailX: Int, detailY: Int) =
+        nativeP5.square(xy.x, xy.y, size, detailX, detailY)
+
+    fun triangle(x1: Number, y1: Number, x2: Number, y2: Number, x3: Number, y3: Number) =
+        nativeP5.triangle(x1, y1, x2, y2, x3, y3)
+
     fun triangle(v1: Vector, v2: Vector, v3: Vector) = nativeP5.triangle(v1.x, v1.y, v2.x, v2.y, v3.x, v3.y)
 
     fun ellipseMode(mode: CenterMode) = nativeP5.ellipseMode(mode.nativeValue)
@@ -237,16 +296,27 @@ class P5(val nativeP5: NativeP5) {
         fun addVertex(xy: Vector) = nativeP5.vertex(xy.x, xy.y)
         fun addVertex(x: Number, y: Number, u: Number, v: Number) = nativeP5.vertex(x, y, u, v)
         fun addVertex(xy: Vector, uv: Vector) = nativeP5.vertex(xy.x, xy.y, uv.x, uv.y)
-        fun addQuadraticVertex(cx: Number, cy: Number, x3: Number, y3: Number) = nativeP5.quadraticVertex(cx, cy, x3, y3)
+        fun addQuadraticVertex(cx: Number, cy: Number, x3: Number, y3: Number) =
+            nativeP5.quadraticVertex(cx, cy, x3, y3)
+
         fun addQuadraticVertex(cxy: Vector, xy3: Vector) = nativeP5.quadraticVertex(cxy.x, cxy.y, xy3.x, xy3.y)
-        fun addBezierVertex(x2: Number, y2: Number, x3: Number, y3: Number, x4: Number, y4: Number) = nativeP5.bezierVertex(x2, y2, x3, y3, x4, y4)
-        fun addBezierVertex(xy2: Vector, xy3: Vector, xy4: Vector) = nativeP5.bezierVertex(xy2.x, xy2.y, xy3.x, xy3.y, xy4.x, xy4.y)
+        fun addBezierVertex(x2: Number, y2: Number, x3: Number, y3: Number, x4: Number, y4: Number) =
+            nativeP5.bezierVertex(x2, y2, x3, y3, x4, y4)
+
+        fun addBezierVertex(xy2: Vector, xy3: Vector, xy4: Vector) =
+            nativeP5.bezierVertex(xy2.x, xy2.y, xy3.x, xy3.y, xy4.x, xy4.y)
+
         fun addCurveVertex(x: Number, y: Number) = nativeP5.curveVertex(x, y)
         fun addCurveVertex(xy: Vector) = nativeP5.curveVertex(xy.x, xy.y)
-        fun List<Vector>.addVertices() { forEach { addVertex(it) } }
-        fun addVertices(vararg vertices: Vector) { vertices.forEach { addVertex(it) }}
+        fun List<Vector>.addVertices() {
+            forEach { addVertex(it) }
+        }
 
-        fun withContour(contour: ShapeBuilder2D.()->Unit) {
+        fun addVertices(vararg vertices: Vector) {
+            vertices.forEach { addVertex(it) }
+        }
+
+        fun withContour(contour: ShapeBuilder2D.() -> Unit) {
             nativeP5.beginContour()
             contour()
             nativeP5.endContour()
@@ -258,20 +328,27 @@ class P5(val nativeP5: NativeP5) {
         fun vertex(xyz: Vector) = nativeP5.vertex(xyz.x, xyz.y, xyz.z)
         fun vertex(x: Number, y: Number, z: Number, u: Number, v: Number) = nativeP5.vertex(x, y, z, u, v)
         fun vertex(xyz: Vector, uv: Vector) = nativeP5.vertex(xyz.x, xyz.y, xyz.z, uv.x, uv.y)
-        fun quadraticVertex(cx: Number, cy: Number, cz: Number, x3: Number, y3: Number, z3: Number) = nativeP5.quadraticVertex(cx, cy, cz, x3, y3, z3)
-        fun quadraticVertex(cxyz: Vector, xyz3: Vector) = nativeP5.quadraticVertex(cxyz.x, cxyz.y, cxyz.z, xyz3.x, xyz3.y, xyz3.z)
+        fun quadraticVertex(cx: Number, cy: Number, cz: Number, x3: Number, y3: Number, z3: Number) =
+            nativeP5.quadraticVertex(cx, cy, cz, x3, y3, z3)
+
+        fun quadraticVertex(cxyz: Vector, xyz3: Vector) =
+            nativeP5.quadraticVertex(cxyz.x, cxyz.y, cxyz.z, xyz3.x, xyz3.y, xyz3.z)
+
         fun bezierVertex(
             x2: Number, y2: Number, z2: Number,
             x3: Number, y3: Number, z3: Number,
             x4: Number, y4: Number, z4: Number
         ) = nativeP5.bezierVertex(x2, y2, z2, x3, y3, z3, x4, y4, z4)
-        fun bezierVertex(xyz2: Vector, xyz3: Vector, xyz4: Vector) = nativeP5.bezierVertex(xyz2.x, xyz2.y, xyz2.z, xyz3.x, xyz3.y, xyz3.z, xyz4.z, xyz4.y, xyz4.z)
+
+        fun bezierVertex(xyz2: Vector, xyz3: Vector, xyz4: Vector) =
+            nativeP5.bezierVertex(xyz2.x, xyz2.y, xyz2.z, xyz3.x, xyz3.y, xyz3.z, xyz4.z, xyz4.y, xyz4.z)
+
         fun curveVertex(x: Number, y: Number, z: Number) = nativeP5.curveVertex(x, y, z)
         fun curveVertex(xyz: Vector) = nativeP5.curveVertex(xyz.x, xyz.y, xyz.z)
         fun normal(vector: Vector) = nativeP5.normal(vector.nativeVector)
         fun normal(x: Number, y: Number, z: Number) = nativeP5.normal(x, y, z)
 
-        fun withContour(contour: ()->Unit) {
+        fun withContour(contour: () -> Unit) {
             nativeP5.beginContour()
             contour()
             nativeP5.endContour()
@@ -279,9 +356,9 @@ class P5(val nativeP5: NativeP5) {
     }
 
     // STRUCTURE
-    var preload : ()->Unit by nativeP5::preload
-    var draw : ()->Unit by nativeP5::draw
-    var setup : ()->Unit by nativeP5::setup
+    var preload: () -> Unit by nativeP5::preload
+    var draw: () -> Unit by nativeP5::draw
+    var setup: () -> Unit by nativeP5::setup
     var disableFriendlyErrors: Boolean by nativeP5::disableFriendlyErrors
     fun noLoop() = nativeP5.noLoop()
     fun loop() = nativeP5.loop()
@@ -292,13 +369,19 @@ class P5(val nativeP5: NativeP5) {
     fun redraw(n: Int) = nativeP5.redraw(n)
 
     fun select(selectors: String): Element? = nativeP5.select(selectors)?.toElement()
-    fun select(selectors: String, containerString: String): Element? = nativeP5.select(selectors, containerString)?.toElement()
-    fun select(selectors: String, containerElement: Element): Element? = nativeP5.select(selectors, containerElement.nativeElement)?.toElement()
+    fun select(selectors: String, containerString: String): Element? =
+        nativeP5.select(selectors, containerString)?.toElement()
+
+    fun select(selectors: String, containerElement: Element): Element? =
+        nativeP5.select(selectors, containerElement.nativeElement)?.toElement()
+
     fun selectAll(selectors: String): Array<Element> = nativeP5.selectAll(selectors).arrayMap(::Element)
     fun selectAll(selectors: String, containerString: String): Array<Element> =
         nativeP5.selectAll(selectors, containerString).arrayMap(::Element)
+
     fun selectAll(selectors: String, containerElement: Element): Array<Element> =
         nativeP5.selectAll(selectors, containerElement.nativeElement).arrayMap(::Element)
+
     fun removeElements() = nativeP5.removeElements()
     fun createDiv(htmlString: String): Div = Div(nativeP5.createDiv(htmlString))
     fun createP(htmlString: String): Paragraph = Paragraph(nativeP5.createP(htmlString))
@@ -306,15 +389,27 @@ class P5(val nativeP5: NativeP5) {
     fun createImg(srcPath: String, altText: String): Element = Element(nativeP5.createImg(srcPath, altText))
     fun createImg(srcPath: String, altText: String, crossOrigin: CrossOriginMode): Element =
         Element(nativeP5.createImg(srcPath, altText, crossOrigin.nativeValue))
-    fun createImg(srcPath: String, altText: String, crossOrigin: CrossOriginMode, loadedCallback: (Element)->Unit): Element =
-        Element(nativeP5.createImg(srcPath, altText, crossOrigin.nativeValue) { loadedCallback(Element(it)) } )
-    fun createImg(srcPath: String, altText: String, loadedCallback: (Element)->Unit): Element =
-        Element(nativeP5.createImg(srcPath, altText, CrossOriginMode.NONE.nativeValue) { loadedCallback(Element(it)) } )
+
+    fun createImg(
+        srcPath: String,
+        altText: String,
+        crossOrigin: CrossOriginMode,
+        loadedCallback: (Element) -> Unit
+    ): Element =
+        Element(nativeP5.createImg(srcPath, altText, crossOrigin.nativeValue) { loadedCallback(Element(it)) })
+
+    fun createImg(srcPath: String, altText: String, loadedCallback: (Element) -> Unit): Element =
+        Element(nativeP5.createImg(srcPath, altText, CrossOriginMode.NONE.nativeValue) { loadedCallback(Element(it)) })
+
     fun createA(href: String, html: String): Element = Element(nativeP5.createA(href, html))
-    fun createA(href: String, html: String, target: TargetMode): Element = Element(nativeP5.createA(href, html, target.nativeValue))
+    fun createA(href: String, html: String, target: TargetMode): Element =
+        Element(nativeP5.createA(href, html, target.nativeValue))
+
     fun createSlider(min: Number, max: Number): Slider = Slider(nativeP5.createSlider(min, max))
     fun createSlider(min: Number, max: Number, value: Number): Slider = Slider(nativeP5.createSlider(min, max, value))
-    fun createSlider(min: Number, max: Number, value: Number, step: Number): Slider = Slider(nativeP5.createSlider(min, max, value, step))
+    fun createSlider(min: Number, max: Number, value: Number, step: Number): Slider =
+        Slider(nativeP5.createSlider(min, max, value, step))
+
     fun createButton(label: String): Button = Button(nativeP5.createButton(label))
     fun createCheckbox(): Checkbox = Checkbox(nativeP5.createCheckbox())
     fun createCheckbox(label: String): Checkbox = Checkbox(nativeP5.createCheckbox(label))
@@ -329,27 +424,33 @@ class P5(val nativeP5: NativeP5) {
     fun createInput(): Input = Input(nativeP5.createInput())
     fun createInput(default: String): Input = Input(nativeP5.createInput(default))
     fun createInput(default: String, type: InputMode): Input = Input(nativeP5.createInput(default, type.nativeValue))
-    fun createFileInput(callback: (File)->Unit): Element = Element(nativeP5.createFileInput { callback(File(it)) } )
-    fun createFileInput(multiple: Boolean, callback: (File)->Unit): Element = Element(nativeP5.createFileInput({ callback(File(it)) }, multiple) )
+    fun createFileInput(callback: (File) -> Unit): Element = Element(nativeP5.createFileInput { callback(File(it)) })
+    fun createFileInput(multiple: Boolean, callback: (File) -> Unit): Element =
+        Element(nativeP5.createFileInput({ callback(File(it)) }, multiple))
+
     fun createVideo(src: String): MediaElement = MediaElement(nativeP5.createVideo(src))
-    fun createVideo(src: String, callback: ()->Unit): MediaElement = MediaElement(nativeP5.createVideo(src, callback))
+    fun createVideo(src: String, callback: () -> Unit): MediaElement = MediaElement(nativeP5.createVideo(src, callback))
     fun createVideo(srcs: Array<String>): MediaElement = MediaElement(nativeP5.createVideo(srcs))
-    fun createVideo(srcs: Array<String>, callback: ()->Unit): MediaElement = MediaElement(nativeP5.createVideo(srcs, callback))
+    fun createVideo(srcs: Array<String>, callback: () -> Unit): MediaElement =
+        MediaElement(nativeP5.createVideo(srcs, callback))
+
     fun createCapture(type: CaptureMode): Element = Element(nativeP5.createCapture(type.nativeValue))
-    fun createCapture(type: CaptureMode, callback: (dynamic)->Unit): Element = Element(nativeP5.createCapture(type.nativeValue, callback)) // TWhat is callback parameter?
+    fun createCapture(type: CaptureMode, callback: (dynamic) -> Unit): Element =
+        Element(nativeP5.createCapture(type.nativeValue, callback)) // TWhat is callback parameter?
+
     fun createElement(tag: String): Element = Element(nativeP5.createElement(tag))
     fun createElement(tag: String, content: String): Element = Element(nativeP5.createElement(tag, content))
 
-    sealed class Renderer(nativeRenderer: NativeElement): Element(nativeRenderer)
-    class Renderer2D(val nativeRenderer2D: NativeRenderer2D): Renderer(nativeRenderer2D)
-    class RendererGL(val nativeRendererGl: NativeRendererGL): Renderer(nativeRendererGl)
+    sealed class Renderer(nativeRenderer: NativeElement) : Element(nativeRenderer)
+    class Renderer2D(val nativeRenderer2D: NativeRenderer2D) : Renderer(nativeRenderer2D)
+    class RendererGL(val nativeRendererGl: NativeRendererGL) : Renderer(nativeRendererGl)
 
     private var canvas: Renderer? = null
 
     fun getCanvas(): Renderer = canvas ?: throw IllegalStateException("canvas has not been initialized yet")
     fun createCanvas(w: Number, h: Number): Renderer = Renderer2D(nativeP5.createCanvas(w, h)).also { canvas = it }
     fun createCanvas(wh: Vector): Renderer = createCanvas(wh.x, wh.y)
-    fun createCanvas(w: Number, h: Number, renderMode: RenderMode): Renderer = when(renderMode) {
+    fun createCanvas(w: Number, h: Number, renderMode: RenderMode): Renderer = when (renderMode) {
         RenderMode.P2D -> {
             val nativeCanvas = nativeP5.createCanvas(w, h, renderMode.nativeValue)
             console.log(listOf(nativeCanvas), js("typeof(nativeCanvas)"))
@@ -363,6 +464,7 @@ class P5(val nativeP5: NativeP5) {
             RendererGL(nativeCanvas as NativeRendererGL)
         }
     }.also { canvas = it }
+
     fun createCanvas(wh: Vector, renderMode: RenderMode): Renderer = createCanvas(wh.x, wh.y, renderMode)
     fun createCanvas(renderMode: RenderMode): Renderer = createCanvas(0, 0, renderMode)
     fun createCanvas(): Renderer = createCanvas(0, 0)
@@ -371,11 +473,16 @@ class P5(val nativeP5: NativeP5) {
     fun resizeCanvas(w: Number, h: Number, noRedraw: Boolean) = nativeP5.resizeCanvas(w, h, noRedraw)
     fun resizeCanvas(wh: Vector, noRedraw: Boolean) = nativeP5.resizeCanvas(wh.x, wh.y, noRedraw)
     fun noCanvas() = nativeP5.noCanvas()
-    fun createGraphics(w: Number, h: Number, hide: Boolean = true): P5 = P5().apply { createCanvas(w, h).apply { if(hide) hide() } }
+    fun createGraphics(w: Number, h: Number, hide: Boolean = true): P5 =
+        P5().apply { createCanvas(w, h).apply { if (hide) hide() } }
+
     fun createGraphics(wh: Vector, hide: Boolean = true): P5 = createGraphics(wh.x, wh.y, hide)
     fun createGraphics(w: Number, h: Number, renderMode: RenderMode, hide: Boolean = true): P5 =
-        P5().apply { createCanvas(w, h, renderMode).apply { if(hide) hide() } }
-    fun createGraphics(wh: Vector, renderMode: RenderMode, hide: Boolean = true): P5 = createGraphics(wh.x, wh.y, renderMode, hide)
+        P5().apply { createCanvas(w, h, renderMode).apply { if (hide) hide() } }
+
+    fun createGraphics(wh: Vector, renderMode: RenderMode, hide: Boolean = true): P5 =
+        createGraphics(wh.x, wh.y, renderMode, hide)
+
     fun createGraphics(hide: Boolean = true): P5 = createGraphics(0, 0, hide)
     fun createGraphics(renderMode: RenderMode, hide: Boolean = true): P5 = createGraphics(0, 0, renderMode, hide)
     fun blendMode(mode: BlendMode) = nativeP5.blendMode(mode.nativeValue)
@@ -384,11 +491,16 @@ class P5(val nativeP5: NativeP5) {
     val canvasHtml: dynamic get() = nativeP5.canvasHtml
 
     // TRANSFORM
-    fun applyMatrix(a: Number, b: Number, c: Number, d: Number, e: Number, f: Number) = nativeP5.applyMatrix(a, b, c, d, e, f)
-    fun applyMatrix(a: Number, b: Number, c: Number, d: Number,
-                    e: Number, f: Number, g: Number, h: Number,
-                    i: Number, j: Number, k: Number, l: Number,
-                    m: Number, n: Number, o: Number, p: Number) = nativeP5.applyMatrix(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p)
+    fun applyMatrix(a: Number, b: Number, c: Number, d: Number, e: Number, f: Number) =
+        nativeP5.applyMatrix(a, b, c, d, e, f)
+
+    fun applyMatrix(
+        a: Number, b: Number, c: Number, d: Number,
+        e: Number, f: Number, g: Number, h: Number,
+        i: Number, j: Number, k: Number, l: Number,
+        m: Number, n: Number, o: Number, p: Number
+    ) = nativeP5.applyMatrix(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p)
+
     fun rotateMatrix() = nativeP5.rotateMatrix()
     fun rotate(angle: Number) = nativeP5.rotate(angle)
     fun rotate(angle: Number, axis: NativeVector) = nativeP5.rotate(angle, axis)
@@ -423,7 +535,7 @@ class P5(val nativeP5: NativeP5) {
 
     // Acceleration
     val deviceOrientation: DeviceOrientation?
-        get() = when(nativeP5.deviceOrientation) {
+        get() = when (nativeP5.deviceOrientation) {
             "landscape" -> DeviceOrientation.LANDSCAPE
             "portrait" -> DeviceOrientation.PORTRAIT
             else -> null
@@ -441,9 +553,9 @@ class P5(val nativeP5: NativeP5) {
     val pRotationY: Number by nativeP5::pRotationY
     val pRotationZ: Number by nativeP5::pRotationZ
     val turnAxis: String by nativeP5::turnAxis
-    var deviceMoved: ()->Unit by nativeP5::deviceMoved
-    var deviceTurned: ()->Unit by nativeP5::deviceTurned
-    var deviceShaken: ()->Unit by nativeP5::deviceShaken
+    var deviceMoved: () -> Unit by nativeP5::deviceMoved
+    var deviceTurned: () -> Unit by nativeP5::deviceTurned
+    var deviceShaken: () -> Unit by nativeP5::deviceShaken
     fun setMoveThreshold(value: Number) = nativeP5.setMoveThreshold(value)
     fun setShakeThreshold(value: Number) = nativeP5.setShakeThreshold(value)
 
@@ -451,15 +563,22 @@ class P5(val nativeP5: NativeP5) {
     val isKeyPressed: Boolean by nativeP5::isKeyPressed
     val key: String by nativeP5::key
     val keyCode: Number by nativeP5::keyCode
-    var keyPressed: (KeyboardEvent)->Unit
+    var keyPressed: (KeyboardEvent) -> Unit
         get() = { nativeP5.keyPressed(it.nativeKeyboardEvent) }
-        set(value) { nativeP5.keyPressed = { value(KeyboardEvent(it)) } }
-    var keyReleased: (KeyboardEvent)->Unit
+        set(value) {
+            nativeP5.keyPressed = { value(KeyboardEvent(it)) }
+        }
+    var keyReleased: (KeyboardEvent) -> Unit
         get() = { nativeP5.keyPressed(it.nativeKeyboardEvent) }
-        set(value) { nativeP5.keyPressed = { value(KeyboardEvent(it)) } }
-    var keyTyped: (KeyboardEvent)->Unit
+        set(value) {
+            nativeP5.keyPressed = { value(KeyboardEvent(it)) }
+        }
+    var keyTyped: (KeyboardEvent) -> Unit
         get() = { nativeP5.keyPressed(it.nativeKeyboardEvent) }
-        set(value) { nativeP5.keyPressed = { value(KeyboardEvent(it)) } }
+        set(value) {
+            nativeP5.keyPressed = { value(KeyboardEvent(it)) }
+        }
+
     fun keyIsDown(code: Int): Boolean = nativeP5.keyIsDown(code)
 
     // Mouse
@@ -474,62 +593,94 @@ class P5(val nativeP5: NativeP5) {
     val pwinMouseX: Number by nativeP5::pwinMouseX
     val pwinMouseY: Number by nativeP5::pwinMouseY
     val mouseIsPressed: Boolean by nativeP5::mouseIsPressed
-    var mouseMoved: ()->Unit by nativeP5::mouseMoved
-    var mouseDragged: ()-> Unit by nativeP5::mouseDragged
-    var mousePressed: ()->Unit by nativeP5::mousePressed
-    var mouseReleased: ()-> Unit by nativeP5::mouseReleased
-    var mouseClicked: ()->Unit by nativeP5::mouseClicked
-    var doubleClicked: ()-> Unit by nativeP5::doubleClicked
-    var mouseWheel: (WheelEvent)-> Unit
+    var mouseMoved: () -> Unit by nativeP5::mouseMoved
+    var mouseDragged: () -> Unit by nativeP5::mouseDragged
+    var mousePressed: () -> Unit by nativeP5::mousePressed
+    var mouseReleased: () -> Unit by nativeP5::mouseReleased
+    var mouseClicked: () -> Unit by nativeP5::mouseClicked
+    var doubleClicked: () -> Unit by nativeP5::doubleClicked
+    var mouseWheel: (WheelEvent) -> Unit
         get() = { nativeP5.mouseWheel(it.nativeWheelEvent) }
-        set(value) { nativeP5.mouseWheel = { value(WheelEvent(it)) } }
-    val mouseButton: MouseButton? get() {
-        return when(nativeP5.mouseButton) {
-            MouseButton.CENTER.nativeValue -> MouseButton.CENTER
-            MouseButton.LEFT.nativeValue -> MouseButton.LEFT
-            MouseButton.RIGHT.nativeValue -> MouseButton.RIGHT
-            else -> null
+        set(value) {
+            nativeP5.mouseWheel = { value(WheelEvent(it)) }
         }
-    }
+    val mouseButton: MouseButton?
+        get() {
+            return when (nativeP5.mouseButton) {
+                MouseButton.CENTER.nativeValue -> MouseButton.CENTER
+                MouseButton.LEFT.nativeValue -> MouseButton.LEFT
+                MouseButton.RIGHT.nativeValue -> MouseButton.RIGHT
+                else -> null
+            }
+        }
+
     fun requestPointerLock() = nativeP5.requestPointerLock()
     fun exitPointerLock() = nativeP5.exitPointerLock()
 
     // Touch
     val touches: Array<dynamic> by nativeP5::touches// TODO: Remove Dynamic
-    var touchStarted: ()->Unit by nativeP5::touchStarted
-    var touchMoved: ()->Unit by nativeP5::touchMoved
-    var touchEnded: ()->Unit by nativeP5::touchEnded
+    var touchStarted: () -> Unit by nativeP5::touchStarted
+    var touchMoved: () -> Unit by nativeP5::touchMoved
+    var touchEnded: () -> Unit by nativeP5::touchEnded
 
     // IMAGES
     fun createImage(width: Int, height: Int): Image = Image(nativeP5.createImage(width, height))
     fun saveCanvas(fileName: String) = nativeP5.saveCanvas(fileName)
     fun saveCanvas(filename: String, extension: ImageExtension) = nativeP5.saveCanvas(filename, extension.nativeValue)
-    fun saveCanvas(selectedCanvas: Element, filename: String) = nativeP5.saveCanvas(selectedCanvas.nativeElement, filename)
+    fun saveCanvas(selectedCanvas: Element, filename: String) =
+        nativeP5.saveCanvas(selectedCanvas.nativeElement, filename)
+
     fun saveCanvas(selectedCanvas: Element, filename: String, extension: ImageExtension) =
         nativeP5.saveCanvas(selectedCanvas.nativeElement, filename, extension.nativeValue)
+
     fun saveFrames(filename: String, extension: ImageExtension, duration: Number, framerate: Number) =
         nativeP5.saveFrames(filename, extension.nativeValue, duration, framerate)
-    fun saveFrames(filename: String, extension: ImageExtension, duration: Number, framerate: Number, callback: (dynamic)->Unit) =
+
+    fun saveFrames(
+        filename: String,
+        extension: ImageExtension,
+        duration: Number,
+        framerate: Number,
+        callback: (dynamic) -> Unit
+    ) =
         nativeP5.saveFrames(filename, extension.nativeValue, duration, framerate, callback) // TODO: Remove Dynamic
 
     // Loading & Displaying
     fun loadImage(path: String): Image = Image(nativeP5.loadImage(path))
-    fun loadImage(path: String, successCallback: (Image)->Unit): Image = Image(nativeP5.loadImage(path) { successCallback(Image(it)) } )
+    fun loadImage(path: String, successCallback: (Image) -> Unit): Image =
+        Image(nativeP5.loadImage(path) { successCallback(Image(it)) })
+
     // fun loadImage(path: String, successCallback: (Image)->Unit, failureCallback: (dynamic)->Unit): Image TODO: Implement this
     fun image(img: Image, x: Number, y: Number) = nativeP5.image(img.nativeImage, x, y)
     fun image(img: Image, xy: Vector) = image(img, xy.x, xy.y)
-    fun image(img: Image, x: Number, y: Number, width: Number, height: Number) = nativeP5.image(img.nativeImage, x, y, width, height)
+    fun image(img: Image, x: Number, y: Number, width: Number, height: Number) =
+        nativeP5.image(img.nativeImage, x, y, width, height)
+
     fun image(img: Image, xy: Vector, width: Number, height: Number) = image(img, xy.x, xy.y, width, height)
     fun image(img: Image, xy: Vector, wh: Vector) = image(img, xy.x, xy.y, wh.x, wh.y)
-    fun image(img: P5, x: Number, y: Number, width: Number, height: Number) = nativeP5.image(img.nativeP5, x, y, width, height)
+    fun image(img: P5, x: Number, y: Number, width: Number, height: Number) =
+        nativeP5.image(img.nativeP5, x, y, width, height)
+
     fun image(img: P5, xy: Vector, width: Number, height: Number) = image(img, xy.x, xy.y, width, height)
     fun image(img: P5, xy: Vector, wh: Vector) = image(img, xy.x, xy.y, wh.x, wh.y)
     fun image(img: Image, dx: Number, dy: Number, dWidth: Number, dHeight: Number, sx: Number, sy: Number) =
         nativeP5.image(img.nativeImage, dx, dy, dWidth, dHeight, sx, sy)
-    fun image(img: Image, dx: Number, dy: Number, dWidth: Number, dHeight: Number, sx: Number, sy: Number, sWidth: Number, sHeight: Number) =
+
+    fun image(
+        img: Image,
+        dx: Number,
+        dy: Number,
+        dWidth: Number,
+        dHeight: Number,
+        sx: Number,
+        sy: Number,
+        sWidth: Number,
+        sHeight: Number
+    ) =
         nativeP5.image(img.nativeImage, dx, dy, dWidth, dHeight, sx, sy, sWidth, sHeight)
+
     fun tint(gray: Number) = nativeP5.tint(gray)
-    fun tint(gray: Number, alpha : Number) = nativeP5.tint(gray, alpha)
+    fun tint(gray: Number, alpha: Number) = nativeP5.tint(gray, alpha)
     fun tint(v1: Number, v2: Number, v3: Number) = nativeP5.tint(v1, v2, v3)
     fun tint(v1: Number, v2: Number, v3: Number, alpha: Number) = nativeP5.tint(v1, v2, v3, alpha)
     fun tint(colorString: String) = nativeP5.tint(colorString)
@@ -541,15 +692,37 @@ class P5(val nativeP5: NativeP5) {
     //Pixels
     fun blend(sx: Int, sy: Int, sw: Int, sh: Int, dx: Int, dy: Int, dw: Int, dh: Int, blendMode: BlendMode) =
         nativeP5.blend(sx, sy, sw, sh, dx, dy, dw, dh, blendMode.nativeValue)
-    fun blend(srcImage: Image, sx: Int, sy: Int, sw: Int, sh: Int, dx: Int, dy: Int, dw: Int, dh: Int, blendMode: BlendMode) =
+
+    fun blend(
+        srcImage: Image,
+        sx: Int,
+        sy: Int,
+        sw: Int,
+        sh: Int,
+        dx: Int,
+        dy: Int,
+        dw: Int,
+        dh: Int,
+        blendMode: BlendMode
+    ) =
         nativeP5.blend(srcImage.nativeImage, sx, sy, sw, sh, dx, dy, dw, dh, blendMode.nativeValue)
-    fun copy(sx: Int, sy: Int, sw: Int, sh: Int, dx: Int, dy: Int, dw: Int, dh: Int) = nativeP5.copy(sx, sy, sw, sh, dx, dy, dw, dh)
-    fun copy(srcImage: Image, sx: Int, sy: Int, sw: Int, sh: Int, dx: Int, dy: Int, dw: Int, dh: Int) = nativeP5.copy(srcImage.nativeImage, sx, sy, sw, sh, dx, dy, dw, dh)
+
+    fun copy(sx: Int, sy: Int, sw: Int, sh: Int, dx: Int, dy: Int, dw: Int, dh: Int) =
+        nativeP5.copy(sx, sy, sw, sh, dx, dy, dw, dh)
+
+    fun copy(srcImage: Image, sx: Int, sy: Int, sw: Int, sh: Int, dx: Int, dy: Int, dw: Int, dh: Int) =
+        nativeP5.copy(srcImage.nativeImage, sx, sy, sw, sh, dx, dy, dw, dh)
+
     fun filter(filterMode: FilterMode) = nativeP5.filter(filterMode.nativeValue)
     fun filter(filterMode: FilterMode, filterParam: Number) = nativeP5.filter(filterMode.nativeValue, filterParam)
 
     fun arrayToColor(array: Array<Double>): Color {
-        return color(maxRed*array[0]/255.0, maxGreen*array[1]/255, maxBlue*array[2]/255, maxAlpha*array[3]/255)
+        return color(
+            maxRed * array[0] / 255.0,
+            maxGreen * array[1] / 255,
+            maxBlue * array[2] / 255,
+            maxAlpha * array[3] / 255
+        )
     }
 
     fun get(): Image = Image(nativeP5.get())
@@ -570,28 +743,51 @@ class P5(val nativeP5: NativeP5) {
 
     // IO
     fun loadStrings(filename: String): Array<String> = nativeP5.loadStrings(filename)
-    fun loadStrings(filename: String, callback:(Array<String>)->Unit): Array<String> = nativeP5.loadStrings(filename, callback)
-    fun loadStrings(filename: String, callback:(Array<String>)->Unit, errorCallback:(dynamic)->Unit): Array<String> = loadStrings(filename, callback, errorCallback)
+    fun loadStrings(filename: String, callback: (Array<String>) -> Unit): Array<String> =
+        nativeP5.loadStrings(filename, callback)
+
+    fun loadStrings(
+        filename: String,
+        callback: (Array<String>) -> Unit,
+        errorCallback: (dynamic) -> Unit
+    ): Array<String> = loadStrings(filename, callback, errorCallback)
 
     fun loadJSON(path: String): Json = nativeP5.loadJSON(path)
-    fun loadJSON(path: String, callback: (Json)->Unit): Json = nativeP5.loadJSON(path, callback)
-    fun loadJSON(path: String, callback: (Json)->Unit, errorCallback: ()->Unit): Json = nativeP5.loadJSON(path, callback, errorCallback)
+    fun loadJSON(path: String, callback: (Json) -> Unit): Json = nativeP5.loadJSON(path, callback)
+    fun loadJSON(path: String, callback: (Json) -> Unit, errorCallback: () -> Unit): Json =
+        nativeP5.loadJSON(path, callback, errorCallback)
+
     fun loadJSON(path: String, jsonType: JsonType): Json = nativeP5.loadJSON(path, jsonType.nativeValue)
-    fun loadJSON(path: String, jsonType: JsonType, callback: (Json)->Unit): Json = nativeP5.loadJSON(path, jsonType.nativeValue, callback)
-    fun loadJSON(path: String, jsonType: JsonType, callback: (Json)->Unit, errorCallback: ()->Unit): Json = nativeP5.loadJSON(path, jsonType.nativeValue, callback, errorCallback)
+    fun loadJSON(path: String, jsonType: JsonType, callback: (Json) -> Unit): Json =
+        nativeP5.loadJSON(path, jsonType.nativeValue, callback)
+
+    fun loadJSON(path: String, jsonType: JsonType, callback: (Json) -> Unit, errorCallback: () -> Unit): Json =
+        nativeP5.loadJSON(path, jsonType.nativeValue, callback, errorCallback)
 
     // TODO: Remove Dynamic, Make Enum
     fun httpDo(path: String): dynamic = nativeP5.httpDo(path)
     fun httpDo(path: String, method: String): dynamic = nativeP5.httpDo(path, method)
     fun httpDo(path: String, method: String, datatype: String): dynamic = nativeP5.httpDo(path, method, datatype)
-    fun httpDo(path: String, method: String, datatype: String, data: dynamic): dynamic = nativeP5.httpDo(path, method, datatype, data)
+    fun httpDo(path: String, method: String, datatype: String, data: dynamic): dynamic =
+        nativeP5.httpDo(path, method, datatype, data)
+
     fun httpDo(path: String, method: String, datatype: String, data: dynamic, callback: (dynamic) -> Unit): dynamic =
         nativeP5.httpDo(path, method, datatype, data, callback)
-    fun httpDo(path: String, method: String, datatype: String, data: dynamic, callback: (dynamic) -> Unit, errorCallback: () -> Unit): dynamic =
+
+    fun httpDo(
+        path: String,
+        method: String,
+        datatype: String,
+        data: dynamic,
+        callback: (dynamic) -> Unit,
+        errorCallback: () -> Unit
+    ): dynamic =
         nativeP5.httpDo(path, method, datatype, data, callback, errorCallback)
+
     fun httpDo(path: String, options: dynamic) = nativeP5.httpDo(path, options)
     fun httpDo(path: String, options: dynamic, callback: (dynamic) -> Unit) = nativeP5.httpDo(path, options, callback)
-    fun httpDo(path: String, options: dynamic, callback: (dynamic) -> Unit, errorCallback: () -> Unit) = nativeP5.httpDo(path, options, callback, errorCallback)
+    fun httpDo(path: String, options: dynamic, callback: (dynamic) -> Unit, errorCallback: () -> Unit) =
+        nativeP5.httpDo(path, options, callback, errorCallback)
 
     fun createWriter(name: String): PrintWriter = PrintWriter(nativeP5.createWriter(name))
 
@@ -608,16 +804,40 @@ class P5(val nativeP5: NativeP5) {
     fun save(obj: Image, filename: String, options: dynamic) = nativeP5.save(obj.nativeImage, filename, options)
 
     fun saveTable(table: Table, filename: String) = nativeP5.saveTable(table.nativeTable, filename)
-    fun saveTable(table:Table, filename: String, extension: TableMode) = nativeP5.saveTable(table.nativeTable, filename, extension.nativeValue) // TODO: Make Enum
+    fun saveTable(table: Table, filename: String, extension: TableMode) =
+        nativeP5.saveTable(table.nativeTable, filename, extension.nativeValue) // TODO: Make Enum
 
     fun loadTable(filename: String): Table = Table(nativeP5.loadTable(filename))
-    fun loadTable(filename: String, extension: TableMode): Table = Table(nativeP5.loadTable(filename, extension.nativeValue))
+    fun loadTable(filename: String, extension: TableMode): Table =
+        Table(nativeP5.loadTable(filename, extension.nativeValue))
+
     fun loadTable(filename: String, extension: TableMode, hasHeaders: Boolean): Table =
-        Table(nativeP5.loadTable(filename, extension.nativeValue, if(hasHeaders) "header" else ""))
-    fun loadTable(filename: String, extension: TableMode, hasHeaders: Boolean, callback: (Table)->Unit): Table =
-        Table(nativeP5.loadTable(filename, extension.nativeValue, if(hasHeaders) "header" else "") { callback(Table(it)) } )
-    fun loadTable(filename: String, extension: TableMode, hasHeaders: Boolean, callback: (Table)->Unit, errorCallback: (dynamic)->Unit): Table =
-        Table(nativeP5.loadTable(filename, extension.nativeValue, if(hasHeaders) "header" else "", { callback(Table(it)) }, errorCallback))
+        Table(nativeP5.loadTable(filename, extension.nativeValue, if (hasHeaders) "header" else ""))
+
+    fun loadTable(filename: String, extension: TableMode, hasHeaders: Boolean, callback: (Table) -> Unit): Table =
+        Table(
+            nativeP5.loadTable(
+                filename,
+                extension.nativeValue,
+                if (hasHeaders) "header" else ""
+            ) { callback(Table(it)) })
+
+    fun loadTable(
+        filename: String,
+        extension: TableMode,
+        hasHeaders: Boolean,
+        callback: (Table) -> Unit,
+        errorCallback: (dynamic) -> Unit
+    ): Table =
+        Table(
+            nativeP5.loadTable(
+                filename,
+                extension.nativeValue,
+                if (hasHeaders) "header" else "",
+                { callback(Table(it)) },
+                errorCallback
+            )
+        )
 
     fun createTable(): Table = Table(NativeTable())
     fun createTable(rows: Array<TableRow>): Table = Table(NativeTable(rows.arrayMap { it.nativeTableRow }))
@@ -638,15 +858,23 @@ class P5(val nativeP5: NativeP5) {
 
     fun map(value: Number, start1: Number, stop1: Number, start2: Number, stop2: Number): Double =
         nativeP5.map(value, start1, stop1, start2, stop2)
-    fun map(value: Number, start1: Number, stop1: Number, start2: Number, stop2: Number, withinBounds: Boolean): Double =
+
+    fun map(
+        value: Number,
+        start1: Number,
+        stop1: Number,
+        start2: Number,
+        stop2: Number,
+        withinBounds: Boolean
+    ): Double =
         nativeP5.map(value, start1, stop1, start2, stop2, withinBounds)
 
     @Serializable(with = VectorSerializer::class)
     class Vector(val nativeVector: NativeVector) {
-        constructor(): this(NativeVector())
-        constructor(x: Number): this(NativeVector(x))
-        constructor(x: Number, y: Number): this(NativeVector(x, y))
-        constructor(x: Number, y: Number, z: Number): this(NativeVector(x, y, z))
+        constructor() : this(NativeVector())
+        constructor(x: Number) : this(NativeVector(x))
+        constructor(x: Number, y: Number) : this(NativeVector(x, y))
+        constructor(x: Number, y: Number, z: Number) : this(NativeVector(x, y, z))
 
         var x: Double by nativeVector::x
         var y: Double by nativeVector::y
@@ -665,34 +893,52 @@ class P5(val nativeP5: NativeP5) {
         fun mag(): Double = nativeVector.mag()
         fun magSq(): Double = nativeVector.magSq()
         fun dot(v: Vector): Double = nativeVector.dot(v.nativeVector)
-        fun cross(v: Vector) { nativeVector.cross(v.nativeVector) }
+        fun cross(v: Vector) {
+            nativeVector.cross(v.nativeVector)
+        }
+
         fun crossed(v: Vector): Vector = cross(this, v)
         fun dist(v: Vector): Double = nativeVector.dist(v.nativeVector)
-        fun normalize() { nativeVector.normalize() }
+        fun normalize() {
+            nativeVector.normalize()
+        }
+
         fun normalized(): Vector = normalize(this)
-        fun limit(n: Number) { nativeVector.limit(n) }
+        fun limit(n: Number) {
+            nativeVector.limit(n)
+        }
+
         fun limited(n: Number): Vector = Vector(nativeVector.copy().limit(n))
-        fun setMag(len: Number) { nativeVector.setMag(len) }
+        fun setMag(len: Number) {
+            nativeVector.setMag(len)
+        }
+
         fun heading(): Double = nativeVector.heading()
         fun setHeading(angle: Number) = nativeVector.setHeading(angle)
-        fun rotate(angle: Number) { nativeVector.rotate(angle) }
+        fun rotate(angle: Number) {
+            nativeVector.rotate(angle)
+        }
+
         fun rotated(angle: Number): Vector = rotate(this, angle)
         fun angleBetween(v: Vector): Double = nativeVector.angleBetween(v.nativeVector)
         fun lerp(v: Vector): Vector {
             nativeVector.lerp(v.nativeVector)
             return this
         }
+
         fun lerped(v: Vector): Vector = Vector(nativeVector.copy().lerp(v.nativeVector))
         fun reflect(v: Vector): Vector {
             nativeVector.reflect(v.nativeVector)
             return this
         }
+
         fun reflected(v: Vector): Vector = Vector(nativeVector.copy().reflect(v.nativeVector))
         fun array(): Array<Number> = nativeVector.array()
-        override fun equals(other: Any?): Boolean = when(other) {
+        override fun equals(other: Any?): Boolean = when (other) {
             is Vector -> (x == other.x) && (y == other.y) && (z == other.z)
             else -> false
         }
+
         override fun hashCode(): Int {
             var result = x.hashCode()
             result = 31 * result + y.hashCode()
@@ -703,18 +949,22 @@ class P5(val nativeP5: NativeP5) {
         companion object {
             fun fromAngle(angle: Number): Vector = Vector(NativeVector.fromAngle(angle))
             fun fromAngle(angle: Number, length: Number): Vector = Vector(NativeVector.fromAngle(angle, length))
-            fun fromAngles(theta: Number, phi: Number): Vector =  Vector(NativeVector.fromAngles(theta, phi))
-            fun fromAngles(theta: Number, phi: Number, length: Number): Vector = Vector(NativeVector.fromAngles(theta, phi, length))
-            fun random2D(): Vector =  Vector(NativeVector.random2D())
-            fun random3D(): Vector =  Vector(NativeVector.random3D())
-            fun add(v1: Vector, v2: Vector): Vector =  Vector(NativeVector.add(v1.nativeVector, v2.nativeVector))
-            fun rem(v1: Vector, v2: Vector): Vector =  Vector(NativeVector.rem(v1.nativeVector, v2.nativeVector))
-            fun sub(v1: Vector, v2: Vector): Vector =  Vector(NativeVector.sub(v1.nativeVector, v2.nativeVector))
-            fun mult(v: Vector, n: Number): Vector =  Vector(NativeVector.mult(v.nativeVector, n))
-            fun mult(v1: Vector, v2: Vector): Vector =  Vector(NativeVector.mult(v1.nativeVector, v2.nativeVector))
-            fun div(v: Vector, n: Number): Vector =  Vector(NativeVector.div(v.nativeVector, n))
-            fun div(v1: Vector, v2: Vector): Vector =  Vector(NativeVector.div(v1.nativeVector, v2.nativeVector))
-            fun lerp(v1: Vector, v2: Vector, amt: Number): Vector = Vector(NativeVector.lerp(v1.nativeVector, v2.nativeVector, amt))
+            fun fromAngles(theta: Number, phi: Number): Vector = Vector(NativeVector.fromAngles(theta, phi))
+            fun fromAngles(theta: Number, phi: Number, length: Number): Vector =
+                Vector(NativeVector.fromAngles(theta, phi, length))
+
+            fun random2D(): Vector = Vector(NativeVector.random2D())
+            fun random3D(): Vector = Vector(NativeVector.random3D())
+            fun add(v1: Vector, v2: Vector): Vector = Vector(NativeVector.add(v1.nativeVector, v2.nativeVector))
+            fun rem(v1: Vector, v2: Vector): Vector = Vector(NativeVector.rem(v1.nativeVector, v2.nativeVector))
+            fun sub(v1: Vector, v2: Vector): Vector = Vector(NativeVector.sub(v1.nativeVector, v2.nativeVector))
+            fun mult(v: Vector, n: Number): Vector = Vector(NativeVector.mult(v.nativeVector, n))
+            fun mult(v1: Vector, v2: Vector): Vector = Vector(NativeVector.mult(v1.nativeVector, v2.nativeVector))
+            fun div(v: Vector, n: Number): Vector = Vector(NativeVector.div(v.nativeVector, n))
+            fun div(v1: Vector, v2: Vector): Vector = Vector(NativeVector.div(v1.nativeVector, v2.nativeVector))
+            fun lerp(v1: Vector, v2: Vector, amt: Number): Vector =
+                Vector(NativeVector.lerp(v1.nativeVector, v2.nativeVector, amt))
+
             fun cross(v1: Vector, v2: Vector): Vector = Vector(NativeVector.cross(v1.nativeVector, v2.nativeVector))
             fun dot(v1: Vector, v2: Vector): Double = NativeVector.dot(v1.nativeVector, v2.nativeVector)
             fun dist(v1: Vector, v2: Vector): Double = NativeVector.dist(v1.nativeVector, v2.nativeVector)
@@ -766,8 +1016,10 @@ class P5(val nativeP5: NativeP5) {
     fun textWrap(): String = nativeP5.textWrap() // TODO: Make Enum
     fun textWrap(wrapStyle: String) = nativeP5.textWrap(wrapStyle) // TODO: Make Enum
     fun loadFont(path: String): Font = Font(nativeP5.loadFont(path))
-    fun loadFont(path: String, callback: (Font)->Unit): Font = Font(nativeP5.loadFont(path) { callback(Font(it)) })
-    fun loadFont(path: String, callback: (Font)->Unit, onError: (dynamic)->Unit): Font = Font(nativeP5.loadFont(path, { callback(Font(it)) }, onError))
+    fun loadFont(path: String, callback: (Font) -> Unit): Font = Font(nativeP5.loadFont(path) { callback(Font(it)) })
+    fun loadFont(path: String, callback: (Font) -> Unit, onError: (dynamic) -> Unit): Font =
+        Font(nativeP5.loadFont(path, { callback(Font(it)) }, onError))
+
     fun text(str: String, x: Number, y: Number) = nativeP5.text(str, x, y)
     fun text(str: String, xy: Vector) = nativeP5.text(str, xy.x, xy.y)
     fun text(str: String, x: Number, y: Number, x2: Number, y2: Number) = nativeP5.text(str, x, y, x2, y2)
@@ -779,11 +1031,20 @@ class P5(val nativeP5: NativeP5) {
     fun textFont(fontName: String, size: Number) = nativeP5.textFont(fontName, size)
 
     // SHADERS
-    fun loadShader(vertFilename: String, fragFilename: String): Shader = Shader(nativeP5.loadShader(vertFilename, fragFilename))
-    fun loadShader(vertFilename: String, fragFilename: String, callback: (Shader)->Unit): Shader =
+    fun loadShader(vertFilename: String, fragFilename: String): Shader =
+        Shader(nativeP5.loadShader(vertFilename, fragFilename))
+
+    fun loadShader(vertFilename: String, fragFilename: String, callback: (Shader) -> Unit): Shader =
         Shader(nativeP5.loadShader(vertFilename, fragFilename) { callback(Shader(it)) })
-    fun loadShader(vertFilename: String, fragFilename: String, callback: (Shader)->Unit, errorCallback: (dynamic)->Unit): Shader =
+
+    fun loadShader(
+        vertFilename: String,
+        fragFilename: String,
+        callback: (Shader) -> Unit,
+        errorCallback: (dynamic) -> Unit
+    ): Shader =
         Shader(nativeP5.loadShader(vertFilename, fragFilename, { callback(Shader(it)) }, errorCallback))
+
     fun shader(s: Shader) = nativeP5.shader(s.nativeShader)
     fun resetShader() = nativeP5.resetShader()
     fun texture(tex: Image) = nativeP5.texture(tex.nativeImage)
@@ -793,16 +1054,20 @@ class P5(val nativeP5: NativeP5) {
     fun textureMode(mode: String) = nativeP5.textureMode(mode) // TODO: Make Enum
     fun textureWrap(wrapX: String, wrapY: String) = nativeP5.textureWrap(wrapX, wrapX) // TODO: Make Enum
 
-    fun createShader(vertSrc: String, fragSrc: String, uniformCallbacks: MutableMap<String, ()->Any> = mutableMapOf()): Shader =
+    fun createShader(
+        vertSrc: String,
+        fragSrc: String,
+        uniformCallbacks: MutableMap<String, () -> Any> = mutableMapOf()
+    ): Shader =
         Shader(nativeP5.createShader(vertSrc, fragSrc), uniformCallbacks)
 
 
     // SCOPE EXTENSION FUNCTIONS
-    fun buildShape2D(pathMode: PathMode?, close: CLOSE?, path: ShapeBuilder2D.()->Unit) {
+    fun buildShape2D(pathMode: PathMode?, close: CLOSE?, path: ShapeBuilder2D.() -> Unit) {
         val shapeScope = ShapeBuilder2D()
         if (pathMode == null) {
             nativeP5.beginShape()
-        } else when(val value = pathMode.nativeValue) {
+        } else when (val value = pathMode.nativeValue) {
             is String -> nativeP5.beginShapeString(value)
             is Number -> nativeP5.beginShapeNumber(value)
             else -> throw IllegalStateException()
@@ -810,14 +1075,15 @@ class P5(val nativeP5: NativeP5) {
         path(shapeScope)
         if (close == null) nativeP5.endShape() else nativeP5.endShape("close")
     }
-    fun buildShape2D(path: ShapeBuilder2D.()->Unit) = buildShape2D(null, null, path)
-    fun buildShape2D(pathMode: PathMode, path: ShapeBuilder2D.()->Unit) = buildShape2D(pathMode, null, path)
-    fun buildShape2D(close: CLOSE?, path: ShapeBuilder2D.()->Unit) = buildShape2D(null, close, path)
+
+    fun buildShape2D(path: ShapeBuilder2D.() -> Unit) = buildShape2D(null, null, path)
+    fun buildShape2D(pathMode: PathMode, path: ShapeBuilder2D.() -> Unit) = buildShape2D(pathMode, null, path)
+    fun buildShape2D(close: CLOSE?, path: ShapeBuilder2D.() -> Unit) = buildShape2D(null, close, path)
 
 
-    fun buildShape3D(pathMode: PathMode?=null, close: CLOSE?=null, path: ShapeBuilder3D.()->Unit) {
+    fun buildShape3D(pathMode: PathMode? = null, close: CLOSE? = null, path: ShapeBuilder3D.() -> Unit) {
         val shapeScope = ShapeBuilder3D()
-        when(val value = pathMode?.nativeValue) {
+        when (val value = pathMode?.nativeValue) {
             (value == null) -> nativeP5.beginShape()
             is String -> nativeP5.beginShapeString(value)
             is Number -> nativeP5.beginShapeNumber(value)
@@ -828,9 +1094,12 @@ class P5(val nativeP5: NativeP5) {
 
     var isWebgl2Enabled: Boolean = false
     fun enableWebgl2() {
-        if (isWebgl2Enabled) { return }
+        if (isWebgl2Enabled) {
+            return
+        }
         val p5 = p5
-        js(""" 
+        js(
+            """ 
             console.log("enabling experimental WEBGL2 mode");
             p5.RendererGL.prototype._initContext = function() {
                 try {
@@ -854,15 +1123,25 @@ class P5(val nativeP5: NativeP5) {
         isWebgl2Enabled = true
     }
 
-    sealed class PixelSource { abstract val pixels: Array<Int> }
-    class P5PixelSource(val instance: P5): PixelSource() {
-        override val pixels: Array<Int> get() { return instance.nativeP5.pixels }
-    }
-    class ImagePixelSource(val instance: Image): PixelSource() {
-        override val pixels: Array<Int> get() { return instance.pixels }
+    sealed class PixelSource {
+        abstract val pixels: Array<Int>
     }
 
-    fun <T> withPixels(density: Int = 1, block: PixelScope.()->T): T {
+    class P5PixelSource(val instance: P5) : PixelSource() {
+        override val pixels: Array<Int>
+            get() {
+                return instance.nativeP5.pixels
+            }
+    }
+
+    class ImagePixelSource(val instance: Image) : PixelSource() {
+        override val pixels: Array<Int>
+            get() {
+                return instance.pixels
+            }
+    }
+
+    fun <T> withPixels(density: Int = 1, block: PixelScope.() -> T): T {
         val pixelScope = PixelScope(density, P5PixelSource(this))
         if (density != pixelDensity()) {
             pixelDensity(density)
@@ -873,7 +1152,7 @@ class P5(val nativeP5: NativeP5) {
         return result
     }
 
-    fun <T> Image.withPixels(density: Int = 1, block: PixelScope.()->T): T {
+    fun <T> Image.withPixels(density: Int = 1, block: PixelScope.() -> T): T {
         val pixelScope = PixelScope(density, ImagePixelSource(this))
         if (density != pixelDensity()) {
             pixelDensity(density)
@@ -886,35 +1165,39 @@ class P5(val nativeP5: NativeP5) {
 
     inner class PixelScope(val pd: Int, val pixelSource: PixelSource) {
 
-        val pixels: Array<Int> get() { return pixelSource.pixels }
+        val pixels: Array<Int>
+            get() {
+                return pixelSource.pixels
+            }
 
         private fun RCToI(row: Int, col: Int): Int {
-            return 4*pd*(pd*width*row + col)
+            return 4 * pd * (pd * width * row + col)
         }
 
         private fun RCToI(row: Double, col: Double): Int {
-            return 4*pd*width*(pd*row).toInt() + 4*(pd*col).toInt()
+            return 4 * pd * width * (pd * row).toInt() + 4 * (pd * col).toInt()
         }
 
         private fun RCToI(vector: Vector): Int {
             return RCToI(vector.y, vector.x)
         }
 
-        val redChannel = object: PixelArray<Double> {
+        val redChannel = object : PixelArray<Double> {
 
             fun encode(element: Double): Int {
-                return (element/maxRed*255.0).toInt()
+                return (element / maxRed * 255.0).toInt()
             }
 
             fun decode(element: Int): Double {
-                return (element*maxRed)/255.0
+                return (element * maxRed) / 255.0
             }
 
             override fun set(index: Int, element: Double) {
-                pixels[index*4] = encode(element)
+                pixels[index * 4] = encode(element)
             }
+
             override fun get(index: Int): Double {
-                return decode(pixels[index*4])
+                return decode(pixels[index * 4])
             }
 
             override fun set(row: Int, col: Int, element: Double) {
@@ -942,20 +1225,21 @@ class P5(val nativeP5: NativeP5) {
             }
         }
 
-        val greenChannel = object: PixelArray<Double> {
+        val greenChannel = object : PixelArray<Double> {
             fun encode(element: Double): Int {
-                return (element/maxGreen*255.0).toInt()
+                return (element / maxGreen * 255.0).toInt()
             }
 
             fun decode(element: Int): Double {
-                return (element*maxGreen)/255.0
+                return (element * maxGreen) / 255.0
             }
 
             override fun set(index: Int, element: Double) {
-                pixels[index*4 + 1] = encode(element)
+                pixels[index * 4 + 1] = encode(element)
             }
+
             override fun get(index: Int): Double {
-                return decode(pixels[index*4 + 1])
+                return decode(pixels[index * 4 + 1])
             }
 
             override fun set(row: Int, col: Int, element: Double) {
@@ -983,20 +1267,21 @@ class P5(val nativeP5: NativeP5) {
             }
         }
 
-        val blueChannel = object: PixelArray<Double> {
+        val blueChannel = object : PixelArray<Double> {
             fun encode(element: Double): Int {
-                return (element/maxBlue*255.0).toInt()
+                return (element / maxBlue * 255.0).toInt()
             }
 
             fun decode(element: Int): Double {
-                return (element*maxBlue)/255.0
+                return (element * maxBlue) / 255.0
             }
 
             override fun set(index: Int, element: Double) {
-                pixels[index*4 + 2] = encode(element)
+                pixels[index * 4 + 2] = encode(element)
             }
+
             override fun get(index: Int): Double {
-                return decode(pixels[index*4 + 2])
+                return decode(pixels[index * 4 + 2])
             }
 
             override fun set(row: Int, col: Int, element: Double) {
@@ -1024,20 +1309,21 @@ class P5(val nativeP5: NativeP5) {
             }
         }
 
-        val alphaChannel = object: PixelArray<Double> {
+        val alphaChannel = object : PixelArray<Double> {
             fun encode(element: Double): Int {
-                return (element/maxAlpha*255.0).toInt()
+                return (element / maxAlpha * 255.0).toInt()
             }
 
             fun decode(element: Int): Double {
-                return (element*maxAlpha)/255.0
+                return (element * maxAlpha) / 255.0
             }
 
             override fun set(index: Int, element: Double) {
-                pixels[index*4 + 3] = encode(element)
+                pixels[index * 4 + 3] = encode(element)
             }
+
             override fun get(index: Int): Double {
-                return decode(pixels[index*4 + 3])
+                return decode(pixels[index * 4 + 3])
             }
 
             override fun set(row: Int, col: Int, element: Double) {
@@ -1065,7 +1351,7 @@ class P5(val nativeP5: NativeP5) {
             }
         }
 
-        val colorArray = object: PixelArray<Color> {
+        val colorArray = object : PixelArray<Color> {
             override fun set(index: Int, element: Color) {
                 redChannel[index] = red(element)
                 greenChannel[index] = green(element)
@@ -1150,23 +1436,25 @@ class P5(val nativeP5: NativeP5) {
     fun scalarMode(axes: ScalarMode) {
         _ScalarMode.scalarMode = axes
     }
+
     fun scalarMode(): ScalarMode {
         return _ScalarMode.scalarMode
     }
 
     operator fun Vector.plus(other: Vector) = Vector.add(this, other)
     operator fun Vector.plus(other: Number): Vector {
-        return when(_ScalarMode.scalarMode) {
+        return when (_ScalarMode.scalarMode) {
             ScalarMode.X -> Vector.add(this, createVector(other, 0, 0))
             ScalarMode.XY -> Vector.add(this, createVector(other, other, 0))
             ScalarMode.XYZ -> Vector.add(this, createVector(other, other, other))
         }
     }
+
     operator fun Vector.rem(other: Vector) = Vector.rem(this, other)
 
     operator fun Vector.minus(other: Vector) = Vector.sub(this, other)
     operator fun Vector.minus(other: Number): Vector {
-        return when(_ScalarMode.scalarMode) {
+        return when (_ScalarMode.scalarMode) {
             ScalarMode.X -> Vector.sub(this, createVector(other, 0, 0))
             ScalarMode.XY -> Vector.sub(this, createVector(other, other, 0))
             ScalarMode.XYZ -> Vector.sub(this, createVector(other, other, other))
@@ -1184,72 +1472,210 @@ class P5(val nativeP5: NativeP5) {
     infix fun Vector.dist(other: Vector) = dist(other)
 
     // Double Get
-    val Vector.xx: Vector get() { return createVector(x, x) }
-    val Vector.yy: Vector get() { return createVector(y, y) }
-    val Vector.zz: Vector get() { return createVector(z, z) }
+    val Vector.xx: Vector
+        get() {
+            return createVector(x, x)
+        }
+    val Vector.yy: Vector
+        get() {
+            return createVector(y, y)
+        }
+    val Vector.zz: Vector
+        get() {
+            return createVector(z, z)
+        }
 
     // Triple Get
-    val Vector.xxx: Vector get() { return createVector(x, x, x) }
-    val Vector.xxy: Vector get() { return createVector(x, x, y) }
-    val Vector.xxz: Vector get() { return createVector(x, x, z) }
-    val Vector.xyx: Vector get() { return createVector(x, y, x) }
-    val Vector.xyy: Vector get() { return createVector(x, y, y) }
-    val Vector.xzx: Vector get() { return createVector(x, z, x) }
-    val Vector.xzz: Vector get() { return createVector(x, z, z) }
-    val Vector.yxx: Vector get() { return createVector(y, x, x) }
-    val Vector.yxy: Vector get() { return createVector(y, x, y) }
-    val Vector.yyx: Vector get() { return createVector(y, y, x) }
-    val Vector.yyy: Vector get() { return createVector(y, y, y) }
-    val Vector.yyz: Vector get() { return createVector(y, y, z) }
-    val Vector.yzy: Vector get() { return createVector(y, z, y) }
-    val Vector.yzz: Vector get() { return createVector(y, z, z) }
-    val Vector.zxx: Vector get() { return createVector(z, x, x) }
-    val Vector.zxz: Vector get() { return createVector(z, x, z) }
-    val Vector.zyy: Vector get() { return createVector(z, y, y) }
-    val Vector.zyz: Vector get() { return createVector(z, y, z) }
-    val Vector.zzx: Vector get() { return createVector(z, z, x) }
-    val Vector.zzy: Vector get() { return createVector(z, z, y) }
-    val Vector.zzz: Vector get() { return createVector(z, z, z) }
+    val Vector.xxx: Vector
+        get() {
+            return createVector(x, x, x)
+        }
+    val Vector.xxy: Vector
+        get() {
+            return createVector(x, x, y)
+        }
+    val Vector.xxz: Vector
+        get() {
+            return createVector(x, x, z)
+        }
+    val Vector.xyx: Vector
+        get() {
+            return createVector(x, y, x)
+        }
+    val Vector.xyy: Vector
+        get() {
+            return createVector(x, y, y)
+        }
+    val Vector.xzx: Vector
+        get() {
+            return createVector(x, z, x)
+        }
+    val Vector.xzz: Vector
+        get() {
+            return createVector(x, z, z)
+        }
+    val Vector.yxx: Vector
+        get() {
+            return createVector(y, x, x)
+        }
+    val Vector.yxy: Vector
+        get() {
+            return createVector(y, x, y)
+        }
+    val Vector.yyx: Vector
+        get() {
+            return createVector(y, y, x)
+        }
+    val Vector.yyy: Vector
+        get() {
+            return createVector(y, y, y)
+        }
+    val Vector.yyz: Vector
+        get() {
+            return createVector(y, y, z)
+        }
+    val Vector.yzy: Vector
+        get() {
+            return createVector(y, z, y)
+        }
+    val Vector.yzz: Vector
+        get() {
+            return createVector(y, z, z)
+        }
+    val Vector.zxx: Vector
+        get() {
+            return createVector(z, x, x)
+        }
+    val Vector.zxz: Vector
+        get() {
+            return createVector(z, x, z)
+        }
+    val Vector.zyy: Vector
+        get() {
+            return createVector(z, y, y)
+        }
+    val Vector.zyz: Vector
+        get() {
+            return createVector(z, y, z)
+        }
+    val Vector.zzx: Vector
+        get() {
+            return createVector(z, z, x)
+        }
+    val Vector.zzy: Vector
+        get() {
+            return createVector(z, z, y)
+        }
+    val Vector.zzz: Vector
+        get() {
+            return createVector(z, z, z)
+        }
 
     // Double Set
     var Vector.xy: Vector
-        get() { return createVector(x, y) }
-        set(other) { val newX = other.x; val newY = other.y; x = newX; y = newY }
+        get() {
+            return createVector(x, y)
+        }
+        set(other) {
+            val newX = other.x;
+            val newY = other.y; x = newX; y = newY
+        }
     var Vector.xz: Vector
-        get() { return createVector(x, z) }
-        set(other) { val newX = other.x; val newZ = other.y; x = newX; z = newZ }
+        get() {
+            return createVector(x, z)
+        }
+        set(other) {
+            val newX = other.x;
+            val newZ = other.y; x = newX; z = newZ
+        }
     var Vector.yx: Vector
-        get() { return createVector(y, x) }
-        set(other) { val newY = other.x; val newX = other.y; x = newX; y = newY }
+        get() {
+            return createVector(y, x)
+        }
+        set(other) {
+            val newY = other.x;
+            val newX = other.y; x = newX; y = newY
+        }
     var Vector.yz: Vector
-        get() { return createVector(y, z) }
-        set(other) { val newY = other.x; val newZ = other.y; y = newY; z = newZ }
+        get() {
+            return createVector(y, z)
+        }
+        set(other) {
+            val newY = other.x;
+            val newZ = other.y; y = newY; z = newZ
+        }
     var Vector.zx: Vector
-        get() { return createVector(z, x) }
-        set(other) { val newZ = other.x; val newX = other.y; x = newX; z = newZ }
+        get() {
+            return createVector(z, x)
+        }
+        set(other) {
+            val newZ = other.x;
+            val newX = other.y; x = newX; z = newZ
+        }
     var Vector.zy: Vector
-        get() { return createVector(z, y) }
-        set(other) { val newZ = other.x; val newY = other.y; y = newY; z = newZ }
+        get() {
+            return createVector(z, y)
+        }
+        set(other) {
+            val newZ = other.x;
+            val newY = other.y; y = newY; z = newZ
+        }
 
     // Triple Set
     var Vector.xyz: Vector
-        get() { return createVector(x, y, z) }
-        set(other) { val newX = other.x; val newY = other.y; val newZ = other.z; x = newX; y = newY; z = newZ }
+        get() {
+            return createVector(x, y, z)
+        }
+        set(other) {
+            val newX = other.x;
+            val newY = other.y;
+            val newZ = other.z; x = newX; y = newY; z = newZ
+        }
     var Vector.xzy: Vector
-        get() { return createVector(x, z, y) }
-        set(other) { val newX = other.x; val newZ = other.y; val newY = other.z; x = newX; y = newY; z = newZ }
+        get() {
+            return createVector(x, z, y)
+        }
+        set(other) {
+            val newX = other.x;
+            val newZ = other.y;
+            val newY = other.z; x = newX; y = newY; z = newZ
+        }
     var Vector.yxz: Vector
-        get() { return createVector(y, x, z) }
-        set(other) { val newY = other.x; val newX = other.y; val newZ = other.z; x = newX; y = newY; z = newZ }
+        get() {
+            return createVector(y, x, z)
+        }
+        set(other) {
+            val newY = other.x;
+            val newX = other.y;
+            val newZ = other.z; x = newX; y = newY; z = newZ
+        }
     var Vector.yzx: Vector
-        get() { return createVector(y, z, x) }
-        set(other) { val newY = other.x; val newZ = other.y; val newX = other.z; x = newX; y = newY; z = newZ }
+        get() {
+            return createVector(y, z, x)
+        }
+        set(other) {
+            val newY = other.x;
+            val newZ = other.y;
+            val newX = other.z; x = newX; y = newY; z = newZ
+        }
     var Vector.zxy: Vector
-        get() { return createVector(z, x, y) }
-        set(other) { val newZ = other.x; val newX = other.y; val newY = other.z; x = newX; y = newY; z = newZ }
+        get() {
+            return createVector(z, x, y)
+        }
+        set(other) {
+            val newZ = other.x;
+            val newX = other.y;
+            val newY = other.z; x = newX; y = newY; z = newZ
+        }
     var Vector.zyx: Vector
-        get() { return createVector(z, y, x) }
-        set(other) { val newZ = other.x; val newY = other.y; val newX = other.z; x = newX; y = newY; z = newZ }
+        get() {
+            return createVector(z, y, x)
+        }
+        set(other) {
+            val newZ = other.x;
+            val newY = other.y;
+            val newX = other.z; x = newX; y = newY; z = newZ
+        }
 
     fun Vector.toColor(): Color {
         return color(x, y, z)
@@ -1310,10 +1736,10 @@ class P5(val nativeP5: NativeP5) {
         }
     }
 
-    fun Color.toArray(includeAlpha: Boolean=false): Array<Number> {
+    fun Color.toArray(includeAlpha: Boolean = false): Array<Number> {
         return if (includeAlpha) {
             arrayOf(
-                red(this), green(this), blue(this), 255*alpha(this)
+                red(this), green(this), blue(this), 255 * alpha(this)
             )
         } else {
             arrayOf(
@@ -1322,7 +1748,7 @@ class P5(val nativeP5: NativeP5) {
         }
     }
 
-    fun Color.toHexString(includeAlpha: Boolean=false): String {
+    fun Color.toHexString(includeAlpha: Boolean = false): String {
         return "#${hex(toArray(includeAlpha), 2).joinToString("")}"
     }
 
@@ -1337,17 +1763,27 @@ class P5(val nativeP5: NativeP5) {
     }
 
     inner class Loop(val nativeLoop: dynamic) {
-        fun start(renderCallback: ()->Unit = {}) {
+        fun start(renderCallback: () -> Unit = {}) {
             nativeLoop.start(renderCallback)
         }
-        val progress: Double get() { return nativeLoop.progress as Double }
-        val theta: Double get() { return nativeLoop.theta as Double }
+
+        val progress: Double
+            get() {
+                return nativeLoop.progress as Double
+            }
+        val theta: Double
+            get() {
+                return nativeLoop.theta as Double
+            }
+
         fun noise(): Double {
             return nativeLoop.noise() as Double
         }
+
         fun noise1D(x: Number): Double {
             return nativeLoop.noise1D(x) as Double
         }
+
         fun noise2D(x: Number, y: Number): Double {
             return nativeLoop.noise1D(x, y) as Double
         }
@@ -1376,7 +1812,7 @@ class P5(val nativeP5: NativeP5) {
         debug: Boolean = false,
         autoStart: Boolean = true,
         instance: P5? = null,
-        block: (Loop.()->Unit)? = null
+        block: (Loop.() -> Unit)? = null
     ) {
         val canvas = instance?.canvasHtml ?: this@P5.canvasHtml
         console.log("Canvas Element", canvas, jsTypeOf(canvas))
@@ -1417,7 +1853,7 @@ class P5(val nativeP5: NativeP5) {
     }
 
     object SimplexNoise {
-        var simplexSeed = (kotlin.random.Random.nextDouble()*2048.0)
+        var simplexSeed = (kotlin.random.Random.nextDouble() * 2048.0)
         var Noise2D = OpenSimplexNoise.makeNoise2D(simplexSeed)
         var Noise3D = OpenSimplexNoise.makeNoise3D(simplexSeed)
         var Noise4D = OpenSimplexNoise.makeNoise4D(simplexSeed)
@@ -1431,44 +1867,53 @@ class P5(val nativeP5: NativeP5) {
         SimplexNoise.Noise4D = OpenSimplexNoise.makeNoise4D(seed)
     }
 
-    fun simplexNoise(x: Number): Double { return SimplexNoise.Noise2D(x, 0)
-    }
-    fun simplexNoise(x: Number, y: Number): Double { return SimplexNoise.Noise2D(x, y)
-    }
-    fun simplexNoise(x: Number, y: Number, z: Number): Double { return SimplexNoise.Noise3D(x, y, z)
-    }
-    fun simplexNoise(x: Number, y: Number, u: Number, v: Number): Double { return SimplexNoise.Noise4D(x, y, u, v)
+    fun simplexNoise(x: Number): Double {
+        return SimplexNoise.Noise2D(x, 0)
     }
 
-
-    fun <T: Pair<Number, Number>> interpolate(vl: T?=null, v0: T, v1: T, vr: T?=null, x: Number): Double {
-
-        val scale = 1/(v1.first - v0.first)
-
-        val slope0 = if(vl != null) (v1.second - vl.second)/(1-scale*(vl.first - v0.first)) else 0
-        val slope1 = if(vr != null) (vr.second - v0.second)/(scale*(vr.first - v0.first)) else 0
-
-        val xi = scale*(x - v0.first)
-
-        val a = 2*v0.second - 2*v1.second + slope0 + slope1
-        val b = -3*v0.second + 3*v1.second - 2*slope0 - slope1
-
-        return ((a*xi + b)*xi + slope0)*xi + v0.second
+    fun simplexNoise(x: Number, y: Number): Double {
+        return SimplexNoise.Noise2D(x, y)
     }
 
-    fun <T: Pair<Number, Vector>> interpolate(vl: T?=null, v0: T, v1: T, vr: T?=null, x: Number): Vector {
+    fun simplexNoise(x: Number, y: Number, z: Number): Double {
+        return SimplexNoise.Noise3D(x, y, z)
+    }
 
-        val scale = 1/(v1.first - v0.first)
+    fun simplexNoise(x: Number, y: Number, u: Number, v: Number): Double {
+        return SimplexNoise.Noise4D(x, y, u, v)
+    }
 
-        val slope0 = if(vl != null) (v1.second - vl.second)/(1-scale*(vl.first - v0.first)) else createVector(0, 0, 0)
-        val slope1 = if(vr != null) (vr.second - v0.second)/(scale*(vr.first - v0.first)) else createVector(0, 0, 0)
 
-        val xi = scale*(x - v0.first)
+    fun <T : Pair<Number, Number>> interpolate(vl: T? = null, v0: T, v1: T, vr: T? = null, x: Number): Double {
 
-        val a = v0.second*2 - v1.second*2 + slope0 + slope1
-        val b = v0.second*-3 + v1.second*3 - slope0*2 - slope1
+        val scale = 1 / (v1.first - v0.first)
 
-        return ((a*xi + b)*xi + slope0)*xi + v0.second
+        val slope0 = if (vl != null) (v1.second - vl.second) / (1 - scale * (vl.first - v0.first)) else 0
+        val slope1 = if (vr != null) (vr.second - v0.second) / (scale * (vr.first - v0.first)) else 0
+
+        val xi = scale * (x - v0.first)
+
+        val a = 2 * v0.second - 2 * v1.second + slope0 + slope1
+        val b = -3 * v0.second + 3 * v1.second - 2 * slope0 - slope1
+
+        return ((a * xi + b) * xi + slope0) * xi + v0.second
+    }
+
+    fun <T : Pair<Number, Vector>> interpolate(vl: T? = null, v0: T, v1: T, vr: T? = null, x: Number): Vector {
+
+        val scale = 1 / (v1.first - v0.first)
+
+        val slope0 =
+            if (vl != null) (v1.second - vl.second) / (1 - scale * (vl.first - v0.first)) else createVector(0, 0, 0)
+        val slope1 =
+            if (vr != null) (vr.second - v0.second) / (scale * (vr.first - v0.first)) else createVector(0, 0, 0)
+
+        val xi = scale * (x - v0.first)
+
+        val a = v0.second * 2 - v1.second * 2 + slope0 + slope1
+        val b = v0.second * -3 + v1.second * 3 - slope0 * 2 - slope1
+
+        return ((a * xi + b) * xi + slope0) * xi + v0.second
     }
 
     fun List<Pair<Number, Number>>.interpolate(x: Number): Double {
@@ -1477,12 +1922,23 @@ class P5(val nativeP5: NativeP5) {
         if (size == 1) return this[0].second.toDouble()
         if (x <= this[0].first) return this[0].second.toDouble()
         if (x >= last().first) return last().second.toDouble()
-        if (size == 2) return interpolate(v0=this[0], v1=this[1], x=x)
-        if (x <= this[1].first) return interpolate(v0=this[0], v1=this[1], vr=this[2], x=x)
-        if (x >= this[lastIndex-1].first) return interpolate(vl=this[lastIndex-2], v0=this[lastIndex-1], v1=this[lastIndex], x=x)
+        if (size == 2) return interpolate(v0 = this[0], v1 = this[1], x = x)
+        if (x <= this[1].first) return interpolate(v0 = this[0], v1 = this[1], vr = this[2], x = x)
+        if (x >= this[lastIndex - 1].first) return interpolate(
+            vl = this[lastIndex - 2],
+            v0 = this[lastIndex - 1],
+            v1 = this[lastIndex],
+            x = x
+        )
 
-        for(it in windowed(4)) {
-            if (it[1].first <= x && x <= it[2].first) return interpolate(vl=it[0], v0=it[1], v1=it[2], vr=it[3], x=x)
+        for (it in windowed(4)) {
+            if (it[1].first <= x && x <= it[2].first) return interpolate(
+                vl = it[0],
+                v0 = it[1],
+                v1 = it[2],
+                vr = it[3],
+                x = x
+            )
         }
 
         return 0.0
@@ -1494,12 +1950,23 @@ class P5(val nativeP5: NativeP5) {
         if (size == 1) return this[0].second
         if (x <= this[0].first) return this[0].second
         if (x >= last().first) return last().second
-        if (size == 2) return interpolate(v0=this[0], v1=this[1], x=x)
-        if (x <= this[1].first) return interpolate(v0=this[0], v1=this[1], vr=this[2], x=x)
-        if (x >= this[lastIndex-1].first) return interpolate(vl=this[lastIndex-2], v0=this[lastIndex-1], v1=this[lastIndex], x=x)
+        if (size == 2) return interpolate(v0 = this[0], v1 = this[1], x = x)
+        if (x <= this[1].first) return interpolate(v0 = this[0], v1 = this[1], vr = this[2], x = x)
+        if (x >= this[lastIndex - 1].first) return interpolate(
+            vl = this[lastIndex - 2],
+            v0 = this[lastIndex - 1],
+            v1 = this[lastIndex],
+            x = x
+        )
 
-        for(it in windowed(4)) {
-            if (it[1].first <= x && x <= it[2].first) return interpolate(vl=it[0], v0=it[1], v1=it[2], vr=it[3], x=x)
+        for (it in windowed(4)) {
+            if (it[1].first <= x && x <= it[2].first) return interpolate(
+                vl = it[0],
+                v0 = it[1],
+                v1 = it[2],
+                vr = it[3],
+                x = x
+            )
         }
 
         return createVector(0, 0, 0)
@@ -1512,30 +1979,35 @@ class P5(val nativeP5: NativeP5) {
     fun List<Vector>.interpolate(k: Number) = mapIndexed { i, n -> i to n }.interpolate(k)
 
     fun fractalNoise(x: Number, y: Number, octaves: List<Number>): Double {
-        return octaves.map { noise(x*(2.pow(it)), y*(2.0.pow(it))).toDouble() }.average()
+        return octaves.map { noise(x * (2.pow(it)), y * (2.0.pow(it))).toDouble() }.average()
     }
 
     fun fractalNoise(x: Number, y: Number, octaves: List<Pair<Number, Number>>): Double {
         val weightSum = octaves.sumOf { it.second.toDouble() }
-        return octaves.sumOf { (noise(x * (2.pow(it.first)), y * (2.0.pow(it.first))) * it.second).toDouble() } / weightSum
+        return octaves.sumOf {
+            (noise(
+                x * (2.pow(it.first)),
+                y * (2.0.pow(it.first))
+            ) * it.second).toDouble()
+        } / weightSum
     }
 
-    fun repeatUntilNextFrame(block: ()->Unit) {
-        val stopTime = millis() + 1000.0/frameRate()
+    fun repeatUntilNextFrame(block: () -> Unit) {
+        val stopTime = millis() + 1000.0 / frameRate()
         while (millis() < stopTime) {
             block()
         }
     }
 
     fun <T> takeUntilNextFrame(itor: Iterator<T>) = sequence {
-        val stopTime = millis() + 1000.0/frameRate()
+        val stopTime = millis() + 1000.0 / frameRate()
         while (millis() < stopTime && itor.hasNext()) {
             yield(itor.next())
         }
     }
 
     fun <T> Iterator<T>.takeUntilNextFrame() = sequence {
-        val stopTime = millis() + 1000.0/frameRate()
+        val stopTime = millis() + 1000.0 / frameRate()
         while (millis() < stopTime && hasNext()) {
             yield(next())
         }
@@ -1552,20 +2024,19 @@ class P5(val nativeP5: NativeP5) {
     }
 
 
-
     fun randInt(max: Number): Int = random(max).toInt()
     fun randInt(min: Number, max: Number): Int = random(min, max).toInt()
 
-    fun Vector.map(action: (Number)->Number): Vector {
+    fun Vector.map(action: (Number) -> Number): Vector {
         return createVector(action(x), action(y), action(z))
     }
 
     fun List<Number>.center(): Double {
-        return (fold(0 as Number) { it1, it2 -> it1+it2 })/size.toDouble()
+        return (fold(0 as Number) { it1, it2 -> it1 + it2 }) / size.toDouble()
     }
 
     fun List<Vector>.center(): Vector {
-        return (fold(createVector(0, 0, 0)) { it1, it2 -> it1+it2 })/size.toDouble()
+        return (fold(createVector(0, 0, 0)) { it1, it2 -> it1 + it2 }) / size.toDouble()
     }
 
     fun List<Number>.centerize(): List<Number> {
@@ -1579,11 +2050,20 @@ class P5(val nativeP5: NativeP5) {
     }
 
     @OverloadResolutionByLambdaReturnType
-    fun cache(volatile: Boolean = false, initialValue: () -> String)  = CacheProvider(String::class, initialValue, volatile)
-    fun cache(volatile: Boolean = false, initialValue: () -> Double)  = CacheProvider(Number::class, initialValue, volatile)
-    fun cache(volatile: Boolean = false, initialValue: () -> Boolean) = CacheProvider(Boolean::class, initialValue, volatile)
-    fun cache(volatile: Boolean = false, initialValue: () -> Color)   = CacheProvider(Color::class, initialValue, volatile)
-    fun cache(volatile: Boolean = false, initialValue: () -> Vector)  = CacheProvider(Vector::class, initialValue, volatile)
+    fun cache(volatile: Boolean = false, initialValue: () -> String) =
+        CacheProvider(String::class, initialValue, volatile)
+
+    fun cache(volatile: Boolean = false, initialValue: () -> Double) =
+        CacheProvider(Number::class, initialValue, volatile)
+
+    fun cache(volatile: Boolean = false, initialValue: () -> Boolean) =
+        CacheProvider(Boolean::class, initialValue, volatile)
+
+    fun cache(volatile: Boolean = false, initialValue: () -> Color) =
+        CacheProvider(Color::class, initialValue, volatile)
+
+    fun cache(volatile: Boolean = false, initialValue: () -> Vector) =
+        CacheProvider(Vector::class, initialValue, volatile)
 
     inner class CacheProvider<T : Any>(val classType: KClass<T>, val initialValue: () -> T, val volatile: Boolean) {
 
@@ -1592,7 +2072,7 @@ class P5(val nativeP5: NativeP5) {
         operator fun getValue(thisRef: Any?, property: KProperty<*>): T {
             val keyString = property.name
             if (innerVar != null && !volatile) return innerVar!!
-            val storedItem: T? = when(classType) {
+            val storedItem: T? = when (classType) {
                 String::class -> getItem<String>(keyString) as T?
                 Number::class -> getItem<Number>(keyString) as T?
                 Boolean::class -> getItem<Boolean>(keyString) as T?
@@ -1603,7 +2083,7 @@ class P5(val nativeP5: NativeP5) {
             if (storedItem == null) {
                 console.warn("Cached Value Not Found!")
                 val initVal = initialValue()
-                when(classType) {
+                when (classType) {
                     String::class -> storeItem(keyString, initVal as String)
                     Number::class -> storeItem(keyString, initVal as Number)
                     Boolean::class -> storeItem(keyString, initVal as Boolean)
@@ -1620,7 +2100,7 @@ class P5(val nativeP5: NativeP5) {
 
         operator fun setValue(thisRef: Any?, property: KProperty<*>, value: T) {
             val keyString = property.name
-            when(classType) {
+            when (classType) {
                 String::class -> storeItem(keyString, value as String)
                 Number::class -> storeItem(keyString, value as Number)
                 Boolean::class -> storeItem(keyString, value as Boolean)
@@ -1632,9 +2112,14 @@ class P5(val nativeP5: NativeP5) {
         }
     }
 
-    inline fun <reified T: @Serializable Any> cacheSerial(volatile: Boolean = false, noinline initialValue: () -> T) = SerialCacheProvider(typeOf<T>(), initialValue, volatile)
+    inline fun <reified T : @Serializable Any> cacheSerial(volatile: Boolean = false, noinline initialValue: () -> T) =
+        SerialCacheProvider(typeOf<T>(), initialValue, volatile)
 
-    inner class SerialCacheProvider<T : @Serializable Any>(val kType: KType, val initialValue: () -> T, val volatile: Boolean) {
+    inner class SerialCacheProvider<T : @Serializable Any>(
+        val kType: KType,
+        val initialValue: () -> T,
+        val volatile: Boolean
+    ) {
 
         var innerVar: T? = null
 
@@ -1645,7 +2130,7 @@ class P5(val nativeP5: NativeP5) {
             }
             val storedSerializedItem = getItem<String>(keyString)
             if (storedSerializedItem != null) {
-                val storedItem: T =  SerialJson.decodeFromString(kType, storedSerializedItem)
+                val storedItem: T = SerialJson.decodeFromString(kType, storedSerializedItem)
                 console.log(storedItem)
                 innerVar = storedItem
                 return storedItem
@@ -1666,7 +2151,7 @@ class P5(val nativeP5: NativeP5) {
     }
 
     infix fun Vector.cross2(other: Vector): Double {
-        return x*other.y - y*other.x
+        return x * other.y - y * other.x
     }
 
     fun Vector.toInts(): Vector {
@@ -1675,21 +2160,29 @@ class P5(val nativeP5: NativeP5) {
 
     fun List<Vector>.dilate(factor: Number): List<Vector> {
         val center = center()
-        return map { (it-center)*factor + center }
+        return map { (it - center) * factor + center }
     }
 
     fun List<Vector>.dilate(factor: Number, center: Vector): List<Vector> {
-        return map { (it-center)*factor + center }
+        return map { (it - center) * factor + center }
     }
-
 
 
     fun map(value: Vector, start1: Number, stop1: Number, start2: Number, stop2: Number): Vector {
         return value.map { map(it, start1, stop1, start2, stop2) }
     }
-    fun map(value: Vector, start1: Number, stop1: Number, start2: Number, stop2: Number, withinBounds: Boolean): Vector {
+
+    fun map(
+        value: Vector,
+        start1: Number,
+        stop1: Number,
+        start2: Number,
+        stop2: Number,
+        withinBounds: Boolean
+    ): Vector {
         return value.map { map(it, start1, stop1, start2, stop2, withinBounds) }
     }
+
     fun map(value: Vector, start1: Vector, stop1: Vector, start2: Vector, stop2: Vector): Vector {
         return createVector(
             map(value.x, start1.x, stop1.x, start2.x, stop2.x),
@@ -1697,7 +2190,15 @@ class P5(val nativeP5: NativeP5) {
             map(value.z, start1.z, stop1.z, start2.z, stop2.z),
         )
     }
-    fun map(value: Vector, start1: Vector, stop1: Vector, start2: Vector, stop2: Vector, withinBounds: Boolean): Vector {
+
+    fun map(
+        value: Vector,
+        start1: Vector,
+        stop1: Vector,
+        start2: Vector,
+        stop2: Vector,
+        withinBounds: Boolean
+    ): Vector {
         return createVector(
             map(value.x, start1.x, stop1.x, start2.x, stop2.x, withinBounds),
             map(value.y, start1.y, stop1.y, start2.y, stop2.y, withinBounds),
@@ -1706,11 +2207,11 @@ class P5(val nativeP5: NativeP5) {
     }
 
     fun Color.toGrayscale(): Color {
-        return color((red(this) + green(this) + blue(this))/3.0)
+        return color((red(this) + green(this) + blue(this)) / 3.0)
     }
 
     operator fun Number.unaryMinus(): Double {
-        return -1*this
+        return -1 * this
     }
 
     fun forceDown(it: Number): Double {
@@ -1727,19 +2228,19 @@ class P5(val nativeP5: NativeP5) {
 
 
     @OverloadResolutionByLambdaReturnType
-    fun url(default: ()->String)  = UrlParamProvider(String::class,  default)
-    fun url(default: ()->Double)  = UrlParamProvider(Double::class,  default)
-    fun url(default: ()->Int)     = UrlParamProvider(Int::class,     default)
-    fun url(default: ()->Boolean) = UrlParamProvider(Boolean::class, default)
+    fun url(default: () -> String) = UrlParamProvider(String::class, default)
+    fun url(default: () -> Double) = UrlParamProvider(Double::class, default)
+    fun url(default: () -> Int) = UrlParamProvider(Int::class, default)
+    fun url(default: () -> Boolean) = UrlParamProvider(Boolean::class, default)
 
-    inner class UrlParamProvider<T : Any>(val classType: KClass<T>, val default: ()->T) {
+    inner class UrlParamProvider<T : Any>(val classType: KClass<T>, val default: () -> T) {
         operator fun getValue(thisRef: Any?, property: KProperty<*>): T {
             val keyString = property.name
             val urlParamString = getURLParam(keyString)
-            return when(classType) {
-                String::class  -> urlParamString as T?
-                Double::class  -> urlParamString?.toDoubleOrNull() as T?
-                Int::class     -> urlParamString?.toIntOrNull() as T?
+            return when (classType) {
+                String::class -> urlParamString as T?
+                Double::class -> urlParamString?.toDoubleOrNull() as T?
+                Int::class -> urlParamString?.toIntOrNull() as T?
                 Boolean::class -> urlParamString?.toBooleanStrictOrNull() as T?
                 else -> {
                     console.warn("Url Param Type ${classType::simpleName} is not supported")
@@ -1749,19 +2250,19 @@ class P5(val nativeP5: NativeP5) {
         }
     }
 
-    fun urlString()  = NullableUrlParamProvider(String::class)
-    fun urlDouble()  = NullableUrlParamProvider(Double::class)
-    fun urlInt()     = NullableUrlParamProvider(Int::class)
+    fun urlString() = NullableUrlParamProvider(String::class)
+    fun urlDouble() = NullableUrlParamProvider(Double::class)
+    fun urlInt() = NullableUrlParamProvider(Int::class)
     fun urlBoolean() = NullableUrlParamProvider(Boolean::class)
 
     inner class NullableUrlParamProvider<T : Any>(val classType: KClass<T>) {
         operator fun getValue(thisRef: Any?, property: KProperty<*>): T? {
             val keyString = property.name
             val urlParamString = getURLParam(keyString)
-            return when(classType) {
-                String::class  -> urlParamString as T?
-                Double::class  -> urlParamString?.toDoubleOrNull() as T?
-                Int::class     -> urlParamString?.toIntOrNull() as T?
+            return when (classType) {
+                String::class -> urlParamString as T?
+                Double::class -> urlParamString?.toDoubleOrNull() as T?
+                Int::class -> urlParamString?.toIntOrNull() as T?
                 Boolean::class -> urlParamString?.toBooleanStrictOrNull() as T?
                 else -> {
                     console.warn("Url Param Type ${classType::simpleName} is not supported")
@@ -1771,7 +2272,7 @@ class P5(val nativeP5: NativeP5) {
         }
     }
 
-    object VectorSerializer: KSerializer<Vector> {
+    object VectorSerializer : KSerializer<Vector> {
         override val descriptor: SerialDescriptor = buildClassSerialDescriptor("Vector") {
             element<Double>("x")
             element<Double>("y")
@@ -1803,7 +2304,7 @@ class P5(val nativeP5: NativeP5) {
         if (this in -radius..radius) {
             return 0.0
         }
-        return sign(this)*sqrt(this*this - radius*radius)
+        return sign(this) * sqrt(this * this - radius * radius)
     }
 
     fun Vector.rotate(around: Vector, angle: Double): Vector {
@@ -1811,7 +2312,7 @@ class P5(val nativeP5: NativeP5) {
         val k = around.normalized()
         val c = cos(angle)
         val s = sin(angle)
-        return v*c + (k cross v)*s + (k dot v)*(1.0-c)
+        return v * c + (k cross v) * s + (k dot v) * (1.0 - c)
     }
 
 
@@ -1852,27 +2353,33 @@ class P5(val nativeP5: NativeP5) {
         resetFillStyle()
         nativeP5.fill(gray)
     }
-    fun fill(gray: Number, alpha: Number){
+
+    fun fill(gray: Number, alpha: Number) {
         resetFillStyle()
         nativeP5.fill(gray, alpha)
     }
-    fun fill(v1: Number, v2: Number, v3: Number){
+
+    fun fill(v1: Number, v2: Number, v3: Number) {
         resetFillStyle()
         nativeP5.fill(v1, v2, v3)
     }
-    fun fill(v1: Number, v2: Number, v3: Number, alpha: Number){
+
+    fun fill(v1: Number, v2: Number, v3: Number, alpha: Number) {
         resetFillStyle()
         nativeP5.fill(v1, v2, v3, alpha)
     }
-    fun fill(colorString : String){
+
+    fun fill(colorString: String) {
         resetFillStyle()
         nativeP5.fill(colorString)
     }
-    fun fill(colorArray: Array<Number>){
+
+    fun fill(colorArray: Array<Number>) {
         resetFillStyle()
         nativeP5.fill(colorArray)
     }
-    fun fill(color: Color){
+
+    fun fill(color: Color) {
         resetFillStyle()
         nativeP5.fill(color.nativeColor)
     }
@@ -1888,14 +2395,14 @@ class P5(val nativeP5: NativeP5) {
         fillStyle = FillStyle.GRADIENT
     }
 
-    val maxRed:   Double get() = (nativeP5._colorMaxes.rgb[0] as Number).toDouble()
+    val maxRed: Double get() = (nativeP5._colorMaxes.rgb[0] as Number).toDouble()
     val maxGreen: Double get() = (nativeP5._colorMaxes.rgb[1] as Number).toDouble()
-    val maxBlue:  Double get() = (nativeP5._colorMaxes.rgb[2] as Number).toDouble()
+    val maxBlue: Double get() = (nativeP5._colorMaxes.rgb[2] as Number).toDouble()
     val maxAlpha: Double get() = (nativeP5._colorMaxes.rgb[3] as Number).toDouble()
 
     fun createSlider(min: Number, max: Number, cache: Boolean): Slider {
         return createSlider(min, max).apply {
-            if(cache) {
+            if (cache) {
                 getFromCache = true
                 changed { println("storing", name!!, value()) }
             }
@@ -1904,7 +2411,7 @@ class P5(val nativeP5: NativeP5) {
 
     fun createSlider(min: Number, max: Number, defaultValue: Number, cache: Boolean): Slider {
         return createSlider(min, max).apply {
-            if(cache) {
+            if (cache) {
                 getFromCache = true
                 changed { storeItem(name!!, value()) }
             }
@@ -1913,117 +2420,124 @@ class P5(val nativeP5: NativeP5) {
 
     fun createSlider(min: Number, max: Number, defaultValue: Number, step: Number, cache: Boolean): Slider {
         return createSlider(min, max, defaultValue, step).apply {
-            if(cache) {
+            if (cache) {
                 getFromCache = true
                 changed { storeItem(name!!, value()) }
             }
         }
     }
-    
-    inner class Grid(
-        private var gridStyleApplier: Div.() -> Unit = {},
-        private var itemStyleApplier: Element.() -> Unit = {},
-        private val intrinsicItemStyleApplier: Element.() -> Unit = {},
-    ) {
-        var divElement = createDiv("")
-        var action: ()->Unit = {}
 
-        fun GridStyle(block: Div.(parentStyle: Div.()->Unit)->Unit) {
-            gridStyleApplier = { block(gridStyleApplier) }
-        }
+    val puuid = uuid++
 
-        fun ItemStyle(block: Element.(parentStyle: Element.()->Unit)->Unit) {
-            itemStyleApplier = { block(itemStyleApplier) }
-        }
-        
-        fun Column(block: Grid.()->Unit = {}): ()->Unit {
-            val childGrid = Grid(
-                { gridStyleApplier() },
-                { itemStyleApplier() }
-            )
-            childGrid.divElement.apply {
-                style("display", "grid")
-                style("grid-auto-flow", "row")
-                style("grid-gap", "0px")
-                style("grid-auto-column", "min-content")
-                style("grid-auto-row", "min-content")
-                style("width", "min-content")
-                style("align-items", "center")
-                style("justify-items", "center")
-            }
-            childGrid.action = {
-                childGrid.block()
-                childGrid.applyGridStyle()
-                childGrid.divElement.intrinsicItemStyleApplier()
-            }
-            childGrid.action()
-            divElement.child(childGrid.divElement)
-            containers.add(childGrid.divElement)
-            subGrids.add(childGrid)
-            return childGrid::update
-        }
+    val itemContainers: MutableMap<Element, Div> = mutableMapOf()
 
-        fun Row(block: Grid.() -> Unit = {}): ()->Unit {
-            val childGrid = Grid(
-                { gridStyleApplier() },
-                { itemStyleApplier() })
-            childGrid.divElement.apply {
-                style("display", "grid")
-                style("grid-auto-flow", "column")
-                style("grid-gap", "0px")
-                style("grid-auto-column", "min-content")
-                style("grid-auto-row", "min-content")
-                style("width", "min-content")
-                style("align-items", "center")
-                style("justify-items", "center")
-            }
-            childGrid.action = {
-                childGrid.block()
-                childGrid.applyGridStyle()
-                childGrid.divElement.intrinsicItemStyleApplier()
-            }
-            childGrid.action()
-            divElement.child(childGrid.divElement)
-            containers.add(childGrid.divElement)
-            subGrids.add(childGrid)
-            return childGrid::update
-        }
+    var treeDepth = 0
+    var divUUID = 0
 
-        fun Stack(block: Grid.() -> Unit = {}): ()->Unit {
-            val childGrid = Grid(
-                { gridStyleApplier() },
-                { itemStyleApplier() },
-                {
-                    style("grid-row", "1")
-                    style("grid-column", "1")
+    sealed class StyleData {
+        data class Style(val property: String, val value: String): StyleData()
+        data class Size(val width: Number, val height: Number, val zoom: Number? = null): StyleData()
+    }
+
+    class StyleBuilder {
+        val styles = mutableListOf<StyleData>()
+        fun style(property: String, value: String) {
+            styles.add(StyleData.Style(property, value))
+        }
+        fun size(width: Number, height: Number) {
+            styles.add(StyleData.Size(width, height))
+        }
+        fun size(width: Number, height: Number, zoom: Number) {
+            styles.add(StyleData.Size(width, height, zoom))
+        }
+    }
+    fun buildStyle(builder: StyleBuilder.()->Unit): MutableList<StyleData> {
+        return StyleBuilder().also { builder(it) }.styles
+    }
+    fun Element.applyStyles(styles: List<StyleData>) {
+        styles.forEach {
+            when (it) {
+                is StyleData.Style -> style(it.property, it.value)
+                is StyleData.Size -> if (it.zoom == null) {
+                    size(it.width, it.height)
+                } else {
+                    size(it.width, it.height, it.zoom)
                 }
-            )
-            childGrid.divElement.apply {
-                style("display", "grid")
-                style("grid-gap", "0px")
-                style("width", "min-content")
-                style("height", "min-content")
             }
-            childGrid.action = {
-                childGrid.block()
-                childGrid.applyGridStyle()
-                childGrid.divElement.intrinsicItemStyleApplier()
-            }
-            childGrid.action()
-            divElement.child(childGrid.divElement)
-            containers.add(childGrid.divElement)
-            subGrids.add(childGrid)
-            return childGrid::update
         }
-        
-        fun add(element: Element, localStyleApplier: Element.() -> Unit = {}) {
-            val elementContainer = createDiv("")
-            elementContainer.apply {
-                child(element)
-                itemStyleApplier()
-                localStyleApplier()
-                intrinsicItemStyleApplier()
-                show()
+    }
+
+    data class LayoutStyleModifier(
+        val preGridStyles: MutableList<StyleData> = mutableListOf(),
+        val preItemStyles: MutableList<StyleData> = mutableListOf(),
+        val postGridStyles: MutableList<StyleData> = mutableListOf(),
+        val postItemStyles: MutableList<StyleData> = mutableListOf()
+    ) {
+        fun subgridModifier(): LayoutStyleModifier {
+            return LayoutStyleModifier(
+                preGridStyles.toMutableList(),
+                preItemStyles.toMutableList()
+            )
+        }
+
+        fun copy(): LayoutStyleModifier {
+            return LayoutStyleModifier(
+                preGridStyles.toMutableList(),
+                preItemStyles.toMutableList(),
+                postGridStyles.toMutableList(),
+                postItemStyles.toMutableList()
+            )
+        }
+
+        fun add(newModifier: LayoutStyleModifier) {
+            preGridStyles.addAll(newModifier.preGridStyles)
+            preItemStyles.addAll(newModifier.preItemStyles)
+            postGridStyles.addAll(newModifier.postGridStyles)
+            postItemStyles.addAll(newModifier.postItemStyles)
+        }
+    }
+
+    abstract inner class LayoutNode {
+        val divId = divUUID++
+        open val logName: String = "Abstract Layout Node"
+        val container = createDiv("").apply {
+            id("$divId")
+        }
+        var modifier: LayoutStyleModifier = LayoutStyleModifier()
+        open fun render() {
+            println("  ".repeat(treeDepth), logName, divId)
+        }
+        abstract fun inheritModifier(parentModifier: LayoutStyleModifier)
+        abstract fun clear()
+        open fun delete() {
+            clear()
+            container.html("")
+            container.remove()
+        }
+        fun update() {
+            clear()
+            render()
+        }
+    }
+
+
+    inner class LayoutItem(val element: Element): LayoutNode() {
+        override val logName = "Layout Item"
+
+        override fun inheritModifier(parentModifier: LayoutStyleModifier) {
+            modifier.add(parentModifier)
+        }
+
+        override fun clear() {
+            element.hide()
+        }
+
+        override fun render() {
+            super.render()
+            container.child(element)
+            container.apply {
+                applyStyles(modifier.preItemStyles)
+                applyStyles(modifier.postItemStyles)
             }
             element.apply {
                 if (this !is Renderer) {
@@ -2032,33 +2546,149 @@ class P5(val nativeP5: NativeP5) {
                 }
                 show()
             }
-            containers.add(elementContainer)
-            elements.add(element)
-            divElement.child(elementContainer)
+        }
+    }
+
+    abstract inner class Grid: LayoutNode() {
+        override val logName = "Abstract Grid"
+
+        val children = mutableListOf<LayoutNode>()
+        open fun add(child: LayoutNode, localStyles: StyleBuilder.()->Unit = {}) {
+            container.child(child.container)
+            child.inheritModifier(modifier)
+            child.modifier.preItemStyles.addAll(buildStyle(localStyles))
+            children.add(child)
         }
 
-        fun addAll(vararg elements: Element) {
-            elements.forEach { add(it) }
+        fun add(childElement: Element, localStyles: StyleBuilder.()->Unit = {}) {
+            add(LayoutItem(childElement), localStyles)
         }
 
-        private fun applyGridStyle() {
-            divElement.gridStyleApplier()
+        fun add(sketch: P5, localStyles: StyleBuilder.()->Unit = {}) {
+            add(sketch.getLayout(), localStyles)
         }
 
-        val subGrids = mutableListOf<Grid>()
-        val containers = mutableListOf<Element>()
-        val elements = mutableListOf<Element>()
-
-        fun clear() {
-            subGrids.forEach { it.clear() }
-            containers.forEach { it.remove() }
-            elements.forEach { it.hide() }
+        fun addAll(children: Array<LayoutNode>, localStyles: StyleBuilder.()->Unit = {}) {
+            children.forEach { add(it, localStyles) }
         }
 
-        fun update() {
-            clear()
-            action()
+        fun addAll(children: Array<Element>, localStyles: StyleBuilder.()->Unit = {}) {
+            children.forEach { add(it, localStyles) }
         }
+
+        fun addAll(children: Array<P5>, localStyles: StyleBuilder.()->Unit = {}) {
+            children.forEach { add(it, localStyles) }
+        }
+
+        var layoutCallback: Grid.()->Unit = {}
+
+        fun Row(callback: Grid.()->Unit): ()->Unit {
+            val childRow = GridRow()
+            childRow.layoutCallback = callback
+            add(childRow)
+            return childRow::update
+        }
+
+        fun Column(callback: Grid.()->Unit): ()->Unit {
+            val childColumn = GridColumn()
+            childColumn.layoutCallback = callback
+            add(childColumn)
+            return childColumn::update
+        }
+
+        fun Stack(callback: Grid.()->Unit): ()->Unit {
+            val childStack = GridStack()
+            childStack.layoutCallback = callback
+            add(childStack)
+            return childStack::update
+        }
+
+        init {
+            modifier.preGridStyles.addAll( buildStyle {
+                style("display", "grid")
+                style("grid-auto-column", "min-content")
+                style("grid-auto-row", "min-content")
+                style("align-items", "start")
+                style("justify-items", "start")
+            } )
+        }
+
+        override fun inheritModifier(parentModifier: LayoutStyleModifier) {
+            modifier.add(parentModifier.subgridModifier())
+        }
+
+        override fun delete() {
+            super.delete()
+            children.forEach { it.delete() }
+        }
+
+        override fun clear() {
+            children.forEach { it.delete() }
+            children.clear()
+        }
+
+        override fun render() {
+            super.render()
+            container.apply {
+                layoutCallback()
+                applyStyles(modifier.preGridStyles)
+                applyStyles(modifier.postGridStyles)
+                applyStyles(modifier.postItemStyles)
+                treeDepth++
+                children.forEach { it.render() }
+                treeDepth--
+            }
+        }
+
+        fun GridStyle(block: StyleBuilder.()->Unit) {
+            modifier.preGridStyles.addAll(buildStyle(block))
+        }
+
+        fun ItemStyle(block: StyleBuilder.()->Unit) {
+            modifier.preItemStyles.addAll(buildStyle(block))
+        }
+    }
+
+    inner class GridRow: Grid() {
+        override val logName = "Grid Row"
+
+        init {
+            modifier.postGridStyles.add(StyleData.Style("grid-auto-flow", "column"))
+        }
+    }
+    inner class GridColumn: Grid() {
+        override val logName = "Grid Column"
+
+        init {
+            modifier.postGridStyles.add(StyleData.Style("grid-auto-flow", "row"))
+        }
+    }
+    inner class GridStack: Grid() {
+        override val logName = "Grid Stack"
+
+        override fun add(child: LayoutNode, localStyles: StyleBuilder.()->Unit) {
+            container.child(child.container)
+            val childModifier = modifier.copy()
+            childModifier.postItemStyles.addAll(buildStyle {
+                style("grid-row", "1")
+                style("grid-column", "1")
+            })
+            child.inheritModifier(childModifier)
+            child.modifier.preItemStyles.addAll(buildStyle(localStyles))
+            children.add(child)
+        }
+    }
+
+    var layout: Grid? = null
+    fun getLayout(): Grid {
+        return layout ?: error("Must use Layout Sketch Scope in Multi-Sketch Layouts")
+    }
+    fun relayout(block: P5.Grid.()->Unit): Grid {
+        val grid = layout ?: GridStack()
+        grid.layoutCallback = block
+        layout = grid
+        grid.update()
+        return grid
     }
 
     fun Number.px(): String {
@@ -2091,5 +2721,7 @@ class P5(val nativeP5: NativeP5) {
 
     fun Color.isOpaque(): Boolean = alpha(this) == maxAlpha
     fun Color.isTransparent(): Boolean = !isOpaque()
+
+
 }
 

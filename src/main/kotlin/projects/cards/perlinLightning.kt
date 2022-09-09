@@ -1,4 +1,4 @@
-package projects.lightning
+package projects.cards
 
 import p5.Sketch
 import p5.core.P5.*

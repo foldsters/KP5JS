@@ -65,11 +65,7 @@ fun layoutExample1() = Sketch {
         }
 
         Layout {
-            GridStyle {
-                style("justify-items", "start")
-                style("align-items", "start")
-            }
-            ItemStyle { style("margin", 0.px()) }
+            // ItemStyle { style("margin", 0.px()) }
             Column {
                 Row {
                     Stack {
@@ -106,12 +102,14 @@ fun layoutExample1() = Sketch {
                         style("width", 100.percent())
                     }
                     ItemStyle {
-                        style("zoom", 2)
+                        style("zoom", "2")
                         style("width", 100.percent())
                         style("text-align", "center")
                     }
-                    add(slider) { style("zoom", 2) }
-                    add(buttonsCounter) { style("zoom", 4) }
+                    add(slider) {
+                        style("zoom", "2")
+                    }
+                    add(buttonsCounter) { style("zoom", "4") }
                 }
             }
 
@@ -127,10 +125,13 @@ fun layoutExample1() = Sketch {
                 }
                 if (helpText != null) {
                     add(createP(helpText!!)) {
-                        style("zoom", 2)
+                        println("!!!")
+                        style("zoom", "2")
                     }
                 }
             }
         }
+
+        //updateLayout()
     }
 }

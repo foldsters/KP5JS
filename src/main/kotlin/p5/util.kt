@@ -1,5 +1,6 @@
 package p5.util
 
+import kotlinx.browser.window
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.serializer
@@ -274,5 +275,4 @@ inline fun <T, R: Comparable<R>> Collection<T>.takeLargestBy(n: Int, crossinline
 }
 
 fun Boolean.toInt() = if (this) 1 else 0
-
 

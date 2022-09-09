@@ -22,7 +22,7 @@ open class Element(val nativeElement: NativeElement) {
     fun removeClass(classString: String) = nativeElement.removeClass(classString)
     fun hasClass(classString: String): Boolean = nativeElement.hasClass(classString)
     fun toggleClass(classString: String) = nativeElement.toggleClass(classString)
-    fun styleClass() = nativeElement.styleClass()
+    fun styleClass(): String = nativeElement.styleClass()
     fun styleClass(classString: String) = nativeElement.styleClass(classString)
     fun child() = nativeElement.child()
     fun child(classString: String) = nativeElement.child(classString)
