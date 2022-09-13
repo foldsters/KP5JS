@@ -12,19 +12,20 @@ var globalP5Set = false
 
 var uuid = 0
 
-fun Sketch(primaryInstance: Boolean = false, sketch: SketchScope.()->Unit): P5 {
-    var innerP5: P5? = null
+fun Sketch(sketch: SketchScope.()->Unit): SketchScope {
+    var sketchScope: SketchScope? = null
     run {
         NativeP5 {
             val newP5 = P5(it)
-            sketch(SketchScope(primaryInstance, newP5))
-            innerP5 = newP5
+            val newSketchScope = SketchScope(newP5)
+            sketch(newSketchScope)
+            sketchScope = newSketchScope
         }
     }
-    return innerP5 ?: error("Failed to Create P5 Instance")
+    return sketchScope ?: error("Failed to Create Sketch")
 }
 
-class SketchScope(val primaryInstance: Boolean, val p5: P5) {
+class SketchScope(val p5: P5) {
 
     private fun wrap(f: P5.()->Unit): ()->Unit {
         return { p5.f() }

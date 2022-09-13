@@ -29,7 +29,7 @@ fun layoutExample1() = Sketch {
                 updateButton?.invoke()
             }
         }
-        val sliderValue by { slider.value().toDouble() }
+        val sliderValue by { slider.value() }
 
         var helpText: String? = null
         var updateHelpText: (()->Unit)? = null

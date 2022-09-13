@@ -10,6 +10,7 @@ import projects.huegene.huegene
 import projects.huegene.huegeneFlow
 import projects.layout.layoutExample1
 import projects.testing.ElementEvents
+import projects.testing.icons
 import projects.testing.twitterCard
 import projects.testing.twitterStyle
 

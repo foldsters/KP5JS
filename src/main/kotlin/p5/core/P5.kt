@@ -10,6 +10,7 @@ import kotlinx.serialization.descriptors.element
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.*
+import p5.SketchScope
 import p5.createLoop.nativeCreateLoop
 import p5.native.*
 import p5.native.NativeP5.*
@@ -204,6 +205,13 @@ class P5(val nativeP5: NativeP5) {
         nativeP5.line(x1, y1, z1, x2, y2, z2)
 
     fun line3D(v1: Vector, v2: Vector) = nativeP5.line(v1.x, v1.y, v1.z, v2.x, v2.y, v2.z)
+
+    fun line(v1: Vector, v2: Vector) {
+        when(getCanvas()) {
+            is Renderer2D -> line2D(v1, v2)
+            is RendererGL -> line3D(v1, v2)
+        }
+    }
 
     fun point(x: Number, y: Number) = nativeP5.point(x, y)
     fun point(x: Number, y: Number, z: Number) = nativeP5.point(x, y, z)
@@ -2434,9 +2442,18 @@ class P5(val nativeP5: NativeP5) {
     var treeDepth = 0
     var divUUID = 0
 
-    sealed class StyleData {
-        data class Style(val property: String, val value: String): StyleData()
-        data class Size(val width: Number, val height: Number, val zoom: Number? = null): StyleData()
+    sealed class StyleData(val property: String) {
+        var inheritable = false
+        var active = false
+        class Style(property: String, val value: String): StyleData(property)
+        class Size(val width: Number, val height: Number, val zoom: Number? = null): StyleData("size")
+
+        fun copy(): StyleData {
+            return when(this) {
+                is Style -> Style(property, value)
+                is Size -> Size(width, height, zoom)
+            }.also { it.inheritable = inheritable; it.active = active }
+        }
     }
 
     class StyleBuilder {
@@ -2451,11 +2468,15 @@ class P5(val nativeP5: NativeP5) {
             styles.add(StyleData.Size(width, height, zoom))
         }
     }
-    fun buildStyle(builder: StyleBuilder.()->Unit): MutableList<StyleData> {
-        return StyleBuilder().also { builder(it) }.styles
+    fun buildStyle(inheritable: Boolean, active: Boolean, builder: StyleBuilder.()->Unit): MutableList<StyleData> {
+        return StyleBuilder().also { builder(it) }.styles.onEach {
+            //println("Property:", it.property, "Inheritable:", it.inheritable, "Active:", it.active)
+            it.inheritable = inheritable
+            it.active = active
+        }
     }
     fun Element.applyStyles(styles: List<StyleData>) {
-        styles.forEach {
+        styles.filter {it.active}.forEach {
             when (it) {
                 is StyleData.Style -> style(it.property, it.value)
                 is StyleData.Size -> if (it.zoom == null) {
@@ -2468,24 +2489,32 @@ class P5(val nativeP5: NativeP5) {
     }
 
     data class LayoutStyleModifier(
-        val preGridStyles: MutableList<StyleData> = mutableListOf(),
-        val preItemStyles: MutableList<StyleData> = mutableListOf(),
+        val preGridStyles:  MutableList<StyleData> = mutableListOf(),
+        val preItemStyles:  MutableList<StyleData> = mutableListOf(),
         val postGridStyles: MutableList<StyleData> = mutableListOf(),
         val postItemStyles: MutableList<StyleData> = mutableListOf()
     ) {
         fun subgridModifier(): LayoutStyleModifier {
             return LayoutStyleModifier(
-                preGridStyles.toMutableList(),
-                preItemStyles.toMutableList()
-            )
+                preGridStyles.filter { it.inheritable }.toMutableList(),
+                preItemStyles.filter { it.inheritable }.toMutableList()
+            ).copy().activate()
+        }
+
+        fun activate(): LayoutStyleModifier {
+            preGridStyles.onEach  { it.active = true }
+            preItemStyles.onEach  { it.active = true }
+            postGridStyles.onEach { it.active = true }
+            postItemStyles.onEach { it.active = true }
+            return this
         }
 
         fun copy(): LayoutStyleModifier {
             return LayoutStyleModifier(
-                preGridStyles.toMutableList(),
-                preItemStyles.toMutableList(),
-                postGridStyles.toMutableList(),
-                postItemStyles.toMutableList()
+                preGridStyles.map  { it.copy() }.toMutableList(),
+                preItemStyles.map  { it.copy() }.toMutableList(),
+                postGridStyles.map { it.copy() }.toMutableList(),
+                postItemStyles.map { it.copy() }.toMutableList()
             )
         }
 
@@ -2525,7 +2554,7 @@ class P5(val nativeP5: NativeP5) {
         override val logName = "Layout Item"
 
         override fun inheritModifier(parentModifier: LayoutStyleModifier) {
-            modifier.add(parentModifier)
+            modifier.add(parentModifier.copy().activate())
         }
 
         override fun clear() {
@@ -2556,7 +2585,7 @@ class P5(val nativeP5: NativeP5) {
         open fun add(child: LayoutNode, localStyles: StyleBuilder.()->Unit = {}) {
             container.child(child.container)
             child.inheritModifier(modifier)
-            child.modifier.preItemStyles.addAll(buildStyle(localStyles))
+            child.modifier.preItemStyles.addAll(buildStyle(false, true, localStyles))
             children.add(child)
         }
 
@@ -2564,8 +2593,12 @@ class P5(val nativeP5: NativeP5) {
             add(LayoutItem(childElement), localStyles)
         }
 
-        fun add(sketch: P5, localStyles: StyleBuilder.()->Unit = {}) {
-            add(sketch.getLayout(), localStyles)
+        fun add(p5: P5, localStyles: StyleBuilder.()->Unit = {}) {
+            add(p5.getLayout(), localStyles)
+        }
+
+        fun add(sketch: SketchScope, localStyles: StyleBuilder.()->Unit = {}) {
+            add(sketch.p5.getLayout(), localStyles)
         }
 
         fun addAll(children: Array<LayoutNode>, localStyles: StyleBuilder.()->Unit = {}) {
@@ -2577,6 +2610,10 @@ class P5(val nativeP5: NativeP5) {
         }
 
         fun addAll(children: Array<P5>, localStyles: StyleBuilder.()->Unit = {}) {
+            children.forEach { add(it, localStyles) }
+        }
+
+        fun addAll(children: Array<SketchScope>, localStyles: StyleBuilder.()->Unit = {}) {
             children.forEach { add(it, localStyles) }
         }
 
@@ -2604,7 +2641,7 @@ class P5(val nativeP5: NativeP5) {
         }
 
         init {
-            modifier.preGridStyles.addAll( buildStyle {
+            modifier.preGridStyles.addAll( buildStyle(false, true) {
                 style("display", "grid")
                 style("grid-auto-column", "min-content")
                 style("grid-auto-row", "min-content")
@@ -2631,7 +2668,9 @@ class P5(val nativeP5: NativeP5) {
             super.render()
             container.apply {
                 layoutCallback()
+                console.log(modifier)
                 applyStyles(modifier.preGridStyles)
+                applyStyles(modifier.preItemStyles)
                 applyStyles(modifier.postGridStyles)
                 applyStyles(modifier.postItemStyles)
                 treeDepth++
@@ -2640,12 +2679,12 @@ class P5(val nativeP5: NativeP5) {
             }
         }
 
-        fun GridStyle(block: StyleBuilder.()->Unit) {
-            modifier.preGridStyles.addAll(buildStyle(block))
+        fun GridStyle(inherit: Boolean = true, block: StyleBuilder.()->Unit) {
+            modifier.preGridStyles.addAll(buildStyle(inherit, true, block))
         }
 
-        fun ItemStyle(block: StyleBuilder.()->Unit) {
-            modifier.preItemStyles.addAll(buildStyle(block))
+        fun ItemStyle(inherit: Boolean = true, block: StyleBuilder.()->Unit) {
+            modifier.preItemStyles.addAll(buildStyle(inherit, false, block))
         }
     }
 
@@ -2653,14 +2692,14 @@ class P5(val nativeP5: NativeP5) {
         override val logName = "Grid Row"
 
         init {
-            modifier.postGridStyles.add(StyleData.Style("grid-auto-flow", "column"))
+            modifier.postGridStyles.add(StyleData.Style("grid-auto-flow", "column").apply {active = true })
         }
     }
     inner class GridColumn: Grid() {
         override val logName = "Grid Column"
 
         init {
-            modifier.postGridStyles.add(StyleData.Style("grid-auto-flow", "row"))
+            modifier.postGridStyles.add(StyleData.Style("grid-auto-flow", "row").apply { active = true })
         }
     }
     inner class GridStack: Grid() {
@@ -2669,12 +2708,12 @@ class P5(val nativeP5: NativeP5) {
         override fun add(child: LayoutNode, localStyles: StyleBuilder.()->Unit) {
             container.child(child.container)
             val childModifier = modifier.copy()
-            childModifier.postItemStyles.addAll(buildStyle {
+            childModifier.postItemStyles.addAll(buildStyle(false, true) {
                 style("grid-row", "1")
                 style("grid-column", "1")
             })
             child.inheritModifier(childModifier)
-            child.modifier.preItemStyles.addAll(buildStyle(localStyles))
+            child.modifier.preItemStyles.addAll(buildStyle(false, true, localStyles))
             children.add(child)
         }
     }
@@ -2721,7 +2760,6 @@ class P5(val nativeP5: NativeP5) {
 
     fun Color.isOpaque(): Boolean = alpha(this) == maxAlpha
     fun Color.isTransparent(): Boolean = !isOpaque()
-
 
 }
 

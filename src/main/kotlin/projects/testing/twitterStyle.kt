@@ -1,6 +1,7 @@
 package projects.testing
 
 import p5.Sketch
+import p5.core.Button
 import p5.core.P5
 import kotlin.math.cos
 import kotlin.math.sin
@@ -21,55 +22,56 @@ fun twitterCard(offset: Double) = Sketch {
 fun twitterCardWrapper(sketch: P5) = Sketch {
 
     Setup {
-        val downloadButton = createButton("D")
-        val favoriteButton = createButton("F")
-        val shareButton    = createButton("S")
+        val downloadButton = createButton("")
+        val favoriteButton = createButton("")
+        val shareButton    = createButton("")
+        noCanvas()
         Layout {
+            GridStyle(inherit = false) {
+                style("background-color", "#AAAADD")
+                style("padding", 20.px().repeat(4))
+            }
             Column {
-                container.apply {
-                    style("background-color", "#AAAADD")
-                }
-                add(sketch) {
-                    style("margin-left", 20.px())
-                    style("margin-top", 10.px())
-                    style("margin-right", 20.px())
-                    style("margin-bottom", 10.px())
-                }
-                Row {
-                    ItemStyle {
-                        style("width", 60.px())
-                        style("height", 20.px())
-                        style("margin-left", 20.px())
-                        style("margin-top", 10.px())
-                        style("margin-right", 20.px())
-                        style("margin-bottom", 10.px())
+                add(sketch)
+                Row { // Buttons
+                    GridStyle(false) {
+                        style("margin-top", "20px")
+                        style("justify-content", "space-between")
+                        style("width", "100%")
                     }
-                    add(downloadButton)
-                    add(favoriteButton)
-                    add(shareButton)
+                    fun buttonStack(button: Button, path: String, altText: String) {
+                        Stack {
+                            GridStyle {
+                                style("justify-items", "center")
+                            }
+                            add(button) {
+                                size(60, 40, 0.1)
+                            }
+                            add(createImg(path, altText)) {
+                                size(40, 40)
+                            }
+                        }
+                    }
+                    buttonStack(downloadButton, "icons/download.png", "download icon")
+                    buttonStack(favoriteButton, "icons/star.png", "favorite icon")
+                    buttonStack(shareButton, "icons/share.png", "share icon")
                 }
             }
         }
-
     }
-
 }
 
 fun twitterStyle() = Sketch {
     Setup {
-        val canvas = createCanvas().apply {
-            hide()
-        }
-
+        noCanvas()
         val cards = Array(7) {
-            twitterCardWrapper(twitterCard(it/7.0))
+            twitterCardWrapper(twitterCard(it/3.0).p5)
          }
 
         Layout {
             Column {
                 addAll(cards) {
-                    style("margin-top", "200px")
-                    style("margin-bottom", "200px")
+                    style("margin-bottom", "20px")
                 }
             }
         }
