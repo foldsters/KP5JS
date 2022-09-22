@@ -10,8 +10,6 @@ import kotlin.math.max
 var globalP5: P5? = null
 var globalP5Set = false
 
-var uuid = 0
-
 fun Sketch(sketch: SketchScope.()->Unit): SketchScope {
     var sketchScope: SketchScope? = null
     run {
@@ -23,6 +21,15 @@ fun Sketch(sketch: SketchScope.()->Unit): SketchScope {
         }
     }
     return sketchScope ?: error("Failed to Create Sketch")
+}
+
+fun SimpleSketch(width: Number, height: Number, onDraw: P5.(Int)->Unit) = Sketch {
+    Setup {
+        createCanvas(width, height)
+    }
+    Draw {
+        onDraw(it)
+    }
 }
 
 class SketchScope(val p5: P5) {
@@ -57,7 +64,7 @@ class SketchScope(val p5: P5) {
 
     // Layout
     fun Layout(block: P5.Grid.()->Unit) {
-        p5.relayout(block)
+        p5.makeLayout(block)
     }
 
     fun updateLayout() {
@@ -71,7 +78,6 @@ class SketchScope(val p5: P5) {
     fun autoAdjustSteps(block: (Int)->Unit) {
         with(p5) {
             val thisFrameTime = timeit { block(autoStepsPerFrame) }
-            console.log(frameRate().toFixed(1), autoStepsPerFrame)
             if(thisFrameTime > targetFrameTime()) {
                 autoStepsPerFrame = max(autoStepsPerFrame-1, 1)
             } else {

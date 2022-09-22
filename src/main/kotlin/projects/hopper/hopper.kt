@@ -2,22 +2,22 @@ package projects.hopper
 
 import p5.native.NativeP5.*
 import p5.Sketch
+import p5.core.AUTO
 import p5.core.P5
 import p5.core.P5.*
 import p5.core.RenderMode
 import p5.util.*
 import kotlin.math.max
 
-fun hopper() = Sketch {
+fun hopper(canvasSize: Number) = Sketch {
 
     Preload {}
 
     Setup {
-        createCanvas(512, 512, RenderMode.P2D)
+        createCanvas(canvasSize, canvasSize, RenderMode.P2D)
         background(0)
         pixelDensity(1)
-
-        println(simplexSeed())
+        frameRate(10)
 
         fun genHopperTop(crystalSize: Int): List<Int> {
 
@@ -47,7 +47,6 @@ fun hopper() = Sketch {
             val majorSide = hopperLayers[0].indexOfMax() - 1
 
             val v = createVector(0, 1, 0)
-            console.log(v)
 
             val dirs = listOf(
                 createVector(1, 0, 0),
@@ -89,7 +88,7 @@ fun hopper() = Sketch {
             createVector(0, 255, 128)
         )
 
-        abstract class Point(val location: Vector): Comparable<Point> {
+        abstract class Point(var location: Vector): Comparable<Point> {
             val x: Double get() = location.x
             val y: Double get() = location.y
             val z: Double get() = location.z
@@ -100,23 +99,25 @@ fun hopper() = Sketch {
         class HopperPoint(location: Vector): Point(location)
         class CloudPoint(location: Vector): Point(location)
 
-        val crystalSize = 64
-        val seedHeight = 16
+        val crystalSize = 32
+        val seedHeight = 8
 
         val hopperPoints = buildList {
-            repeat(60) {
+            repeat(32) {
                 genHopperPoints(genHopperLayers(genHopperTop(crystalSize)), seedHeight).forEach {
                     add(HopperPoint(it))
                 }
             }
         }
 
-        DrawForWithPixels(hopperPoints.sorted(), 1000) {
+        val sortedPoints = hopperPoints.sorted().traverse({ location.xy }, { centerize() }) { apply { location = createVector(it.x, it.y, location.z) } }
+
+        DrawForWithPixels(sortedPoints, 100) {
             with(it) {
                 val s = location.xy.magSq()/1000.0
                 val m = max(0.7, z/(7.0 + s)) - 0.4
                 val colorVector = colors.interpolate(m)*(z%2)
-                colorArray[location.xy + createVector(100, 100)] = colorVector.toColor()
+                colorArray[location.xy + createVector(width/2, height/2)] = colorVector.toColor()
             }
         }
     }

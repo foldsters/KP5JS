@@ -13,7 +13,7 @@ import kotlin.reflect.KProperty
 open class Element(val nativeElement: NativeElement) {
     constructor(elt: String): this(NativeElement(elt))
 
-    fun parent(): Element = Element(nativeElement.parent())
+    fun parent(): Element = Element(nativeElement.parent().toString())
     fun parent(parentString: String) = nativeElement.parent(parentString)
     fun parent(parentElement: Element) = nativeElement.parent(parentElement.nativeElement)
     fun id(): String = nativeElement.id()
@@ -495,7 +495,11 @@ open class Shader(val nativeShader: NativeShader, var uniformCallbacks: MutableM
         }
     }
 
-    fun update() {
+//    fun update() {
+//        uniformCallbacks?.mapValues { (_, value) -> value() }?.let { updateUniforms(it) }
+//    }
+
+    fun updateUniformCallbacks() {
         uniformCallbacks?.mapValues { (_, value) -> value() }?.let { updateUniforms(it) }
     }
 }

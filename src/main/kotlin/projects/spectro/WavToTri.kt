@@ -1,4 +1,4 @@
-package spectro
+package projects.spectro
 
 import p5.core.P5
 

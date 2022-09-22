@@ -1,10 +1,10 @@
 package p5.util
 
-import kotlinx.browser.window
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.serializer
 import org.w3c.dom.Window
+import kotlin.js.Date
 import kotlin.js.Json
 import kotlin.math.ln
 import kotlin.random.Random.Default.nextDouble
@@ -211,6 +211,7 @@ fun <T> weightedChoice(weightedCandidates: List<Pair<T, Double>>): T? {
 
 class MutableValue<T: Any?>(var value: T)
 fun <T: Any?> mutableValueOf(value: T) = MutableValue(value)
+fun <T: Any?> mutableValueOf() = MutableValue<T?>(null)
 
 inline fun <T, R> Iterable<T>.mapWith(transform: T.()->R): List<R> = map { transform(it) }
 
@@ -275,4 +276,32 @@ inline fun <T, R: Comparable<R>> Collection<T>.takeLargestBy(n: Int, crossinline
 }
 
 fun Boolean.toInt() = if (this) 1 else 0
+
+fun <T> blockUntilNotNull(attempts: Int = 1000000000, action: ()->T?): T {
+    var attempt = 0
+    while(true) {
+        val result = action()
+        if(result != null) {
+            return result
+        }
+        if(attempt++ > attempts) {
+            println(attempt)
+            break
+        }
+    }
+    error("Resource would not load")
+}
+
+fun <T> blockUntilTrue(resultCallback: ()->T, condition: (T)->Boolean): T {
+    while(true) {
+        val result = resultCallback()
+        if(condition(result)) {
+            return result
+        }
+    }
+}
+
+fun getTimestamp(): String {
+    return Date.now().toLong().toString()
+}
 

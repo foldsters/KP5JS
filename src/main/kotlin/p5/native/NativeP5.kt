@@ -225,6 +225,7 @@ external class NativeP5 {
     var draw : ()->Unit
     var setup : ()->Unit
     var disableFriendlyErrors : Boolean
+    fun remove()
     fun noLoop()
     fun loop()
     fun isLooping() : Boolean

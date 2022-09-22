@@ -38,7 +38,10 @@ fun carbon(filename: String, scaleFactor: Double=1.0, imageFactor: Double=1.0) =
 
         createCanvas(canvasWidth, canvasHeight)
 
-        img.withPixels { fill(colorArray[0, 0]) }
+        img.withPixels {
+            //fill(colorArray[0, 0])
+            fill(color(43, 43, 43))
+        }
 
         background(60, 63, 65)
         noStroke()

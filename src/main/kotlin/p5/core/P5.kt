@@ -18,7 +18,6 @@ import kotlin.js.Json
 import kotlin.reflect.KProperty
 import p5.openSimplexNoise.OpenSimplexNoise
 import p5.util.*
-import p5.uuid
 import kotlin.js.json
 import kotlin.reflect.KClass
 import kotlin.math.*
@@ -94,8 +93,8 @@ class P5(val nativeP5: NativeP5) {
     fun brightness(color: Color): Double = nativeP5.brightness(color.nativeColor)
     fun green(color: Color): Double = nativeP5.green(color.nativeColor)
     fun hue(color: Color): Double = nativeP5.hue(color.nativeColor)
-    fun lerpColor(c1: Color, c2: Color, amt: Double): NativeColor =
-        nativeP5.lerpColor(c1.nativeColor, c2.nativeColor, amt)
+    fun lerpColor(c1: Color, c2: Color, amt: Double): Color =
+        Color(nativeP5.lerpColor(c1.nativeColor, c2.nativeColor, amt))
 
     fun lightness(color: Color): Double = nativeP5.lightness(color.nativeColor)
     fun red(color: Color): Double = nativeP5.red(color.nativeColor)
@@ -368,6 +367,7 @@ class P5(val nativeP5: NativeP5) {
     var draw: () -> Unit by nativeP5::draw
     var setup: () -> Unit by nativeP5::setup
     var disableFriendlyErrors: Boolean by nativeP5::disableFriendlyErrors
+    fun remove() = nativeP5.remove()
     fun noLoop() = nativeP5.noLoop()
     fun loop() = nativeP5.loop()
     fun isLooping(): Boolean = nativeP5.isLooping()
@@ -449,19 +449,20 @@ class P5(val nativeP5: NativeP5) {
     fun createElement(tag: String): Element = Element(nativeP5.createElement(tag))
     fun createElement(tag: String, content: String): Element = Element(nativeP5.createElement(tag, content))
 
-    sealed class Renderer(nativeRenderer: NativeElement) : Element(nativeRenderer)
+    sealed class Renderer(nativeRenderer: NativeElement) : Element(nativeRenderer) {
+        val gl: dynamic get() = nativeElement.asDynamic().GL
+    }
     class Renderer2D(val nativeRenderer2D: NativeRenderer2D) : Renderer(nativeRenderer2D)
     class RendererGL(val nativeRendererGl: NativeRendererGL) : Renderer(nativeRendererGl)
 
     private var canvas: Renderer? = null
 
-    fun getCanvas(): Renderer = canvas ?: throw IllegalStateException("canvas has not been initialized yet")
+    fun getCanvas(): Renderer = canvas ?: error("canvas has not been initialized yet")
     fun createCanvas(w: Number, h: Number): Renderer = Renderer2D(nativeP5.createCanvas(w, h)).also { canvas = it }
     fun createCanvas(wh: Vector): Renderer = createCanvas(wh.x, wh.y)
     fun createCanvas(w: Number, h: Number, renderMode: RenderMode): Renderer = when (renderMode) {
         RenderMode.P2D -> {
             val nativeCanvas = nativeP5.createCanvas(w, h, renderMode.nativeValue)
-            console.log(listOf(nativeCanvas), js("typeof(nativeCanvas)"))
             Renderer2D(nativeCanvas as NativeRenderer2D)
         }
         RenderMode.WEBGL -> RendererGL(nativeP5.createCanvas(w, h, renderMode.nativeValue) as NativeRendererGL)
@@ -481,13 +482,17 @@ class P5(val nativeP5: NativeP5) {
     fun resizeCanvas(w: Number, h: Number, noRedraw: Boolean) = nativeP5.resizeCanvas(w, h, noRedraw)
     fun resizeCanvas(wh: Vector, noRedraw: Boolean) = nativeP5.resizeCanvas(wh.x, wh.y, noRedraw)
     fun noCanvas() = nativeP5.noCanvas()
-    fun createGraphics(w: Number, h: Number, hide: Boolean = true): P5 =
-        P5().apply { createCanvas(w, h).apply { if (hide) hide() } }
-
+    fun createGraphics(w: Number, h: Number, hide: Boolean = true): P5 = P5().apply {
+        noCanvas()
+        createCanvas(w, h).apply { if (hide) hide() }
+        noLoop()
+    }
     fun createGraphics(wh: Vector, hide: Boolean = true): P5 = createGraphics(wh.x, wh.y, hide)
-    fun createGraphics(w: Number, h: Number, renderMode: RenderMode, hide: Boolean = true): P5 =
-        P5().apply { createCanvas(w, h, renderMode).apply { if (hide) hide() } }
-
+    fun createGraphics(w: Number, h: Number, renderMode: RenderMode, hide: Boolean = true): P5 = P5().apply {
+        noCanvas()
+        createCanvas(w, h, renderMode).apply { if (hide) hide() }
+        noLoop()
+    }
     fun createGraphics(wh: Vector, renderMode: RenderMode, hide: Boolean = true): P5 =
         createGraphics(wh.x, wh.y, renderMode, hide)
 
@@ -1069,6 +1074,14 @@ class P5(val nativeP5: NativeP5) {
     ): Shader =
         Shader(nativeP5.createShader(vertSrc, fragSrc), uniformCallbacks)
 
+    fun Shader.update(updateMipmap: Boolean = false) {
+        updateUniformCallbacks()
+        if(updateMipmap) {
+            val gl = getCanvas().gl
+            gl.generateMipmap(gl.TEXTURE_2D)
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR)
+        }
+    }
 
     // SCOPE EXTENSION FUNCTIONS
     fun buildShape2D(pathMode: PathMode?, close: CLOSE?, path: ShapeBuilder2D.() -> Unit) {
@@ -1119,7 +1132,7 @@ class P5(val nativeP5: NativeP5) {
                         throw new Error("Error creating webgl context");
                     } 
                     var e = this.drawingContext;
-                    e.enable(e.DEPTH_TEST),
+                    e.enable(e.DEPTH_TEST), 
                     e.depthFunc(e.LEQUAL),
                     e.viewport(0, 0, e.drawingBufferWidth, e.drawingBufferHeight),
                     this._viewport = this.drawingContext.getParameter(this.drawingContext.VIEWPORT)
@@ -1361,6 +1374,7 @@ class P5(val nativeP5: NativeP5) {
 
         val colorArray = object : PixelArray<Color> {
             override fun set(index: Int, element: Color) {
+                updateAverageFillColor(element)
                 redChannel[index] = red(element)
                 greenChannel[index] = green(element)
                 blueChannel[index] = blue(element)
@@ -1377,6 +1391,7 @@ class P5(val nativeP5: NativeP5) {
             }
 
             override fun set(row: Int, col: Int, element: Color) {
+                updateAverageFillColor(element)
                 redChannel[row, col] = red(element)
                 greenChannel[row, col] = green(element)
                 blueChannel[row, col] = blue(element)
@@ -1393,6 +1408,7 @@ class P5(val nativeP5: NativeP5) {
             }
 
             override fun set(row: Double, col: Double, element: Color) {
+                updateAverageFillColor(element)
                 redChannel[row, col] = red(element)
                 greenChannel[row, col] = green(element)
                 blueChannel[row, col] = blue(element)
@@ -1409,6 +1425,7 @@ class P5(val nativeP5: NativeP5) {
             }
 
             override fun set(vector: Vector, element: Color) {
+                updateAverageFillColor(element)
                 redChannel[vector] = red(element)
                 greenChannel[vector] = green(element)
                 blueChannel[vector] = blue(element)
@@ -1457,6 +1474,13 @@ class P5(val nativeP5: NativeP5) {
             ScalarMode.XYZ -> Vector.add(this, createVector(other, other, other))
         }
     }
+    operator fun Number.plus(other: Vector): Vector {
+        return when (_ScalarMode.scalarMode) {
+            ScalarMode.X -> Vector.add(createVector(this, 0, 0), other)
+            ScalarMode.XY -> Vector.add(createVector(this, this, 0), other)
+            ScalarMode.XYZ -> Vector.add(createVector(this, this, this), other)
+        }
+    }
 
     operator fun Vector.rem(other: Vector) = Vector.rem(this, other)
 
@@ -1468,9 +1492,17 @@ class P5(val nativeP5: NativeP5) {
             ScalarMode.XYZ -> Vector.sub(this, createVector(other, other, other))
         }
     }
+    operator fun Number.minus(other: Vector): Vector {
+        return when (_ScalarMode.scalarMode) {
+            ScalarMode.X -> Vector.sub(createVector(this, 0, 0), other)
+            ScalarMode.XY -> Vector.sub(createVector(this, this, 0), other)
+            ScalarMode.XYZ -> Vector.sub(createVector(this, this, this), other)
+        }
+    }
 
     operator fun Vector.times(other: Number) = Vector.mult(this, other)
     operator fun Vector.times(other: Vector) = Vector.mult(this, other)
+    operator fun Number.times(other: Vector) = Vector.mult(other, this)
 
     operator fun Vector.div(other: Number) = Vector.div(this, other)
     operator fun Vector.div(other: Vector) = Vector.div(this, other)
@@ -1823,7 +1855,6 @@ class P5(val nativeP5: NativeP5) {
         block: (Loop.() -> Unit)? = null
     ) {
         val canvas = instance?.canvasHtml ?: this@P5.canvasHtml
-        console.log("Canvas Element", canvas, jsTypeOf(canvas))
         val options = json(
             "canvas" to canvas,
             "gifOptions" to json(
@@ -2139,7 +2170,6 @@ class P5(val nativeP5: NativeP5) {
             val storedSerializedItem = getItem<String>(keyString)
             if (storedSerializedItem != null) {
                 val storedItem: T = SerialJson.decodeFromString(kType, storedSerializedItem)
-                console.log(storedItem)
                 innerVar = storedItem
                 return storedItem
             }
@@ -2350,6 +2380,14 @@ class P5(val nativeP5: NativeP5) {
 
     var fillStyle = FillStyle.SOLID
 
+    var themeColor = color(255)
+    var colorFills = 0.0
+
+    fun updateAverageFillColor(newColor: Color) {
+        themeColor = lerpColor(newColor, themeColor, colorFills/(colorFills+1))
+        colorFills++
+    }
+
     private fun resetFillStyle() {
         if (fillStyle != FillStyle.SOLID) {
             drawingContext.fillStyle = "rgba(0,0,0,0)"
@@ -2358,36 +2396,43 @@ class P5(val nativeP5: NativeP5) {
     }
 
     fun fill(gray: Number) {
+        updateAverageFillColor(color(gray))
         resetFillStyle()
         nativeP5.fill(gray)
     }
 
     fun fill(gray: Number, alpha: Number) {
+        updateAverageFillColor(color(gray, alpha))
         resetFillStyle()
         nativeP5.fill(gray, alpha)
     }
 
     fun fill(v1: Number, v2: Number, v3: Number) {
+        updateAverageFillColor(color(v2, v2, v3))
         resetFillStyle()
         nativeP5.fill(v1, v2, v3)
     }
 
     fun fill(v1: Number, v2: Number, v3: Number, alpha: Number) {
+        updateAverageFillColor(color(v1, v2, v3, alpha))
         resetFillStyle()
         nativeP5.fill(v1, v2, v3, alpha)
     }
 
     fun fill(colorString: String) {
+        updateAverageFillColor(color(colorString))
         resetFillStyle()
         nativeP5.fill(colorString)
     }
 
     fun fill(colorArray: Array<Number>) {
+        updateAverageFillColor(color(colorArray))
         resetFillStyle()
         nativeP5.fill(colorArray)
     }
 
     fun fill(color: Color) {
+        updateAverageFillColor(color)
         resetFillStyle()
         nativeP5.fill(color.nativeColor)
     }
@@ -2435,8 +2480,6 @@ class P5(val nativeP5: NativeP5) {
         }
     }
 
-    val puuid = uuid++
-
     val itemContainers: MutableMap<Element, Div> = mutableMapOf()
 
     var treeDepth = 0
@@ -2470,7 +2513,6 @@ class P5(val nativeP5: NativeP5) {
     }
     fun buildStyle(inheritable: Boolean, active: Boolean, builder: StyleBuilder.()->Unit): MutableList<StyleData> {
         return StyleBuilder().also { builder(it) }.styles.onEach {
-            //println("Property:", it.property, "Inheritable:", it.inheritable, "Active:", it.active)
             it.inheritable = inheritable
             it.active = active
         }
@@ -2489,40 +2531,32 @@ class P5(val nativeP5: NativeP5) {
     }
 
     data class LayoutStyleModifier(
-        val preGridStyles:  MutableList<StyleData> = mutableListOf(),
-        val preItemStyles:  MutableList<StyleData> = mutableListOf(),
-        val postGridStyles: MutableList<StyleData> = mutableListOf(),
-        val postItemStyles: MutableList<StyleData> = mutableListOf()
+        val gridStyles:  MutableList<StyleData> = mutableListOf(),
+        val itemStyles:  MutableList<StyleData> = mutableListOf()
     ) {
         fun subgridModifier(): LayoutStyleModifier {
             return LayoutStyleModifier(
-                preGridStyles.filter { it.inheritable }.toMutableList(),
-                preItemStyles.filter { it.inheritable }.toMutableList()
+                gridStyles.filter { it.inheritable }.toMutableList(),
+                itemStyles.filter { it.inheritable }.toMutableList()
             ).copy().activate()
         }
 
         fun activate(): LayoutStyleModifier {
-            preGridStyles.onEach  { it.active = true }
-            preItemStyles.onEach  { it.active = true }
-            postGridStyles.onEach { it.active = true }
-            postItemStyles.onEach { it.active = true }
+            gridStyles.onEach  { it.active = true }
+            itemStyles.onEach  { it.active = true }
             return this
         }
 
         fun copy(): LayoutStyleModifier {
             return LayoutStyleModifier(
-                preGridStyles.map  { it.copy() }.toMutableList(),
-                preItemStyles.map  { it.copy() }.toMutableList(),
-                postGridStyles.map { it.copy() }.toMutableList(),
-                postItemStyles.map { it.copy() }.toMutableList()
+                gridStyles.map  { it.copy() }.toMutableList(),
+                itemStyles.map  { it.copy() }.toMutableList()
             )
         }
 
         fun add(newModifier: LayoutStyleModifier) {
-            preGridStyles.addAll(newModifier.preGridStyles)
-            preItemStyles.addAll(newModifier.preItemStyles)
-            postGridStyles.addAll(newModifier.postGridStyles)
-            postItemStyles.addAll(newModifier.postItemStyles)
+            gridStyles.addAll(newModifier.gridStyles)
+            itemStyles.addAll(newModifier.itemStyles)
         }
     }
 
@@ -2533,9 +2567,7 @@ class P5(val nativeP5: NativeP5) {
             id("$divId")
         }
         var modifier: LayoutStyleModifier = LayoutStyleModifier()
-        open fun render() {
-            println("  ".repeat(treeDepth), logName, divId)
-        }
+        open fun render() {}
         abstract fun inheritModifier(parentModifier: LayoutStyleModifier)
         abstract fun clear()
         open fun delete() {
@@ -2564,10 +2596,7 @@ class P5(val nativeP5: NativeP5) {
         override fun render() {
             super.render()
             container.child(element)
-            container.apply {
-                applyStyles(modifier.preItemStyles)
-                applyStyles(modifier.postItemStyles)
-            }
+            container.apply { applyStyles(modifier.itemStyles) }
             element.apply {
                 if (this !is Renderer) {
                     style("width", "100%")
@@ -2585,7 +2614,7 @@ class P5(val nativeP5: NativeP5) {
         open fun add(child: LayoutNode, localStyles: StyleBuilder.()->Unit = {}) {
             container.child(child.container)
             child.inheritModifier(modifier)
-            child.modifier.preItemStyles.addAll(buildStyle(false, true, localStyles))
+            child.modifier.itemStyles.addAll(buildStyle(false, true, localStyles))
             children.add(child)
         }
 
@@ -2599,6 +2628,22 @@ class P5(val nativeP5: NativeP5) {
 
         fun add(sketch: SketchScope, localStyles: StyleBuilder.()->Unit = {}) {
             add(sketch.p5.getLayout(), localStyles)
+        }
+
+        fun addAll(children: List<LayoutNode>, localStyles: StyleBuilder.()->Unit = {}) {
+            children.forEach { add(it, localStyles) }
+        }
+
+        fun addAll(children: List<Element>, localStyles: StyleBuilder.()->Unit = {}) {
+            children.forEach { add(it, localStyles) }
+        }
+
+        fun addAll(children: List<P5>, localStyles: StyleBuilder.()->Unit = {}) {
+            children.forEach { add(it, localStyles) }
+        }
+
+        fun addAll(children: List<SketchScope>, localStyles: StyleBuilder.()->Unit = {}) {
+            children.forEach { add(it, localStyles) }
         }
 
         fun addAll(children: Array<LayoutNode>, localStyles: StyleBuilder.()->Unit = {}) {
@@ -2641,7 +2686,7 @@ class P5(val nativeP5: NativeP5) {
         }
 
         init {
-            modifier.preGridStyles.addAll( buildStyle(false, true) {
+            modifier.gridStyles.addAll( buildStyle(false, true) {
                 style("display", "grid")
                 style("grid-auto-column", "min-content")
                 style("grid-auto-row", "min-content")
@@ -2668,11 +2713,8 @@ class P5(val nativeP5: NativeP5) {
             super.render()
             container.apply {
                 layoutCallback()
-                console.log(modifier)
-                applyStyles(modifier.preGridStyles)
-                applyStyles(modifier.preItemStyles)
-                applyStyles(modifier.postGridStyles)
-                applyStyles(modifier.postItemStyles)
+                applyStyles(modifier.gridStyles)
+                applyStyles(modifier.itemStyles)
                 treeDepth++
                 children.forEach { it.render() }
                 treeDepth--
@@ -2680,11 +2722,11 @@ class P5(val nativeP5: NativeP5) {
         }
 
         fun GridStyle(inherit: Boolean = true, block: StyleBuilder.()->Unit) {
-            modifier.preGridStyles.addAll(buildStyle(inherit, true, block))
+            modifier.gridStyles.addAll(buildStyle(inherit, true, block))
         }
 
         fun ItemStyle(inherit: Boolean = true, block: StyleBuilder.()->Unit) {
-            modifier.preItemStyles.addAll(buildStyle(inherit, false, block))
+            modifier.itemStyles.addAll(buildStyle(inherit, false, block))
         }
     }
 
@@ -2692,14 +2734,14 @@ class P5(val nativeP5: NativeP5) {
         override val logName = "Grid Row"
 
         init {
-            modifier.postGridStyles.add(StyleData.Style("grid-auto-flow", "column").apply {active = true })
+            modifier.gridStyles.add(StyleData.Style("grid-auto-flow", "column").apply {active = true })
         }
     }
     inner class GridColumn: Grid() {
         override val logName = "Grid Column"
 
         init {
-            modifier.postGridStyles.add(StyleData.Style("grid-auto-flow", "row").apply { active = true })
+            modifier.gridStyles.add(StyleData.Style("grid-auto-flow", "row").apply { active = true })
         }
     }
     inner class GridStack: Grid() {
@@ -2708,21 +2750,26 @@ class P5(val nativeP5: NativeP5) {
         override fun add(child: LayoutNode, localStyles: StyleBuilder.()->Unit) {
             container.child(child.container)
             val childModifier = modifier.copy()
-            childModifier.postItemStyles.addAll(buildStyle(false, true) {
+            childModifier.itemStyles.addAll(buildStyle(false, true) {
                 style("grid-row", "1")
                 style("grid-column", "1")
             })
             child.inheritModifier(childModifier)
-            child.modifier.preItemStyles.addAll(buildStyle(false, true, localStyles))
+            child.modifier.itemStyles.addAll(buildStyle(false, true, localStyles))
             children.add(child)
         }
     }
 
     var layout: Grid? = null
     fun getLayout(): Grid {
-        return layout ?: error("Must use Layout Sketch Scope in Multi-Sketch Layouts")
+        if(layout == null) {
+            makeLayout {
+                add(getCanvas())
+            }
+        }
+        return layout ?: error("Error loading default layout")
     }
-    fun relayout(block: P5.Grid.()->Unit): Grid {
+    fun makeLayout(block: P5.Grid.()->Unit): Grid {
         val grid = layout ?: GridStack()
         grid.layoutCallback = block
         layout = grid
@@ -2761,5 +2808,9 @@ class P5(val nativeP5: NativeP5) {
     fun Color.isOpaque(): Boolean = alpha(this) == maxAlpha
     fun Color.isTransparent(): Boolean = !isOpaque()
 
+    fun getBody(): Element = select("body") ?: error("No Body Element Found!")
+
+    fun getDataURL(): String = canvasHtml.toDataURL()
+    fun takeImg(altText: String): Element = createImg(getDataURL(), altText)
 }
 

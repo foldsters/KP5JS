@@ -5,7 +5,7 @@ import kotlin.js.RegExp
 
 @JsName("Element")
 open external class NativeElement(elt: String) {
-    fun parent(): NativeElement
+    fun parent(): dynamic
     fun parent(parentString: String)
     fun parent(parentElement: NativeElement)
     fun id(): String

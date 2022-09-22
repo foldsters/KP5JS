@@ -1034,6 +1034,7 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     }
 
     fun texture(sampler: Sampler2D, P: Vec2Expr): Vec4Expr = functionOf(if (useWEBGL2) "texture" else "texture2D", sampler, P)
+    fun textureLod(sampler: Sampler2D, P: Vec2Expr, bias: FloatExpr): Vec4Expr = functionOf("textureLod", sampler, P, bias)
     fun textureGrad(sampler: Sampler2D, P: Vec2Expr, dPdx: Vec2Expr, dPdy: Vec2Expr): Vec4Expr = functionOf("textureGrad", sampler, P, dPdx, dPdy)
 
     //
@@ -1233,14 +1234,10 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
         }
 
     }
-    fun Main(block: ()->Exit) {
-        +"void main() {"
-        block()
-        +"}"
-    }
 
     val Break: Unit get() = +"break;"
     val Continue: Unit get() = +"continue;"
+    val Discard: Unit get() = +"discard;"
 
     // List Helper Functions
     private fun List<ShaderNode>.render(): String {
@@ -1583,7 +1580,7 @@ class KGLSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     inline fun <reified T: GenIExpr<T>> clamp(x: T, minVal: T, maxVal: T): T                 = functionOf("clamp", x, minVal, maxVal)
     inline fun <reified T: IVecExpr<T>> clamp(x: T, minVal: IntExpr, maxVal: IntExpr): T     = functionOf("clamp", x, minVal, maxVal)
 
-    inline fun <reified T: GenFExpr<T>>   mix(x: T, y: T, a: T): T        = functionOf("mix", x, y, a)
+    inline fun <reified T: GenFExpr<T>>   mix(x: T, y: T, a: T): T         = functionOf("mix", x, y, a)
     inline fun <reified T:  VecExpr<T>>   mix(x: T, y: T, a: FloatExpr): T = functionOf("mix", x, y, a)
     inline fun <reified T, U, V: ExprDim<V>> mix(x: T, y: T, a: U): T where T: GenExpr<T>, U : GenBExpr<U>, T: V, U: V = functionOf("mix", x, y, a)
 
