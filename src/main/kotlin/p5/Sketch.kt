@@ -3,36 +3,27 @@
 package p5
 
 import p5.core.*
+import p5.core.WebGLCore.Companion.getWebGLCore
 import p5.native.NativeP5
-import p5.util.toFixed
 import kotlin.math.max
 
-var globalP5: P5? = null
-var globalP5Set = false
-
-fun Sketch(sketch: SketchScope.()->Unit): SketchScope {
-    var sketchScope: SketchScope? = null
-    run {
-        NativeP5 {
-            val newP5 = P5(it)
-            val newSketchScope = SketchScope(newP5)
-            sketch(newSketchScope)
-            sketchScope = newSketchScope
-        }
-    }
-    return sketchScope ?: error("Failed to Create Sketch")
-}
-
-fun SimpleSketch(width: Number, height: Number, onDraw: P5.(Int)->Unit) = Sketch {
+fun SimpleSketch(width: Number, height: Number, loop: Boolean = true, onDraw: P5.(Int)->Unit) = Sketch {
     Setup {
         createCanvas(width, height)
+        if(!loop) noLoop()
     }
-    Draw {
-        onDraw(it)
-    }
+    Draw { onDraw(it) }
 }
 
-class SketchScope(val p5: P5) {
+class Sketch private constructor() {
+    constructor(sketch: Sketch.()->Unit): this() {
+        NativeP5 {
+            p5 = P5(it)
+            sketch()
+        }
+    }
+
+    lateinit var p5: P5
 
     private fun wrap(f: P5.()->Unit): ()->Unit {
         return { p5.f() }
@@ -96,11 +87,11 @@ class SketchScope(val p5: P5) {
         fun AfterDone(continuation: ()->Unit): DrawContinuation { afterDone = continuation; return this }
     }
 
-    fun Draw(stepsPerFrame: Int = 1, block: P5.(Int)->Unit): DrawContinuation {
+    fun Draw(stepsPerFrame: Int = 1, autoStart: Boolean=true, block: P5.(Int)->Unit): DrawContinuation {
         val nextDraw = DrawContinuation()
         var frame = 0
         with(p5) {
-            loop()
+            if(autoStart) loop() else noLoop()
             draw = wrap {
                 repeat(stepsPerFrame) {
                     block(frame)
@@ -178,14 +169,18 @@ class SketchScope(val p5: P5) {
         return nextDraw
     }
 
-    fun <T> DrawFor(iter: Iterable<T>, stepsPerFrame: Int = 1, block: P5.(T) -> Unit): DrawContinuation {
-        val itor = iter.iterator()
+    fun <T> DrawFor(iter: Iterable<T>, stepsPerFrame: Int = 1, loop: Boolean=false, block: P5.(T) -> Unit): DrawContinuation {
+        var itor = iter.iterator()
         val nextDraw = DrawContinuation()
         with(p5) {
             loop()
             draw = wrap {
                 repeat(stepsPerFrame) {
-                    if (itor.hasNext()) block(itor.next()) else {
+                    if (itor.hasNext()) {
+                        block(itor.next())
+                    } else if(loop) {
+                        itor = iter.iterator()
+                    } else {
                         nextDraw.afterDone?.invoke()
                         noLoop()
                         draw = {}

@@ -1,9 +1,8 @@
 package projects.shader
 
-import p5.core.P5
 import p5.Sketch
 import p5.core.RenderMode
-import p5.kglsl.*
+import p5.ksl.*
 
 fun shader() = Sketch {
 

@@ -5,8 +5,8 @@ import p5.core.P5
 import p5.core.P5.*
 import p5.Sketch
 import p5.core.*
-import p5.kglsl.buildShader
-import p5.kglsl.vec2
+import p5.ksl.buildShader
+import p5.ksl.vec2
 import p5.util.*
 import kotlin.math.PI
 import kotlin.math.max

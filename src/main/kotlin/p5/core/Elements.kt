@@ -4,6 +4,7 @@ package p5.core
 
 import p5.native.*
 import p5.util.arrayMap
+import p5.util.println
 import p5.util.setTimeout
 import kotlin.js.Json
 import kotlin.js.RegExp
@@ -68,7 +69,9 @@ open class Element(val nativeElement: NativeElement) {
             actions.forEach { it.remove = null }
             actions.clear()
         }
-        fun trigger(eventData: D) = actions.forEach { it.callback(eventData) }
+        fun trigger(eventData: D) = actions.forEach {
+            it.callback(eventData)
+        }
     }
 
     private val mousePressedHandler  = ActionHandler<Unit>()
@@ -128,7 +131,8 @@ open class Element(val nativeElement: NativeElement) {
         with(nativeElement) {
             mousePressed {
                 isClicked = true
-                mousePressedHandler.trigger(Unit) }
+                mousePressedHandler.trigger(Unit)
+            }
             doubleClicked { doubleClickedHandler.trigger(MouseEvent(it)) }
             mouseReleased {
                 isClicked = false
@@ -147,12 +151,17 @@ open class Element(val nativeElement: NativeElement) {
             }
             touchStarted {
                 isTouched = true
-                console.log("touchStarted", it); touchStartedHandler.trigger(it)
+                console.log("touchStarted", it)
+                touchStartedHandler.trigger(it)
             }
-            touchMoved { console.log("touchMoved", it); touchMovedHandler.trigger(it) }
+            touchMoved {
+                console.log("touchMoved", it)
+                touchMovedHandler.trigger(it)
+            }
             touchEnded {
                 isTouched = false
-                console.log("touchEnded", it); touchEndedHandler.trigger(it)
+                console.log("touchEnded", it)
+                touchEndedHandler.trigger(it)
             }
             dragOver {
                 isDraggedOver = true
@@ -162,8 +171,12 @@ open class Element(val nativeElement: NativeElement) {
                 isDraggedOver = false
                 dragLeaveHandler.trigger(DragEvent(it))
             }
-            changed { changedHandler.trigger(it) }
-            input { inputHandler.trigger(it) }
+            changed {
+                changedHandler.trigger(it)
+            }
+            input {
+                inputHandler.trigger(it)
+            }
         }
     }
 
@@ -200,7 +213,7 @@ open class Element(val nativeElement: NativeElement) {
 
 open class ValueElement<T>(nativeElement: NativeElement): Element(nativeElement) {
     fun value(): T = nativeElement.value() as T
-    fun value(v: T) = nativeElement.value()
+    fun value(v: T) = nativeElement.value(v)
 
     operator fun getValue(thisRef: Any?, property: KProperty<*>): T {
         name = property.name
@@ -327,7 +340,7 @@ class Font(val nativeFont: NativeFont) {
     fun textToPoints(text: String, x: Number, y: Number, fontSize: Number, options: dynamic): Array<dynamic> = nativeFont.textToPoints(text, x, y, fontSize, options) // TODO: Remove Dynamic
 }
 
-class Slider(val nativeSlider: NativeElement): ValueElement<Double>(nativeSlider)
+class Slider(val nativeSlider: NativeElement, val min: Number, val max: Number?, val step: Number?): ValueElement<Double>(nativeSlider)
 
 class Div(val nativeDiv: NativeElement): Element(nativeDiv)
 
@@ -503,6 +516,10 @@ open class Shader(val nativeShader: NativeShader, var uniformCallbacks: MutableM
         uniformCallbacks?.mapValues { (_, value) -> value() }?.let { updateUniforms(it) }
     }
 }
+
+class MultiShader(nativeShader: NativeShader, uniformCallbacks: MutableMap<String, ()->Any>? = null): Shader(nativeShader, uniformCallbacks)
+
+
 
 class PrintWriter(val nativePrintWriter: NativePrintWriter) { // TODO: Remove dynamic
     fun write(data: dynamic) = nativePrintWriter.write(data)

@@ -2,11 +2,13 @@ package projects.som
 
 import p5.*
 import p5.core.*
-import p5.util.getValue
 import kotlin.math.max
 import p5.core.P5.*
+import p5.util.*
+import kotlin.io.println
 
 fun paletteGenerator() = Sketch {
+
     lateinit var sourceImage: Image
 
     Preload {
@@ -14,12 +16,14 @@ fun paletteGenerator() = Sketch {
     }
 
     Setup {
+
+        println(isDarkMode())
         val paletteRows by url { 8.0 }
         val paletteColumns by url { 8.0 }
 
-        val swatchMaxDimension = 1024.0/max(paletteRows, paletteColumns)
+        val swatchMaxDimension = 512.0/max(paletteRows, paletteColumns)
 
-        val sourceCanvas = createGraphics(1024, 1024, RenderMode.P2D, hide = false).apply {
+        val imageCanvas = createGraphics(512, 512, RenderMode.P2D, hide = false).apply {
             image(sourceImage, 0, 0, width, height)
             colorMode(ColorMode.RGB, 1, 1, 1, 255)
         }
@@ -27,46 +31,80 @@ fun paletteGenerator() = Sketch {
         val canvas = createCanvas(
             paletteColumns*swatchMaxDimension,
             paletteRows*swatchMaxDimension,
-            RenderMode.P2D)
+            RenderMode.P2D
+        )
         colorMode(ColorMode.RGB, 1, 1, 1, 255)
         pixelDensity(1)
         noStroke()
         noSmooth()
+        frameRate(1000)
 
         val palette = createGraphics(paletteColumns, paletteRows, RenderMode.P2D)
         palette.noStroke()
         palette.pixelDensity(1)
         palette.colorMode(ColorMode.RGB, 1, 1, 1, 255)
 
-        val quality     by createSlider(0, 10, 3, 0.1, true).apply { size(width, 200, 3) }
-        val blendStart  by createSlider(0, 1, 0.3, 1.0/255.0, true).apply { size(width, 200, 3) }
-        val blendEnd    by createSlider(0, 1, 0.3, 1.0/255.0, true).apply { size(width, 200, 3) }
-        val radiusStart by createSlider(0, 1, 0.3, 1.0/255.0, true).apply { size(width, 200, 3) }
-        val radiusEnd   by createSlider(0, 1, 0.3, 1.0/255.0, true).apply { size(width, 200, 3) }
+        val qualitySlider     = createSlider(0, 10, 3, 0.1).apply { setScrollable() }
+        val blendStartSlider  = createSlider(0, 1, 0.3, 1.0/255.0).apply { setScrollable() }
+        val blendEndSlider    = createSlider(0, 1, 0.3, 1.0/255.0).apply { setScrollable() }
+        val radiusStartSlider = createSlider(0, 1, 0.3, 1.0/255.0).apply { setScrollable() }
+        val radiusEndSlider   = createSlider(0, 1, 0.3, 1.0/255.0).apply { setScrollable() }
 
-        val imageSize = createVector(sourceImage.width, sourceImage.height)
+        val quality     by qualitySlider
+        val blendStart  by blendStartSlider
+        val blendEnd    by blendEndSlider
+        val radiusStart by radiusStartSlider
+        val radiusEnd   by radiusEndSlider
+
         val diagonal = createVector(paletteRows, paletteColumns).mag()
-        val count by { 2.5.pow(quality).toInt() }
+        val count by { 10.0.pow(quality/2.0).toInt() }
 
-        val button = createButton("Redraw")
-        var buttonOnClick: ()->Unit = {}
-        button.apply {
-            text("Draw")
-            size(width, 200, 3)
-            mouseClicked { buttonOnClick() }
+        var tileable = true
+        val smoothingCanvas = if(tileable) createGraphics(3*width, 3*height, RenderMode.P2D) else createGraphics(width, height, RenderMode.P2D)
+        smoothingCanvas.noSmooth()
+
+        fun smooth() {
+            if(tileable) {
+                for(xOffset in 0..2) {
+                    for(yOffset in 0..2) {
+                        val offset = createVector(xOffset*width, yOffset*height)
+                        smoothingCanvas.image(this, offset, width, height)
+                    }
+                }
+                smoothingCanvas.filter(FilterMode.BLUR, 5)
+                image(smoothingCanvas, -width, -height, 3*width, 3*height)
+            } else {
+                smoothingCanvas.image(this, 0, 0, width, height)
+                smoothingCanvas.filter(FilterMode.BLUR, 5)
+                image(smoothingCanvas, 0, 0, width, height)
+            }
         }
 
+        var drawButtonAction: ()->Unit = {}
+        val drawButton = createButton("Redraw").apply {
+            text("Draw")
+            mouseClicked { drawButtonAction() }
+        }
+
+        val smoothButton = createButton("Smooth").apply {
+            mouseClicked { smooth() }
+        }
+
+
         fun drawPalette() {
+            val imageSize = createVector(sourceImage.width, sourceImage.height)
             clear()
-            sourceCanvas.clear()
+            imageCanvas.clear()
             palette.clear()
-            sourceCanvas.image(sourceImage, 0, 0, sourceCanvas.width, sourceCanvas.height)
-            buttonOnClick = {
+            smoothingCanvas.clear()
+            smoothingCanvas.resizeCanvas(if(tileable) createVector(3*width, 3*height) else createVector(width, height))
+            imageCanvas.image(sourceImage, 0, 0, imageCanvas.width, imageCanvas.height)
+            drawButtonAction = {
                 noLoop()
-                button.text("Redraw")
-                buttonOnClick = ::drawPalette
+                drawButton.text("Redraw")
+                drawButtonAction = ::drawPalette
             }
-            button.text("Stop")
+            drawButton.text("Stop")
 
             DrawFor(0 until count) {frame ->
 
@@ -81,7 +119,7 @@ fun paletteGenerator() = Sketch {
                     for (row in 0 until paletteRows.toInt()) {
                         for (col in 0 until paletteColumns.toInt()) {
                             val pixelColor = colorArray[row, col].toVector()
-                            val colorDistance = dist(pixelColor, randomPixelColor).toDouble()
+                            val colorDistance = dist(pixelColor, randomPixelColor)
                             pixelBag.add(createVector(col, row) to colorDistance)
                         }
                     }
@@ -90,25 +128,98 @@ fun paletteGenerator() = Sketch {
                 val circleCenter = pixelBag.shuffled().minBy { it.second }.first
                 val blendColor = randomPixelColor.toColor(map(progress, 0, 1, blendStart, blendEnd)*255.0)
                 palette.fill(blendColor)
-                palette.circle(circleCenter, radius)
-
+                if(tileable) {
+                    for(xOffset in -1..1) {
+                        for(yOffset in -1..1) { 
+                            val offset = createVector(xOffset*palette.width, yOffset*palette.height)
+                            palette.circle(circleCenter+offset, radius)
+                        }
+                    }
+                } else {
+                    palette.circle(circleCenter, radius)
+                }
                 image(palette, 0, 0, width, height)
 
             }.AfterDone {
                 println("Done")
-                button.text("Redraw")
-                buttonOnClick = ::drawPalette
+                drawButton.text("Redraw")
+                drawButtonAction = ::drawPalette
             }
         }
 
         drawPalette()
-        buttonOnClick = ::drawPalette
+        drawButtonAction = ::drawPalette
 
-        sourceCanvas.getCanvas().drop { file ->
+        imageCanvas.getCanvas().drop { file ->
             loadImage(file.data) {
                 sourceImage = it
                 drawPalette()
             }
         }
+
+        Layout {
+            ItemStyle { style("color", "#A9B7C5") }
+            Row {
+                GridStyle { style("grid-gap", "32px 32px") }
+                GridStyle(false) {
+                    style("margin-left", "32px")
+                    style("margin-top", "32px")
+                }
+                Column {// Image Sources
+                    GridStyle(false) {
+                        style("background-color", "#2b2b2b")
+                        style("padding", "32px ".repeat(4))
+                        style("border-radius", "32px")
+                    }
+                    add(imageCanvas)
+                    add(canvas)
+                }
+                Column { // Controls
+                    GridStyle(false) {
+                        style("background-color", "#2b2b2b")
+                        style("padding", "32px ".repeat(4))
+                        style("border-radius", "32px")
+                    }
+                    Column {
+                        fun addSlider(name: String, slider: Slider, useCount: Boolean = false) {
+                            Row {
+                                val sliderTextValue by { if (useCount) count else slider.value().toFixed(2) }
+                                val text = createP("${name}<br>$sliderTextValue")
+                                GridStyle {
+                                    size(width, 64, 1.5)
+                                    style("grid-template-columns", 5.fr() + 2.fr())
+                                    style("align-items", "center")
+                                }
+                                ItemStyle { style("width", "100%") }
+                                add(slider)
+                                add(text) { style("text-align", "start") }
+                                slider.apply {
+                                    input   { text.html("${name}<br>$sliderTextValue") }
+                                    changed { text.html("${name}<br>$sliderTextValue") }
+                                }
+                            }
+                        }
+                        addSlider("Iterations", qualitySlider, true)
+                        addSlider("Blend Start", blendStartSlider)
+                        addSlider("Blend End", blendEndSlider)
+                        addSlider("Radius Start", radiusStartSlider)
+                        addSlider("Radius End", radiusEndSlider)
+                    }
+                    val radio = createRadio().apply {
+                        option("Traditional")
+                        option("Tileable")
+                        value("Traditional")
+                        changed {
+                            tileable = value() == "Tileable"
+                        }
+                    }
+                    addAll(arrayOf(radio, drawButton, smoothButton)) {
+                        size(width, 64, 2)
+                    }
+                }
+            }
+        }
+
+
     }
 }

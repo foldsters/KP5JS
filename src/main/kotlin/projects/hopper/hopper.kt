@@ -7,11 +7,14 @@ import p5.core.P5
 import p5.core.P5.*
 import p5.core.RenderMode
 import p5.util.*
+import projects.hopper.HopperData.canvasSize
 import kotlin.math.max
 
-fun hopper(canvasSize: Number) = Sketch {
+object HopperData {
+    var canvasSize: Number = 512
+}
 
-    Preload {}
+fun hopper() = Sketch {
 
     Setup {
         createCanvas(canvasSize, canvasSize, RenderMode.P2D)

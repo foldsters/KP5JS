@@ -1,13 +1,11 @@
 package projects.raytrace
 
 import kotlinx.serialization.Serializable
-import p5.native.NativeP5.*
-import p5.core.P5
 import p5.Sketch
 import p5.core.MouseButton
 import p5.core.RenderMode
 import p5.core.P5.*
-import p5.kglsl.*
+import p5.ksl.*
 import kotlin.math.asin
 import kotlin.math.atan2
 
@@ -113,7 +111,7 @@ fun bitfield() = Sketch {
                             val e by pow(k, float(5))
                             hitType = e - 31.0*floor(e/31.0)
 //                            int(abs(mod(pow(k, float(13)), float (7))))
-                            hit = (hitType `>` 5.0) AND (hitType `<` 25.0)
+                            hit = (hitType `>` 5.0) and (hitType `<` 25.0)
                         }
 
                         If(i `>` 150) {

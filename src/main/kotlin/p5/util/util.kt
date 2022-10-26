@@ -1,5 +1,6 @@
 package p5.util
 
+import kotlinx.browser.window
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.serializer
@@ -303,5 +304,9 @@ fun <T> blockUntilTrue(resultCallback: ()->T, condition: (T)->Boolean): T {
 
 fun getTimestamp(): String {
     return Date.now().toLong().toString()
+}
+
+fun isDarkMode(): Boolean {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches
 }
 

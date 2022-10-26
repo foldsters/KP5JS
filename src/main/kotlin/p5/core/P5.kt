@@ -10,7 +10,7 @@ import kotlinx.serialization.descriptors.element
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.*
-import p5.SketchScope
+import p5.Sketch
 import p5.createLoop.nativeCreateLoop
 import p5.native.*
 import p5.native.NativeP5.*
@@ -31,7 +31,7 @@ private external val p5: dynamic
 
 private var P5UUID = 0
 
-class P5(val nativeP5: NativeP5) {
+class P5(var nativeP5: NativeP5) {
     constructor() : this(NativeP5())
 
     fun NativeElement.toElement() = Element(this)
@@ -413,10 +413,10 @@ class P5(val nativeP5: NativeP5) {
     fun createA(href: String, html: String, target: TargetMode): Element =
         Element(nativeP5.createA(href, html, target.nativeValue))
 
-    fun createSlider(min: Number, max: Number): Slider = Slider(nativeP5.createSlider(min, max))
-    fun createSlider(min: Number, max: Number, value: Number): Slider = Slider(nativeP5.createSlider(min, max, value))
+    fun createSlider(min: Number, max: Number): Slider = Slider(nativeP5.createSlider(min, max), min, max, null)
+    fun createSlider(min: Number, max: Number, value: Number): Slider = Slider(nativeP5.createSlider(min, max, value), min, max, null)
     fun createSlider(min: Number, max: Number, value: Number, step: Number): Slider =
-        Slider(nativeP5.createSlider(min, max, value, step))
+        Slider(nativeP5.createSlider(min, max, value, step), min, max, step)
 
     fun createButton(label: String): Button = Button(nativeP5.createButton(label))
     fun createCheckbox(): Checkbox = Checkbox(nativeP5.createCheckbox())
@@ -477,7 +477,11 @@ class P5(val nativeP5: NativeP5) {
     fun createCanvas(wh: Vector, renderMode: RenderMode): Renderer = createCanvas(wh.x, wh.y, renderMode)
     fun createCanvas(renderMode: RenderMode): Renderer = createCanvas(0, 0, renderMode)
     fun createCanvas(): Renderer = createCanvas(0, 0)
-    fun resizeCanvas(w: Number, h: Number) = nativeP5.resizeCanvas(w, h)
+    fun resizeCanvas(w: Number, h: Number) {
+        if(w != width || h != height) {
+            nativeP5.resizeCanvas(w, h)
+        }
+    }
     fun resizeCanvas(wh: Vector) = nativeP5.resizeCanvas(wh.x, wh.y)
     fun resizeCanvas(w: Number, h: Number, noRedraw: Boolean) = nativeP5.resizeCanvas(w, h, noRedraw)
     fun resizeCanvas(wh: Vector, noRedraw: Boolean) = nativeP5.resizeCanvas(wh.x, wh.y, noRedraw)
@@ -1178,9 +1182,9 @@ class P5(val nativeP5: NativeP5) {
         if (density != pixelDensity()) {
             pixelDensity(density)
         }
-        nativeP5.loadPixels()
+        nativeImage.loadPixels()
         val result = block(pixelScope)
-        nativeP5.updatePixels()
+        nativeImage.updatePixels()
         return result
     }
 
@@ -2626,7 +2630,7 @@ class P5(val nativeP5: NativeP5) {
             add(p5.getLayout(), localStyles)
         }
 
-        fun add(sketch: SketchScope, localStyles: StyleBuilder.()->Unit = {}) {
+        fun add(sketch: Sketch, localStyles: StyleBuilder.()->Unit = {}) {
             add(sketch.p5.getLayout(), localStyles)
         }
 
@@ -2642,7 +2646,7 @@ class P5(val nativeP5: NativeP5) {
             children.forEach { add(it, localStyles) }
         }
 
-        fun addAll(children: List<SketchScope>, localStyles: StyleBuilder.()->Unit = {}) {
+        fun addAll(children: List<Sketch>, localStyles: StyleBuilder.()->Unit = {}) {
             children.forEach { add(it, localStyles) }
         }
 
@@ -2658,7 +2662,7 @@ class P5(val nativeP5: NativeP5) {
             children.forEach { add(it, localStyles) }
         }
 
-        fun addAll(children: Array<SketchScope>, localStyles: StyleBuilder.()->Unit = {}) {
+        fun addAll(children: Array<Sketch>, localStyles: StyleBuilder.()->Unit = {}) {
             children.forEach { add(it, localStyles) }
         }
 
@@ -2812,5 +2816,15 @@ class P5(val nativeP5: NativeP5) {
 
     fun getDataURL(): String = canvasHtml.toDataURL()
     fun takeImg(altText: String): Element = createImg(getDataURL(), altText)
-}
 
+    fun Slider.setScrollable() {
+        mouseWheel {
+            println("Mouse Wheel!", it.deltaY)
+            if(it.deltaY < 0) {
+                value(value()+(step ?: 1))
+            } else {
+                value(value()-(step ?: 1))
+            }
+        }
+    }
+}

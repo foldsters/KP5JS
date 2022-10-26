@@ -47,10 +47,5 @@ fun ElementEvents() = Sketch {
             console.log(this)
             console.log(deltaY)
         }
-
     }
-
-
-
-
 }
