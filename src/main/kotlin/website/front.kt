@@ -6,9 +6,9 @@ import p5.core.P5
 
 fun front() = Sketch {
 
-    lateinit var font: Font
+    js("eval('import Futura from ./fonts/futuralight.otf')")
     Preload {
-        font = loadFont("fonts/futuralight.otf")
+        loadFont("./fonts/futuralight.otf")
     }
 
     Setup {
