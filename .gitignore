@@ -2,7 +2,7 @@
 # Project exclude paths
 /.gradle/
 /build/
-/build/classes/kotlin/main/
+!/build/distributions/
 /src/main/resources/assets/
 /kotlin-js-store/
 /.idea/
