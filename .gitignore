@@ -3,6 +3,7 @@
 /.gradle/
 /build/
 !/build/distributions/
+!/build/distributions/*
 /src/main/resources/assets/
 /kotlin-js-store/
 /.idea/
