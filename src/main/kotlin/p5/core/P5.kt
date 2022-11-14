@@ -1195,15 +1195,15 @@ class P5(var nativeP5: NativeP5) {
                 return pixelSource.pixels
             }
 
-        private fun RCToI(row: Int, col: Int): Int {
+        fun RCToI(row: Int, col: Int): Int {
             return 4 * pd * (pd * width * row + col)
         }
 
-        private fun RCToI(row: Double, col: Double): Int {
+        fun RCToI(row: Double, col: Double): Int {
             return 4 * pd * width * (pd * row).toInt() + 4 * (pd * col).toInt()
         }
 
-        private fun RCToI(vector: Vector): Int {
+        fun RCToI(vector: Vector): Int {
             return RCToI(vector.y, vector.x)
         }
 
@@ -2571,7 +2571,8 @@ class P5(var nativeP5: NativeP5) {
             id("$divId")
         }
         var modifier: LayoutStyleModifier = LayoutStyleModifier()
-        open fun render() {}
+        open fun render(propagate: Boolean) {}
+        open fun render() = render(true)
         abstract fun inheritModifier(parentModifier: LayoutStyleModifier)
         abstract fun clear()
         open fun delete() {
@@ -2583,6 +2584,7 @@ class P5(var nativeP5: NativeP5) {
             clear()
             render()
         }
+        operator fun invoke() = update()
     }
 
 
@@ -2597,8 +2599,8 @@ class P5(var nativeP5: NativeP5) {
             element.hide()
         }
 
-        override fun render() {
-            super.render()
+        override fun render(propagate: Boolean) {
+            super.render(propagate)
             container.child(element)
             container.apply { applyStyles(modifier.itemStyles) }
             element.apply {
@@ -2668,25 +2670,25 @@ class P5(var nativeP5: NativeP5) {
 
         var layoutCallback: Grid.()->Unit = {}
 
-        fun Row(callback: Grid.()->Unit): ()->Unit {
+        fun Row(callback: Grid.()->Unit): Grid {
             val childRow = GridRow()
             childRow.layoutCallback = callback
             add(childRow)
-            return childRow::update
+            return childRow
         }
 
-        fun Column(callback: Grid.()->Unit): ()->Unit {
+        fun Column(callback: Grid.()->Unit): Grid {
             val childColumn = GridColumn()
             childColumn.layoutCallback = callback
             add(childColumn)
-            return childColumn::update
+            return childColumn
         }
 
-        fun Stack(callback: Grid.()->Unit): ()->Unit {
+        fun Stack(callback: Grid.()->Unit): Grid {
             val childStack = GridStack()
             childStack.layoutCallback = callback
             add(childStack)
-            return childStack::update
+            return childStack
         }
 
         init {
@@ -2713,15 +2715,17 @@ class P5(var nativeP5: NativeP5) {
             children.clear()
         }
 
-        override fun render() {
-            super.render()
+        override fun render(propagate: Boolean) {
+            super.render(propagate)
             container.apply {
-                layoutCallback()
+                if(propagate) layoutCallback()
                 applyStyles(modifier.gridStyles)
                 applyStyles(modifier.itemStyles)
-                treeDepth++
-                children.forEach { it.render() }
-                treeDepth--
+                if(propagate) {
+                    treeDepth++
+                    children.forEach { it.render() }
+                    treeDepth--
+                }
             }
         }
 
@@ -2826,5 +2830,9 @@ class P5(var nativeP5: NativeP5) {
                 value(value()-(step ?: 1))
             }
         }
+    }
+
+    fun isMouseOver(element: Element): Boolean {
+        return element.isMouseOver
     }
 }

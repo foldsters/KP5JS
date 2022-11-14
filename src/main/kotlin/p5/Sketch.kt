@@ -122,6 +122,45 @@ class Sketch private constructor() {
         return nextDraw
     }
 
+    fun DrawWithPixels(stepsPerFrame: Int = 1, autoStart: Boolean=true, block: P5.PixelScope.(Int)->Unit): DrawContinuation {
+        val nextDraw = DrawContinuation()
+        var frame = 0
+        with(p5) {
+            if(autoStart) loop() else noLoop()
+            draw = wrap {
+                withPixels {
+                    repeat(stepsPerFrame) {
+                        block(frame)
+                        frame++
+                    }
+                    nextDraw.afterFrame?.invoke()
+                }
+            }
+        }
+        return nextDraw
+    }
+
+    fun DrawWithPixels(stepsPerFrame: AUTO, block: P5.PixelScope.(Int)->Unit): DrawContinuation {
+        val nextDraw = DrawContinuation()
+        var frame = 0
+        autoStepsPerFrame = 1
+        with(p5) {
+            loop()
+            draw = wrap {
+                withPixels {
+                    autoAdjustSteps {
+                        repeat(it) {
+                            block(frame)
+                            frame++
+                        }
+                        nextDraw.afterFrame?.invoke()
+                    }
+                }
+            }
+        }
+        return nextDraw
+    }
+
     fun DrawWhile(cond: ()->Boolean, stepsPerFrame: Int = 1, block: P5.(Int)->Unit): DrawContinuation {
         val nextDraw = DrawContinuation()
         var frame = 0

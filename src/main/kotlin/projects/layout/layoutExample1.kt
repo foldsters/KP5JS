@@ -1,6 +1,7 @@
 package projects.layout
 
 import p5.Sketch
+import p5.core.P5
 import p5.core.RenderMode
 import p5.util.*
 
@@ -19,7 +20,7 @@ fun layoutExample1() = Sketch {
 
         val subCMY = arrayOf(subC, subM, subY)
 
-        var updateButton: (()->Unit)? = null
+        var updateButton: P5.Grid? = null
 
         val buttonsCounter = createP("3")
         val slider = createSlider(0, 3, 3, 0.01).apply {
@@ -32,7 +33,7 @@ fun layoutExample1() = Sketch {
         val sliderValue by { slider.value() }
 
         var helpText: String? = null
-        var updateHelpText: (()->Unit)? = null
+        var updateHelpText: P5.Grid? = null
         fun showHelpText(text: String) {
             helpText = text
             updateHelpText?.invoke()

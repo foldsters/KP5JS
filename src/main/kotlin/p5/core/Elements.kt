@@ -232,6 +232,8 @@ class Color(val nativeColor: NativeColor) {
     fun setGreen(green: Number) = nativeColor.setGreen(green)
     fun setBlue(blue: Number) = nativeColor.setBlue(blue)
     fun setAlpha(alpha: Number) = nativeColor.setAlpha(alpha)
+    override fun equals(other: Any?) =
+        toString() == other.toString()
 }
 
 class Checkbox(val nativeCheckbox: NativeCheckbox): ValueElement<Boolean>(nativeCheckbox) {
@@ -503,7 +505,7 @@ open class Shader(val nativeShader: NativeShader, var uniformCallbacks: MutableM
                 is MediaElement -> set(k, v)
                 is Texture -> set(k, v)
                 is P5.Renderer -> set(k ,v)
-                else -> console.warn("Invalid Shader Uniform Type: $v")
+                else -> console.warn("Invalid Shader projects.testing.Uniform Type: $v")
             }
         }
     }

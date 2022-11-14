@@ -41,7 +41,7 @@ fun moire() = Sketch {
                     for(x in 0..4) {
                         for(y in 0..4) {
                             val offset = vec2(x-1.5, y-1.5)
-                            if((createVector(x-1.5, y-1.5).mag()) < 1.7) {
+                            if((createVector(x-1.5, y-1.5).mag()) < 1.65) {
                                 b = b or inSquare(size*(B-A), size*(D-A), offset-fract(A))
                             }
                         }

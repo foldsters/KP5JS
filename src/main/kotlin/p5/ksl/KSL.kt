@@ -1062,7 +1062,7 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     }
 
     inline fun <reified T: GenExpr<T>> Uniform(): T {
-        val result = new<T>(LiteralExpr("string", "<Unknown Uniform>"))
+        val result = new<T>(LiteralExpr("string", "<Unknown projects.testing.Uniform>"))
         result.modifiers = listOf("uniform")
         result.assign = false
         return result
@@ -1075,11 +1075,11 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     }
 
     @OverloadResolutionByLambdaReturnType
-    fun Uniform(block: ()->Boolean): BoolExpr    = Uniform<BoolExpr>().apply  { uniformCallback = Callback(block) }
-    fun Uniform(block: ()->Double): FloatExpr    = Uniform<FloatExpr>().apply { uniformCallback = Callback(block) }
-    fun Uniform(block: ()->Texture): Sampler2D   = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
-    fun Uniform(block: ()->Image): Sampler2D     = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
-    fun Uniform(block: ()->P5): Sampler2D        = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
+    fun Uniform(block: ()->Boolean): BoolExpr       = Uniform<BoolExpr>().apply  { uniformCallback = Callback(block) }
+    fun Uniform(block: ()->Double): FloatExpr       = Uniform<FloatExpr>().apply { uniformCallback = Callback(block) }
+    fun Uniform(block: ()->Texture): Sampler2D      = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
+    fun Uniform(block: ()->Image): Sampler2D        = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
+    fun Uniform(block: ()->P5): Sampler2D           = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
     fun Uniform(block: ()->P5.Renderer): Sampler2D  = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
     inline fun <reified T: VecExpr<T>>  Uniform(noinline block: ()->Array<Number>): T = Uniform<T>().apply { uniformCallback = Callback(block) }
 
