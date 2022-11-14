@@ -1,0 +1,7 @@
+@font-face {
+    font-family: 'futuralight';
+    src: url('fonts/futura/futuralight-webfont.woff2') format('woff2'),
+         url('fonts/futura/futuralight-webfont.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+}

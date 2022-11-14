@@ -1,11 +1,18 @@
 
 # Project exclude paths
 /.gradle/
-/build/
-!/build/distributions/
-!/build/distributions/*
 /src/main/resources/assets/
 /kotlin-js-store/
+/build/classes/
+/build/compileSync/
+/build/js/
+/build/klib/
+/build/kotlin/
+/build/libs/
+/build/processedResources/
+/build/reports/
+/build/snapshot/
+/build/tmp/
 /.idea/
 /gradle/
 /src/main/resources/
