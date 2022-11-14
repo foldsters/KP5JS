@@ -1,7 +1,6 @@
 
 # Project exclude paths
 /.gradle/
-/src/main/resources/assets/
 /kotlin-js-store/
 /build/classes/
 /build/compileSync/
@@ -15,4 +14,3 @@
 /build/tmp/
 /.idea/
 /gradle/
-/src/main/resources/
