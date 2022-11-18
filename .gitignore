@@ -2,6 +2,15 @@
 # Project exclude paths
 /.gradle/
 /kotlin-js-store/
-/build/
+/build/classes/
+/build/compileSync/
+/build/js/
+/build/klib/
+/build/kotlin/
+/build/libs/
+/build/processedResources/
+/build/reports/
+/build/snapshot/
+/build/tmp/
 /.idea/
 /gradle/
