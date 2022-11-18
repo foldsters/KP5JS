@@ -21,8 +21,8 @@ fun moire() = Sketch {
                 val zoom by Uniform { zoomSlider.value() }
 
                 val inSquare by buildFunction { AB: vec2, AD: vec2, AP: vec2 ->
-                    (0.0 `<=` dot(AP, AB)) and (dot(AP, AB) `<=` dot(AB, AB)) and
-                    (0.0 `<=` dot(AP, AD)) and (dot(AP, AD) `<=` dot(AD, AD))
+                    (0.0 `<=` dot(AP, AB)) AND (dot(AP, AB) `<=` dot(AB, AB)) AND
+                    (0.0 `<=` dot(AP, AD)) AND (dot(AP, AD) `<=` dot(AD, AD))
                 }
 
                 val rotate by buildFunction { v: vec2, a: float ->
@@ -42,11 +42,11 @@ fun moire() = Sketch {
                         for(y in 0..4) {
                             val offset = vec2(x-1.5, y-1.5)
                             if((createVector(x-1.5, y-1.5).mag()) < 1.65) {
-                                b = b or inSquare(size*(B-A), size*(D-A), offset-fract(A))
+                                b = b OR inSquare(size*(B-A), size*(D-A), offset-fract(A))
                             }
                         }
                     }
-                    If(b) { color = vec3(1.0) }
+                    IF(b) { color = vec3(1.0) }
                     vec4(color, 1.0)
                 }
             }

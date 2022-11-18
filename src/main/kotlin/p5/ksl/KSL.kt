@@ -1135,27 +1135,25 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
         return iteratorVarName
     }
 
-    inline fun If(cond: BoolExpr, block: () -> Unit): _If {
+    fun KSL.IF(cond: BoolExpr, block: () -> Unit): _If {
         +"if(${cond.render()}) {"
         block()
         +"}"
         return _If()
     }
-    inner class _If {
+    inner class _If
 
-        inline fun Else(block: ()->Unit) {
-            +"else {"
-            block()
-            +"}"
-        }
+    infix fun _If.ELSE(block: ()->Unit) {
+        +"else {"
+        block()
+        +"}"
+    }
 
-        inline fun ElseIf(cond: BoolExpr, block: ()->Unit): _If {
-            +"else if(${cond.render()}) {"
-            block()
-            +"}"
-            return this
-        }
-
+    fun _If.ELSEIF(cond: BoolExpr, block: () -> Unit): _If {
+        +"else if(${cond.render()}) {"
+        block()
+        +"}"
+        return this
     }
 
     private fun _For(start: FloatExpr, stop: FloatExpr, step: FloatExpr, block: (FloatExpr)->Unit) {
@@ -1174,19 +1172,19 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
         +"}"
     }
 
-    fun For(start: FloatExpr, stop: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), block)
-    fun For(start: FloatExpr, stop: Double,    block: (FloatExpr)->Unit) = _For(float(start), float(stop), block)
-    fun For(start: Double,    stop: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), block)
-    fun For(start: Double,    stop: Double,    block: (FloatExpr)->Unit) = _For(float(start), float(stop), block)
+    fun KSL.FOR(start: FloatExpr, stop: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), block)
+    fun FOR(start: FloatExpr, stop: Double, block: (FloatExpr)->Unit) = _For(float(start), float(stop), block)
+    fun FOR(start: Double, stop: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), block)
+    fun FOR(start: Double, stop: Double, block: (FloatExpr)->Unit) = _For(float(start), float(stop), block)
 
-    fun For(start: FloatExpr, stop: FloatExpr, step: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
-    fun For(start: FloatExpr, stop: FloatExpr, step: Double,    block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
-    fun For(start: FloatExpr, stop: Double,    step: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
-    fun For(start: FloatExpr, stop: Double,    step: Double,    block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
-    fun For(start: Double,    stop: FloatExpr, step: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
-    fun For(start: Double,    stop: FloatExpr, step: Double,    block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
-    fun For(start: Double,    stop: Double,    step: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
-    fun For(start: Double,    stop: Double,    step: Double,    block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
+    fun FOR(start: FloatExpr, stop: FloatExpr, step: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
+    fun FOR(start: FloatExpr, stop: FloatExpr, step: Double, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
+    fun FOR(start: FloatExpr, stop: Double, step: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
+    fun FOR(start: FloatExpr, stop: Double, step: Double, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
+    fun FOR(start: Double, stop: FloatExpr, step: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
+    fun FOR(start: Double, stop: FloatExpr, step: Double, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
+    fun FOR(start: Double, stop: Double, step: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
+    fun FOR(start: Double, stop: Double, step: Double, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
 
     private fun _For(start: IntExpr, stop: IntExpr, step: IntExpr, block: (IntExpr)->Unit) {
         val iterName = makeIteratorVar()
@@ -1204,21 +1202,21 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
         +"}"
     }
 
-    fun For(start: IntExpr, stop: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), block)
-    fun For(start: IntExpr, stop: Int,     block: (IntExpr)->Unit) = _For(int(start), int(stop), block)
-    fun For(start: Int,     stop: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), block)
-    fun For(start: Int,     stop: Int,     block: (IntExpr)->Unit) = _For(int(start), int(stop), block)
+    fun FOR(start: IntExpr, stop: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), block)
+    fun FOR(start: IntExpr, stop: Int, block: (IntExpr)->Unit) = _For(int(start), int(stop), block)
+    fun FOR(start: Int, stop: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), block)
+    fun FOR(start: Int, stop: Int, block: (IntExpr)->Unit) = _For(int(start), int(stop), block)
 
-    fun For(start: IntExpr, stop: IntExpr, step: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
-    fun For(start: IntExpr, stop: IntExpr, step: Int,     block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
-    fun For(start: IntExpr, stop: Int,     step: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
-    fun For(start: IntExpr, stop: Int,     step: Int,     block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
-    fun For(start: Int,     stop: IntExpr, step: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
-    fun For(start: Int,     stop: IntExpr, step: Int,     block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
-    fun For(start: Int,     stop: Int,     step: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
-    fun For(start: Int,     stop: Int,     step: Int,     block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
+    fun FOR(start: IntExpr, stop: IntExpr, step: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
+    fun FOR(start: IntExpr, stop: IntExpr, step: Int, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
+    fun FOR(start: IntExpr, stop: Int, step: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
+    fun FOR(start: IntExpr, stop: Int, step: Int, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
+    fun FOR(start: Int, stop: IntExpr, step: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
+    fun FOR(start: Int, stop: IntExpr, step: Int, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
+    fun FOR(start: Int, stop: Int, step: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
+    fun FOR(start: Int, stop: Int, step: Int, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
 
-    fun While(cond: BoolExpr, block: ()->Unit) {
+    fun WHILE(cond: BoolExpr, block: ()->Unit) {
         +"while(${cond.render()}) {"
         block()
         +"}"
@@ -1422,9 +1420,9 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     @JsName("GE_EQ_GE") infix fun <T: GenExpr<T>> T.`==`(other: T) = equalTo(this, other)
 
     operator fun BoolExpr.not(): BoolExpr = functionOf("!", this)
-    infix fun BoolExpr.and(other: BoolExpr): BoolExpr = operatorOf("&&", this, other)
-    infix fun BoolExpr.xor(other: BoolExpr): BoolExpr = operatorOf("^^", this, other)
-    infix fun BoolExpr.or(other: BoolExpr): BoolExpr = operatorOf("||", this, other)
+    infix fun BoolExpr.AND(other: BoolExpr): BoolExpr = operatorOf("&&", this, other)
+    infix fun BoolExpr.XOR(other: BoolExpr): BoolExpr = operatorOf("^^", this, other)
+    infix fun BoolExpr.OR(other: BoolExpr): BoolExpr = operatorOf("||", this, other)
 
     @JsName("NOT_BE")    fun `!`(expr: BoolExpr): BoolExpr = functionOf("!", expr)
     @JsName("BE_AND_BE") infix fun BoolExpr.`&&`(other: BoolExpr): BoolExpr = operatorOf("&&", this, other)
@@ -1491,13 +1489,13 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     @JsName("FE_NE_FE") infix fun FloatExpr.`!=`(other: FloatExpr): BoolExpr = operatorOf("!=", this, other)
 
     // Kotlin Literal
-    infix fun BoolExpr.and(other: Boolean): BoolExpr = operatorOf("&&", this, bool(other))
-    infix fun BoolExpr.xor(other: Boolean): BoolExpr = operatorOf("^^", this, bool(other))
-    infix fun BoolExpr.or(other: Boolean): BoolExpr = operatorOf("||", this, bool(other))
+    infix fun BoolExpr.AND(other: Boolean): BoolExpr = operatorOf("&&", this, bool(other))
+    infix fun BoolExpr.XOR(other: Boolean): BoolExpr = operatorOf("^^", this, bool(other))
+    infix fun BoolExpr.OR(other: Boolean): BoolExpr = operatorOf("||", this, bool(other))
 
-    infix fun Boolean.and(other: BoolExpr): BoolExpr = operatorOf("&&", bool(this), other)
-    infix fun Boolean.xor(other: BoolExpr): BoolExpr = operatorOf("^^", bool(this), other)
-    infix fun Boolean.or(other: BoolExpr): BoolExpr = operatorOf("||", bool(this), other)
+    infix fun Boolean.AND(other: BoolExpr): BoolExpr = operatorOf("&&", bool(this), other)
+    infix fun Boolean.XOR(other: BoolExpr): BoolExpr = operatorOf("^^", bool(this), other)
+    infix fun Boolean.OR(other: BoolExpr): BoolExpr = operatorOf("||", bool(this), other)
 
     inline operator fun <reified T: GenIExpr<T>> T.plus(other: Int): T = operatorOf("+", this, int(other))
     inline operator fun <reified T: GenIExpr<T>> T.minus(other: Int): T = operatorOf("-", this, int(other))

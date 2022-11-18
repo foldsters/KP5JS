@@ -171,7 +171,7 @@ fun hopperClouds2() = Sketch {
                         }
                     }
                     edge = (edge.rrr + edge.ggg + edge.bbb)/9.0 + texture(mask, uv).rgb
-                    If(edge.r `<` 0.0) {
+                    IF(edge.r `<` 0.0) {
                         edge = vec3(0.01, 0.01, 0.01)
                     }
                     edge = clamp(edge, float(0), float(1))

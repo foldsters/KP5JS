@@ -6,6 +6,7 @@ import kotlinx.browser.window
 import p5.util.isDarkMode
 import p5.util.println
 import projects.cards.perlinLightning
+import projects.circlizer.circlizer
 import projects.hopper.hopperClouds
 import projects.hopper.hopperClouds2
 import projects.huegene.huegene
@@ -22,8 +23,9 @@ import website.front
 
 fun main() {
     window.onload = {
-        //Select()
-        front()
+        Select()
+        //front()
+        //circlizer()
     }
 }
 
@@ -43,7 +45,8 @@ val sketchMap = mutableMapOf<String, ()->Sketch>(
     "Twitter-Style" to ::CardList,
     "Ordinary-Generating-Function" to ::oge,
     "Moire" to ::moire,
-    "Singularity" to ::singularity
+    "Singularity" to ::singularity,
+    "Circlizer" to ::circlizer
 )
 
 fun Select(): Sketch = Sketch {

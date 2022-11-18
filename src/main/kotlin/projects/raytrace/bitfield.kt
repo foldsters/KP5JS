@@ -64,9 +64,9 @@ fun bitfield() = Sketch {
                     val signPos by rayDir.map { sign(it) }
 
                     val deltaDist by vec3(1e9, 1e9, 1e9)
-                    If(rayDir.x `!=` 0.0) { deltaDist.x = abs(1.0/rayDir.x) }
-                    If(rayDir.y `!=` 0.0) { deltaDist.y = abs(1.0/rayDir.y) }
-                    If(rayDir.z `!=` 0.0) { deltaDist.z = abs(1.0/rayDir.z) }
+                    IF(rayDir.x `!=` 0.0) { deltaDist.x = abs(1.0/rayDir.x) }
+                    IF(rayDir.y `!=` 0.0) { deltaDist.y = abs(1.0/rayDir.y) }
+                    IF(rayDir.z `!=` 0.0) { deltaDist.z = abs(1.0/rayDir.z) }
 
                     val sideDist by deltaDist*(signPos*(floorPos-cameraPos + 0.5) + 0.5)
                     var hit by bool(false)
@@ -76,22 +76,22 @@ fun bitfield() = Sketch {
                     var wallDist by float(0.0)
                     var hitType by float(0.0)
 
-                    While(!hit) {
+                    WHILE(!hit) {
                         val smallestSide by sideDist.min()
 
-                        If(sideDist.x `==` smallestSide) {
+                        IF(sideDist.x `==` smallestSide) {
                             sideDist.x += deltaDist.x
                             floorPos.x += signPos.x
                             wallDistVec = (floorPos-cameraPos+(1.0 - signPos)*0.5)/rayDir
                             wallDist = wallDistVec.x
                             side = int(1)
-                        }.ElseIf(sideDist.y `==` smallestSide) {
+                        }.ELSEIF(sideDist.y `==` smallestSide) {
                             sideDist.y += deltaDist.y
                             floorPos.y += signPos.y
                             wallDistVec = (floorPos-cameraPos+(1.0 - signPos)*0.5)/rayDir
                             wallDist = wallDistVec.y
                             side = int(2)
-                        }.Else {
+                        }.ELSE {
                             sideDist.z += deltaDist.z
                             floorPos.z += signPos.z
                             wallDistVec = (floorPos-cameraPos+(1.0 - signPos)*0.5)/rayDir
@@ -100,7 +100,7 @@ fun bitfield() = Sketch {
                         }
 
                         i += 1
-                        If(i `>` 1) {
+                        IF(i `>` 1) {
                             val p by floorPos
                             val k by float(uint(abs(p.x + p.y))
                                     `^` uint(abs(p.x - p.y))
@@ -111,10 +111,10 @@ fun bitfield() = Sketch {
                             val e by pow(k, float(5))
                             hitType = e - 31.0*floor(e/31.0)
 //                            int(abs(mod(pow(k, float(13)), float (7))))
-                            hit = (hitType `>` 5.0) and (hitType `<` 25.0)
+                            hit = (hitType `>` 5.0) AND (hitType `<` 25.0)
                         }
 
-                        If(i `>` 150) {
+                        IF(i `>` 150) {
                             side = int(0)
                             hitType = float(0.0)
                             Break
@@ -122,13 +122,13 @@ fun bitfield() = Sketch {
                     }
 
                     var sideColor by vec3(0.0, 0.0, 0.0)
-                    If(side `==` 1) {
+                    IF(side `==` 1) {
                         wallDist = wallDistVec.x
                         sideColor = vec3(0.2, 0.8, 0.9)
-                    }.ElseIf(side `==` 2) {
+                    }.ELSEIF(side `==` 2) {
                         wallDist = wallDistVec.y
                         sideColor = vec3(0.05, 0.8, 0.9)
-                    }.ElseIf(side `==` 3) {
+                    }.ELSEIF(side `==` 3) {
                         wallDist = wallDistVec.z
                         sideColor = vec3(0.1, 0.8, 0.9)
                     } 

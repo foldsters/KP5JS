@@ -14,7 +14,7 @@ fun shader() = Sketch {
             Fragment {
 
                 var m by float(1.0)
-                For(2.0, 4.0) {
+                FOR(2.0, 4.0) {
                     m = it
                 }
 
