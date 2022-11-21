@@ -429,6 +429,8 @@ class Texture(val nativeTexture: NativeTexture)
 open class Shader(val nativeShader: NativeShader, var uniformCallbacks: MutableMap<String, ()->Any>? = null) {
 
     val uniforms: MutableMap<String, Any> = mutableMapOf()
+    var magFilterMode = MagFilterMode.LINEAR
+    var minFilterMode = MinFilterMode.NEAREST_MIPMAP_LINEAR
 
     operator fun set(uniformName: String, data: Boolean) {
         val oldValue = uniforms[uniformName]

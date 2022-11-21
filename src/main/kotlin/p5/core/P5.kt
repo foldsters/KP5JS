@@ -1083,7 +1083,9 @@ class P5(var nativeP5: NativeP5) {
         if(updateMipmap) {
             val gl = getCanvas().gl
             gl.generateMipmap(gl.TEXTURE_2D)
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR)
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minFilterMode.nativeValue)
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magFilterMode.nativeValue)
+            println(minFilterMode, magFilterMode)
         }
     }
 

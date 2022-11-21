@@ -1416,7 +1416,7 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
 
     // Operators
     fun <T: GenExpr<T>> equalTo(left: T, right: T): BoolExpr = operatorOf("==", left, right)
-    infix fun <T: GenExpr<T>> T.eq(other: T) = equalTo(this, other)
+    infix fun <T: GenExpr<T>> T.EQ(other: T) = equalTo(this, other)
     @JsName("GE_EQ_GE") infix fun <T: GenExpr<T>> T.`==`(other: T) = equalTo(this, other)
 
     operator fun BoolExpr.not(): BoolExpr = functionOf("!", this)

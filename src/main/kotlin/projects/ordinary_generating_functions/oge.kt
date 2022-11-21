@@ -2,6 +2,7 @@ package projects.ordinary_generating_functions
 
 import p5.Sketch
 import p5.core.LiteShaderSketch
+import p5.core.ShaderSketch
 import p5.core.P5
 import p5.core.WebGLCore.Companion.getWebGLCore
 import p5.ksl.buildShader

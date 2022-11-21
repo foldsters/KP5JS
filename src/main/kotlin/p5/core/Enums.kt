@@ -185,3 +185,16 @@ enum class JsonType(val nativeValue: String){
     JSONP("jsonp")
 }
 
+enum class MagFilterMode(val nativeValue: Int) {
+    LINEAR(9729),
+    NEAREST(9728)
+}
+
+enum class MinFilterMode(val nativeValue: Int) {
+    LINEAR(9729),
+    NEAREST(9728),
+    NEAREST_MIPMAP_NEAREST(9984),
+    LINEAR_MIPMAP_NEAREST(9985),
+    NEAREST_MIPMAP_LINEAR(9986),
+    LINEAR_MIPMAP_LINEAR(9987)
+}

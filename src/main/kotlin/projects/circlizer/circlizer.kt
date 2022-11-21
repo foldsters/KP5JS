@@ -2,9 +2,10 @@ package projects.circlizer
 
 import p5.Sketch
 import p5.core.Image
-import p5.core.LiteShaderSketch
+import p5.core.MagFilterMode
+import p5.core.MinFilterMode
+import p5.core.ShaderSketch
 import p5.core.WebGLCore.Companion.getWebGLCore
-import p5.ksl.buildShader
 import p5.ksl.vec2
 import p5.ksl.vec3
 
@@ -18,56 +19,80 @@ fun circlizer() = Sketch {
 
     Setup {
 
-        val glCore = getWebGLCore(0)
-        val glSketch = glCore.sketch.p5
-        val canvas = createCanvas(512, 512)
-
         pixelDensity(1)
-        frameRate(1)
+        val canvas = createCanvas(1920, 1080)
 
-        val circles: Array<Array<Number>> = Array(5) {
-            arrayOf(width*random(), height*random(), 50 + 100*random())
+        val circles: Array<Array<Number>> = Array(10) {
+            arrayOf(width*random(), height*random(), height*random())
         }
         var i = 0
 
-        image(sourceImage, 10, 10, 200, 200)
+        image(sourceImage, width*random(), height*random(), 100, 100)
 
-        val shader = glSketch.buildShader(debug = true) {
+        val liteCanvas = ShaderSketch(width, height, 0, true,
+            updateMipmap = true,
+            minFilterMode = MinFilterMode.NEAREST_MIPMAP_NEAREST,
+            magFilterMode = MagFilterMode.NEAREST
+        ) {
+
+            it.p5.background(0, 0)
+            it.p5.clear()
+            it.p5.erase()
+            it.p5.rect(0, 0, width, height)
+
+            getWebGLCore(0).sketch.p5.background(0, 0)
+            getWebGLCore(0).sketch.p5.clear()
+            getWebGLCore(0).sketch.p5.erase()
+            getWebGLCore(0).sketch.p5.rect(0, 0, width, height)
+
             Fragment {
-
-                val lastFrame by Uniform { canvas }
+                val prevFrame by Uniform { if (i==0) this@Setup else it.p5 }
                 val iResolution by Uniform<vec2> { arrayOf(width, height) }
-                val c by Uniform<vec3> { circles[i] }
+                val c by Uniform<vec3> {
+                    println(i)
+                    i++
+                    circles[i%circles.size]
+                }
 
                 val between by buildFunction { v: vec2, dl: vec2, ur: vec2 ->
                     (dl.x LT v.x) AND (dl.y LT v.y) AND (v.x LT ur.x) AND (v.y LT ur.y)
                 }
 
+                val flr by buildFunction { v: vec2 ->
+                    vec2(floor(v.x), floor(v.y))
+                }
+
+                val inv by buildFunction { v: vec2 ->
+                    val d by (v - c.xy)
+                    c.xy + (d*c.r*c.r)/dot(d, d)
+                }
+
                 Main {
-                    val uv by it
-                    val d by (uv - c.xy)
-                    var color by texture(lastFrame, uv/iResolution)
-                    IF(color.r `==` 0.0) {
-                        val inv by c.xy + (d*(c.r*c.r))/dot(d, d)
-                        IF( between(inv, vec2(0,0), iResolution) ) {
-                            color = texture(lastFrame, inv)
+                    var uv by it
+                    uv.y = (iResolution - uv).y
+                    val offset = uv - flr(uv)
+                    var color by texture(prevFrame, uv/iResolution)
+
+                    val uvInv by inv(uv)
+                    val colorInv by texture(prevFrame, flr(uvInv)/iResolution)
+
+                    val uv1 by flr(inv(vec2(floor(uvInv.x), floor(uvInv.y)))) + offset
+                    val uv2 by flr(inv(vec2(floor(uvInv.x), ceil(uvInv.y)))) + offset
+                    val uv3 by flr(inv(vec2(ceil(uvInv.x), ceil(uvInv.y)))) + offset
+                    val uv4 by flr(inv(vec2(ceil(uvInv.x), floor(uvInv.y)))) + offset
+
+                    IF((uv1 EQ uv) OR (uv2 EQ uv) OR (uv3 EQ uv) OR (uv4 EQ uv)) {
+                        IF( between(uvInv, vec2(0,0), iResolution) AND (colorInv.r GT 0.1)) {
+                            color = colorInv
                         }
                     }
+
                     color
                 }
             }
         }
 
-        val ss = LiteShaderSketch(width, height, shader, 0)
-        ss.p5.image(sourceImage, 10, 10, 200, 200)
-
-        glCore.attach(ss.p5)
-        glSketch.frameRate(1)
-
-        Draw {
-            i = (i+1)%circles.size
-            console.log(i)
-        }
+        getWebGLCore(0).attach(liteCanvas.p5)
 
     }
 

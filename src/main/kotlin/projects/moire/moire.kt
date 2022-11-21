@@ -2,6 +2,7 @@ package projects.moire
 
 import p5.Sketch
 import p5.core.LiteShaderSketch
+import p5.core.ShaderSketch
 import p5.core.WebGLCore.Companion.getWebGLCore
 import p5.ksl.*
 import kotlin.math.PI

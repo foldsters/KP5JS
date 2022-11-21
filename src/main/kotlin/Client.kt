@@ -23,9 +23,9 @@ import website.front
 
 fun main() {
     window.onload = {
-        Select()
+//        Select()
         //front()
-        //circlizer()
+        circlizer()
     }
 }
 
