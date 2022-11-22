@@ -11,9 +11,12 @@ class WebGLCore private constructor() {
 
     val sketch = Sketch {
         Setup {
-            createCanvas(0, 0, RenderMode.WEBGL2).apply { hide() }
+            createCanvas(0, 0, RenderMode.WEBGL2).apply {
+                attribute("id", "webgl")
+            }
             pixelDensity(1)
             background(0, 0, 0, 0)
+            noStroke()
             Draw(autoStart = true) {
                 for (sketch in queuedSketches) { sketch.redraw() }
                 queuedSketches.clear()
@@ -36,6 +39,11 @@ class WebGLCore private constructor() {
     fun render(p5: P5) {
         queuedSketches.add(p5)
         sketch.p5.loop()
+    }
+
+    fun clear() {
+        attachedSketches.clear()
+        sketch.p5.clear()
     }
 
     companion object {
@@ -75,8 +83,11 @@ fun ShaderSketch(width: Number, height: Number,
                  magFilterMode: MagFilterMode? = null,
                  shaderBuilder: ShaderScope.(Sketch)->Unit) = Sketch {
     Setup {
-        createCanvas(width, height)
+        createCanvas(width, height).apply {
+            attribute("id", "ShaderSketch")
+        }
         pixelDensity(1)
+        noStroke()
         val webGLCore = WebGLCore.getWebGLCore(webGLCoreIndex)
         val webGLRenderer = webGLCore.sketch.p5
         val shader = webGLRenderer.buildShader(debug) {

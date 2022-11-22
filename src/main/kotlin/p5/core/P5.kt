@@ -465,12 +465,18 @@ class P5(var nativeP5: NativeP5) {
             val nativeCanvas = nativeP5.createCanvas(w, h, renderMode.nativeValue)
             Renderer2D(nativeCanvas as NativeRenderer2D)
         }
-        RenderMode.WEBGL -> RendererGL(nativeP5.createCanvas(w, h, renderMode.nativeValue) as NativeRendererGL)
+        RenderMode.WEBGL -> {
+            val nativeCanvas = nativeP5.createCanvas(w, h, renderMode.nativeValue)
+            RendererGL(nativeCanvas as NativeRendererGL).apply {
+                setAttributes(RenderAttribute.ALPHA, true)
+            }
+        }
         RenderMode.WEBGL2 -> {
             enableWebgl2()
             val nativeCanvas = nativeP5.createCanvas(w, h, renderMode.nativeValue)
-            nativeCanvas.GL.getExtension("OES_standard_derivatives")
-            RendererGL(nativeCanvas as NativeRendererGL)
+            RendererGL(nativeCanvas as NativeRendererGL).apply {
+                setAttributes(RenderAttribute.ALPHA, true)
+            }
         }
     }.also { canvas = it }
 
@@ -601,14 +607,19 @@ class P5(var nativeP5: NativeP5) {
     // Mouse
     val movedX: Number by nativeP5::movedX
     val movedY: Number by nativeP5::movedY
+    val moved: Vector get() = createVector(movedX, movedY)
     val mouseX: Number by nativeP5::mouseX
     val mouseY: Number by nativeP5::mouseY
+    val mouse: Vector get() = createVector(mouseX, mouseY)
     val pmouseX: Number by nativeP5::pmouseX
     val pmouseY: Number by nativeP5::pmouseY
+    val pmouse: Vector get() = createVector(pmouseX, pmouseY)
     val winMouseX: Number by nativeP5::winMouseX
     val winMouseY: Number by nativeP5::winMouseY
+    val winMouse: Vector get() = createVector(winMouseX, winMouseY)
     val pwinMouseX: Number by nativeP5::pwinMouseX
     val pwinMouseY: Number by nativeP5::pwinMouseY
+    val pwinMouse: Vector get() = createVector(pwinMouseX, pwinMouseY)
     val mouseIsPressed: Boolean by nativeP5::mouseIsPressed
     var mouseMoved: () -> Unit by nativeP5::mouseMoved
     var mouseDragged: () -> Unit by nativeP5::mouseDragged
@@ -1080,13 +1091,12 @@ class P5(var nativeP5: NativeP5) {
 
     fun Shader.update(updateMipmap: Boolean = false) {
         updateUniformCallbacks()
+        val gl = getCanvas().gl
         if(updateMipmap) {
-            val gl = getCanvas().gl
             gl.generateMipmap(gl.TEXTURE_2D)
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minFilterMode.nativeValue)
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magFilterMode.nativeValue)
-            println(minFilterMode, magFilterMode)
         }
+//        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minFilterMode.nativeValue)
+//        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magFilterMode.nativeValue)
     }
 
     // SCOPE EXTENSION FUNCTIONS
@@ -1138,10 +1148,14 @@ class P5(var nativeP5: NativeP5) {
                         throw new Error("Error creating webgl context");
                     } 
                     var e = this.drawingContext;
-                    e.enable(e.DEPTH_TEST), 
-                    e.depthFunc(e.LEQUAL),
-                    e.viewport(0, 0, e.drawingBufferWidth, e.drawingBufferHeight),
-                    this._viewport = this.drawingContext.getParameter(this.drawingContext.VIEWPORT)
+                    e.clearColor(0.0, 0.0, 0.0, 0.0);
+                    //e.enable(e.DEPTH_TEST);
+                     e.disable(e.DEPTH_TEST); 
+                    e.depthFunc(e.LEQUAL);
+                    e.viewport(0, 0, e.drawingBufferWidth, e.drawingBufferHeight);
+                    e.enable(e.BLEND); 
+                    e.blendFunc(e.SRC_ALPHA, e.ONE_MINUS_SRC_ALPHA);
+                    this._viewport = this.drawingContext.getParameter(this.drawingContext.VIEWPORT);
                 } catch (e) {
                     throw e
                 }
@@ -1800,6 +1814,14 @@ class P5(var nativeP5: NativeP5) {
 
     fun Color.toVector(): Vector {
         return createVector(red(this), green(this), blue(this))
+    }
+
+    fun Color.asVector(transform: Vector.()->Vector): Color {
+        return transform(toVector()).toColor()
+    }
+
+    fun Color.asVector(alpha: Number, transform: Vector.()->Vector): Color {
+        return transform(toVector()).toColor(alpha)
     }
 
     inline fun Json.setIfNotNull(propertyName: String, value: Any?) {

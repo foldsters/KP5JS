@@ -1083,6 +1083,13 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     fun Uniform(block: ()->P5.Renderer): Sampler2D  = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
     inline fun <reified T: VecExpr<T>>  Uniform(noinline block: ()->Array<Number>): T = Uniform<T>().apply { uniformCallback = Callback(block) }
 
+    fun UniformBool(block: ()->Boolean): BoolExpr       = Uniform<BoolExpr>().apply  { uniformCallback = Callback(block) }
+    fun UniformFloat(block: ()->Double): FloatExpr       = Uniform<FloatExpr>().apply { uniformCallback = Callback(block) }
+    fun UniformTexture(block: ()->Texture): Sampler2D      = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
+    fun UniformImage(block: ()->Image): Sampler2D        = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
+    fun UniformP5(block: ()->P5): Sampler2D           = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
+    fun UniformRenderer(block: ()->P5.Renderer): Sampler2D  = Uniform<Sampler2D>().apply { uniformCallback = Callback(block) }
+
     inline fun <reified T: GenExpr<*>> Out(): T {
         val result = new<T>(LiteralExpr("string", "<Unknown Out>"))
         result.modifiers = listOf("out")
@@ -1497,6 +1504,13 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     infix fun Boolean.XOR(other: BoolExpr): BoolExpr = operatorOf("^^", bool(this), other)
     infix fun Boolean.OR(other: BoolExpr): BoolExpr = operatorOf("||", bool(this), other)
 
+    infix fun Boolean.EQ(other: BoolExpr) = equalTo(bool(this), other)
+    infix fun Int.EQ(other: IntExpr) = equalTo(int(this), other)
+    infix fun Double.EQ(other: FloatExpr) = equalTo(float(this), other)
+    infix fun BoolExpr.EQ(other: Boolean) = equalTo(this, bool(other))
+    infix fun IntExpr.EQ(other: Int) = equalTo(this, int(other))
+    infix fun FloatExpr.EQ(other: Double) = equalTo(this, float(other))
+
     inline operator fun <reified T: GenIExpr<T>> T.plus(other: Int): T = operatorOf("+", this, int(other))
     inline operator fun <reified T: GenIExpr<T>> T.minus(other: Int): T = operatorOf("-", this, int(other))
     inline operator fun <reified T: GenIExpr<T>> T.times(other: Int): T = operatorOf("*", this, int(other))
@@ -1687,6 +1701,7 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     fun <T: IntExpr, U: Int> ivec4(x: U, y: U, z: T, w: T): IVec4Expr = IVec4ExprImpl(int(x), int(y), int(z), int(w))
     fun <T: IntExpr, U: Int> ivec4(x: U, y: U, z: T, w: U): IVec4Expr = IVec4ExprImpl(int(x), int(y), int(z), int(w))
     fun <T: IntExpr, U: Int> ivec4(x: U, y: U, z: U, w: T): IVec4Expr = IVec4ExprImpl(int(x), int(y), int(z), int(w))
+
 
     fun ivec2(x: Int):                              IVec2Expr = IVec2ExprImpl(int(x), int(x))
     fun ivec2(x: Int, y: Int):                      IVec2Expr = IVec2ExprImpl(int(x), int(y))
