@@ -25,6 +25,8 @@ fun main() {
     window.onload = {
 //        Select()
         //front()
+        val pageName = js("page") as String
+        console.log(pageName)
         circlizer()
     }
 }

@@ -3,7 +3,6 @@ package projects.circlizer
 import p5.Sketch
 import p5.core.*
 import p5.core.WebGLCore.Companion.getWebGLCore
-import p5.ksl.KSL
 import p5.ksl.vec2
 import p5.ksl.vec3
 import kotlin.math.abs
@@ -13,7 +12,7 @@ fun circlizer() = Sketch {
     lateinit var sourceImage: Image
 
     Preload {
-        sourceImage = loadImage("stock/flower2.jpg")
+        sourceImage = loadImage("../../../stock/flower2.jpg")
     }
 
     Setup {
@@ -30,7 +29,8 @@ fun circlizer() = Sketch {
 
         noFill()
         val colors = arrayOf(color(255, 0, 0), color(255, 255, 0), color(0, 255, 0), color(0, 255, 255), color(0, 0, 255))
-        val imageLocation = createVector(width*random()-500, height*random()-500)
+        var imageLocation = createVector(width*random()-500, height*random()-500)
+        var imageSize = createVector(300*(random()+1), 300*(random()+1))
 
         var i = 0
 
@@ -39,7 +39,7 @@ fun circlizer() = Sketch {
             magFilterMode = MagFilterMode.NEAREST
         ) {
 
-            it.p5.image(sourceImage, imageLocation, 500, 500)
+            it.p5.image(sourceImage, imageLocation, imageSize)
 
             val fr by url { 10 }
 
@@ -69,9 +69,10 @@ fun circlizer() = Sketch {
                     val uv by it
                     uv.y = (iResolution - uv).y
                     val offset = uv - flr(uv)
-                    var color by texture(prevFrame, uv/iResolution)
+                    //val color by texture(prevFrame, uv/iResolution)
+                    val color by texelFetch(prevFrame, ivec2(int(uv.x), int(uv.y)), int(0))
                     val uvInv by inv(uv)
-                    val colorInv by texture(prevFrame, flr(uvInv)/iResolution)
+                    val colorInv by texelFetch(prevFrame, uvInv.toIVec(), int(0))
 
                     val uv1 by flr(inv(vec2(floor(uvInv.x), floor(uvInv.y)))) + offset
                     val uv2 by flr(inv(vec2(floor(uvInv.x), ceil(uvInv.y)))) + offset
@@ -79,8 +80,13 @@ fun circlizer() = Sketch {
                     val uv4 by flr(inv(vec2(ceil(uvInv.x), floor(uvInv.y)))) + offset
 
                     IF((uv1 EQ uv) OR (uv2 EQ uv) OR (uv3 EQ uv) OR (uv4 EQ uv)) {
-                        IF( between(uvInv, vec2(0,0), iResolution) AND (colorInv.a EQ 1.0)) {
-                            color = colorInv
+                        IF( between(uvInv, vec2(0,0), iResolution)) {
+                            val newAlpha = colorInv.a + color.a*(1.0-colorInv.a)
+                            color.rgb = (colorInv.rgb*colorInv.a + color.rgb*color.a*(1.0-colorInv.a))/newAlpha
+                            color.a = newAlpha
+//                            val newAlpha = color.a + colorInv.a*(1.0-color.a)
+//                            color.rgb = (colorInv.rgb*colorInv.a + color.rgb*color.a*(1.0-colorInv.a))/newAlpha
+//                            color.a = newAlpha
                         }
                     }
 
@@ -95,7 +101,7 @@ fun circlizer() = Sketch {
 
         var startMouseLocation = createVector(0, 0)
         var startCircleLocation = createVector(0, 0)
-        var lastIndex = 0
+        var lastIndex = -1
         var resizing = false
         var moving = false
 
@@ -103,7 +109,7 @@ fun circlizer() = Sketch {
             if(pmouse != createVector(0, 0)) {
                 getWebGLCore(0).clear()
                 liteCanvas.p5.clear()
-                liteCanvas.p5.image(sourceImage, imageLocation, 500, 500)
+                liteCanvas.p5.image(sourceImage, imageLocation, imageSize)
                 getWebGLCore(0).attach(liteCanvas.p5)
             }
         }
@@ -112,10 +118,94 @@ fun circlizer() = Sketch {
             var hit = false
             clear()
             image(liteCanvas.p5, 0, 0, width, height)
+            val w = 20
+
+            // Image Resizing
+            if(resizing && lastIndex<0) {
+                hit = true
+                stroke(255)
+                if (mouseIsPressed) {
+                    when(lastIndex) {
+                        -4 -> { // left
+                            val right = imageLocation.x + imageSize.x
+                            imageLocation.x = mouse.x - startMouseLocation.x + startCircleLocation.x
+                            imageSize.x = right - imageLocation.x
+                        }
+                        -3 -> { // top
+                            val bottom = imageLocation.y + imageSize.y
+                            imageLocation.y = mouse.y - startMouseLocation.y + startCircleLocation.y
+                            imageSize.y = bottom - imageLocation.y
+                        }
+                        -2 -> imageSize.x = mouse.x - startMouseLocation.x + startCircleLocation.x
+                        -1 -> imageSize.y = mouse.y - startMouseLocation.y + startCircleLocation.y
+                    }
+                    restart()
+                } else {
+                    resizing = false
+                }
+            } else if(moving && lastIndex<0) {
+                hit = true
+                if (mouseIsPressed) {
+                    val newXY = (mouse - startMouseLocation + startCircleLocation)
+                    if(newXY != imageLocation) {
+                        imageLocation.xy = newXY
+                        restart()
+                    }
+                } else {
+                    moving = false
+                }
+            // left
+            } else if(dist(mouse.x, imageLocation.x) < w && mouse.y > imageLocation.y && mouse.y < (imageLocation.y + imageSize.y) && !hit) {
+                hit = true
+                lastIndex = -4
+                if(mouseIsPressed) {
+                    startCircleLocation.xy = imageLocation
+                    startMouseLocation.xy = mouse
+                    resizing = true
+                }
+            // up
+            } else if(dist(mouse.y, imageLocation.y) < w && mouse.x > imageLocation.x && mouse.x < (imageLocation.x + imageSize.x) && !hit) {
+                hit = true
+                lastIndex = -3
+                if(mouseIsPressed) {
+                    startCircleLocation.xy = imageLocation
+                    startMouseLocation.xy = mouse
+                    resizing = true
+                }
+            // right
+            } else if(dist(mouse.x, imageLocation.x + imageSize.x) < w && mouse.y > imageLocation.y && mouse.y < (imageLocation.y + imageSize.y) && !hit) {
+                hit = true
+                lastIndex = -2
+                if(mouseIsPressed) {
+                    startCircleLocation.xy = imageSize
+                    startMouseLocation.xy = mouse
+                    resizing = true
+                }
+            // down
+            } else if(dist(mouse.y, imageLocation.y + imageSize.y) < w && mouse.x > imageLocation.x && mouse.x < (imageLocation.x + imageSize.x) && !hit) {
+                hit = true
+                lastIndex = -1
+                if(mouseIsPressed) {
+                    startCircleLocation.xy = imageSize
+                    startMouseLocation.xy = mouse
+                    resizing = true
+                }
+            // moving
+            } else if(mouse.x > imageLocation.x && mouse.y > imageLocation.y && mouse.x < (imageLocation.x + imageSize.x) && mouse.y < (imageLocation.y + imageSize.y) && !hit) {
+                console.log("moving!")
+                hit = true
+                lastIndex = -1
+                if(mouseIsPressed) {
+                    startCircleLocation.xy = imageLocation
+                    startMouseLocation.xy = mouse
+                    moving = true
+                }
+            }
+
+            // Circle Resizing
             circles.zip(colors).forEachIndexed { i, (cir, col) ->
                 val cxy = createVector(cir[0], cir[1])
                 val r = cir[2]
-                val w = 20
 
                 if(resizing && i==lastIndex) {
                     hit = true
@@ -162,7 +252,15 @@ fun circlizer() = Sketch {
 
             }
         }
+
+        canvas.drop { file ->
+            loadImage(file.data) {
+                sourceImage = it
+                restart()
+            }
+        }
     }
 
 
 }
+

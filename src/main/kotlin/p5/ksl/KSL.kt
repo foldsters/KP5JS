@@ -1040,6 +1040,8 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     fun textureLod(sampler: Sampler2D, P: Vec2Expr, bias: FloatExpr): Vec4Expr = functionOf("textureLod", sampler, P, bias)
     fun textureGrad(sampler: Sampler2D, P: Vec2Expr, dPdx: Vec2Expr, dPdy: Vec2Expr): Vec4Expr = functionOf("textureGrad", sampler, P, dPdx, dPdy)
 
+    fun texelFetch(sampler: Sampler2D, texCoord: IVec2Expr, lod: IntExpr): Vec4Expr = functionOf(if (useWEBGL2) "texelFetch" else error { "texelFetch only available in WEBGL2" }, sampler, texCoord, lod)
+
     //
 
     fun ShaderNode.getSnapshotNum(): Double {
@@ -1980,6 +1982,10 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     inline fun Vec2Expr.map(f: (FloatExpr)->FloatExpr) = vec2(f(x), f(y))
     inline fun Vec3Expr.map(f: (FloatExpr)->FloatExpr) = vec3(f(x), f(y), f(z))
     inline fun Vec4Expr.map(f: (FloatExpr)->FloatExpr) = vec4(f(x), f(y), f(z), f(w))
+
+    inline fun Vec2Expr.toIVec() = ivec2(int(x), int(y))
+    inline fun Vec3Expr.toIVec() = ivec3(int(x), int(y), int(z))
+    inline fun Vec4Expr.toIVec() = ivec4(int(x), int(y), int(z), int(w))
 
     infix fun IntExpr.uxor(other: IntExpr): IntExpr {
         return int(uint(this) `^` uint(other))

@@ -1092,11 +1092,11 @@ class P5(var nativeP5: NativeP5) {
     fun Shader.update(updateMipmap: Boolean = false) {
         updateUniformCallbacks()
         val gl = getCanvas().gl
-        if(updateMipmap) {
+        //if(updateMipmap) {
             gl.generateMipmap(gl.TEXTURE_2D)
-        }
-//        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minFilterMode.nativeValue)
-//        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magFilterMode.nativeValue)
+        //}
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minFilterMode.nativeValue)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magFilterMode.nativeValue)
     }
 
     // SCOPE EXTENSION FUNCTIONS
@@ -2858,5 +2858,9 @@ class P5(var nativeP5: NativeP5) {
 
     fun isMouseOver(element: Element): Boolean {
         return element.isMouseOver
+    }
+
+    fun dist(d1: Double, d2: Double): Double {
+        return abs(d1-d2)
     }
 }
