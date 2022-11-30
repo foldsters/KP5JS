@@ -2,6 +2,22 @@ package p5.core
 
 import p5.native.*
 
+open class Event(val nativeEvent: NativeEvent) {
+    val isTrusted: Boolean = nativeEvent.isTrusted
+    val bubbles: Boolean = nativeEvent.bubbles
+    val cancelBubble: Boolean = nativeEvent.cancelBubble
+    val cancelable: Boolean = nativeEvent.cancelable
+    val composed: Boolean = nativeEvent.composed
+    val currentTarget: dynamic = nativeEvent.currentTarget
+    val defaultPrevented: Boolean = nativeEvent.defaultPrevented
+    val eventPhase: Int = nativeEvent.eventPhase
+    val returnValue: Boolean = nativeEvent.returnValue
+    val srcElement: NativeElement? = nativeEvent.srcElement
+    val target: NativeElement? = nativeEvent.target
+    val timeStamp: Double = nativeEvent.timeStamp
+    val type: String = nativeEvent.type
+}
+
 class KeyboardEvent(val nativeKeyboardEvent: NativeKeyboardEvent) {
     val altKey: Boolean by nativeKeyboardEvent::altKey
     val bubbles: Boolean by nativeKeyboardEvent::bubbles
@@ -26,22 +42,6 @@ class KeyboardEvent(val nativeKeyboardEvent: NativeKeyboardEvent) {
     val timeStamp: Double by nativeKeyboardEvent::timeStamp
     val type: String by nativeKeyboardEvent::type
     val which: Int by nativeKeyboardEvent::which
-}
-
-open class Event(val nativeEvent: NativeEvent) {
-    val isTrusted: Boolean = nativeEvent.isTrusted
-    val bubbles: Boolean = nativeEvent.bubbles
-    val cancelBubble: Boolean = nativeEvent.cancelBubble
-    val cancelable: Boolean = nativeEvent.cancelable
-    val composed: Boolean = nativeEvent.composed
-    val currentTarget: dynamic = nativeEvent.currentTarget
-    val defaultPrevented: Boolean = nativeEvent.defaultPrevented
-    val eventPhase: Int = nativeEvent.eventPhase
-    val returnValue: Boolean = nativeEvent.returnValue
-    val srcElement: NativeElement? = nativeEvent.srcElement
-    val target: NativeElement? = nativeEvent.target
-    val timeStamp: Double = nativeEvent.timeStamp
-    val type: String = nativeEvent.type
 }
 
 class WheelEvent(val nativeWheelEvent: NativeWheelEvent): Event(nativeWheelEvent) {

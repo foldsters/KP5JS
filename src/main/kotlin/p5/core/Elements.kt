@@ -4,14 +4,54 @@ package p5.core
 
 import p5.native.*
 import p5.util.arrayMap
-import p5.util.println
 import p5.util.setTimeout
 import kotlin.js.Json
 import kotlin.js.RegExp
 import kotlin.reflect.KProperty
 
-//context(P5)
-open class Element(val nativeElement: NativeElement) {
+interface Interactable {
+
+    fun drop(callback: (File)->Unit)
+    fun drop(callback: (File)->Unit, onDrop: ()->Unit)
+    fun mousePressed(callback: (Unit)->Unit): EventAction<Unit>
+    fun doubleClicked(callback: (MouseEvent)->Unit): EventAction<MouseEvent>
+    fun mouseReleased(callback: (MouseEvent)->Unit): EventAction<MouseEvent>
+    fun mouseWheel(callback: (WheelEvent)->Unit): EventAction<WheelEvent>
+    fun mouseClicked(callback: (PointerEvent)->Unit): EventAction<PointerEvent>
+    fun mouseMoved(callback: (MouseEvent)->Unit): EventAction<MouseEvent>
+    fun mouseOver(callback: (MouseEvent)->Unit): EventAction<MouseEvent>
+    fun mouseOut(callback: (MouseEvent)->Unit): EventAction<MouseEvent>
+    fun touchStarted(callback: (dynamic)->Unit): EventAction<dynamic>
+    fun touchMoved(callback: (dynamic)->Unit): EventAction<dynamic>
+    fun touchEnded(callback: (dynamic)->Unit): EventAction<dynamic>
+    fun dragOver(callback: (DragEvent)->Unit): EventAction<DragEvent>
+    fun dragLeave(callback: (DragEvent)->Unit): EventAction<DragEvent>
+    fun changed(callback: (Event)->Unit): EventAction<dynamic>
+    fun input(callback: (Event)->Unit): EventAction<dynamic>
+
+    fun clearMousePressed()
+    fun clearDoubleClicked()
+    fun clearMouseReleased()
+    fun clearMouseWheel()
+    fun clearMouseClicked()
+    fun clearMouseMoved()
+    fun clearMouseOver()
+    fun clearMouseOut()
+    fun clearTouchStarted()
+    fun clearTouchMoved()
+    fun clearTouchEnded()
+    fun clearDragOver()
+    fun clearDragLeave()
+    fun clearChanged()
+    fun clearInput()
+
+    var isMouseOver: Boolean
+    var isClicked: Boolean
+    var isTouched: Boolean
+    var isDraggedOver: Boolean
+}
+
+open class Element(val nativeElement: NativeElement): Interactable {
     constructor(elt: String): this(NativeElement(elt))
 
     fun parent(): Element = Element(nativeElement.parent().toString())
@@ -45,8 +85,8 @@ open class Element(val nativeElement: NativeElement) {
     fun size(w: Number) = nativeElement.size(w)
     fun size(w: Number, h: Number) = nativeElement.size(w, h)
     fun remove() = nativeElement.remove()
-    fun drop(callback: (File)->Unit) = nativeElement.drop { nativeFile -> callback(File(nativeFile)) }
-    fun drop(callback: (File)->Unit, onDrop: ()->Unit) = nativeElement.drop({ nativeFile -> callback(File(nativeFile)) }, onDrop)
+    override fun drop(callback: (File)->Unit) = nativeElement.drop { nativeFile -> callback(File(nativeFile)) }
+    override fun drop(callback: (File)->Unit, onDrop: ()->Unit) = nativeElement.drop({ nativeFile -> callback(File(nativeFile)) }, onDrop)
     fun center(alignMode: AlignMode) = nativeElement.center(alignMode.nativeValue)
     fun position(x: Number, y: Number, positionMode: PositionMode) = nativeElement.position(x, y, positionMode.nativeValue)
     fun size(w: AUTO) = nativeElement.size("auto")
@@ -90,42 +130,42 @@ open class Element(val nativeElement: NativeElement) {
     private val changedHandler       = ActionHandler<dynamic>()
     private val inputHandler         = ActionHandler<dynamic>()
 
-    fun mousePressed(callback: (Unit)->Unit) = mousePressedHandler.addEvent(callback)
-    fun doubleClicked(callback: (MouseEvent)->Unit) = doubleClickedHandler.addEvent(callback)
-    fun mouseReleased(callback: (MouseEvent)->Unit) = mouseReleasedHandler.addEvent(callback)
-    fun mouseWheel(callback: (WheelEvent)->Unit) = mouseWheelHandler.addEvent(callback)
-    fun mouseClicked(callback: (PointerEvent)->Unit) = mouseClickedHandler.addEvent(callback)
-    fun mouseMoved(callback: (MouseEvent)->Unit) = mouseMovedHandler.addEvent(callback)
-    fun mouseOver(callback: (MouseEvent)->Unit) = mouseOverHandler.addEvent(callback)
-    fun mouseOut(callback: (MouseEvent)->Unit) = mouseOutHandler.addEvent(callback)
-    fun touchStarted(callback: (dynamic)->Unit) = touchStartedHandler.addEvent(callback)
-    fun touchMoved(callback: (dynamic)->Unit) = touchMovedHandler.addEvent(callback)
-    fun touchEnded(callback: (dynamic)->Unit) = touchEndedHandler.addEvent(callback)
-    fun dragOver(callback: (DragEvent)->Unit) = dragOverHandler.addEvent(callback)
-    fun dragLeave(callback: (DragEvent)->Unit) = dragLeaveHandler.addEvent(callback)
-    fun changed(callback: (Event)->Unit) = changedHandler.addEvent(callback)
-    fun input(callback: (Event)->Unit) = inputHandler.addEvent(callback)
+    override fun mousePressed(callback: (Unit)->Unit): EventAction<Unit> = mousePressedHandler.addEvent(callback)
+    override fun doubleClicked(callback: (MouseEvent)->Unit): EventAction<MouseEvent> = doubleClickedHandler.addEvent(callback)
+    override fun mouseReleased(callback: (MouseEvent)->Unit): EventAction<MouseEvent> = mouseReleasedHandler.addEvent(callback)
+    override fun mouseWheel(callback: (WheelEvent)->Unit): EventAction<WheelEvent> = mouseWheelHandler.addEvent(callback)
+    override fun mouseClicked(callback: (PointerEvent)->Unit): EventAction<PointerEvent> = mouseClickedHandler.addEvent(callback)
+    override fun mouseMoved(callback: (MouseEvent)->Unit): EventAction<MouseEvent> = mouseMovedHandler.addEvent(callback)
+    override fun mouseOver(callback: (MouseEvent)->Unit): EventAction<MouseEvent> = mouseOverHandler.addEvent(callback)
+    override fun mouseOut(callback: (MouseEvent)->Unit): EventAction<MouseEvent> = mouseOutHandler.addEvent(callback)
+    override fun touchStarted(callback: (dynamic)->Unit): EventAction<dynamic> = touchStartedHandler.addEvent(callback)
+    override fun touchMoved(callback: (dynamic)->Unit): EventAction<dynamic> = touchMovedHandler.addEvent(callback)
+    override fun touchEnded(callback: (dynamic)->Unit): EventAction<dynamic> = touchEndedHandler.addEvent(callback)
+    override fun dragOver(callback: (DragEvent)->Unit): EventAction<DragEvent> = dragOverHandler.addEvent(callback)
+    override fun dragLeave(callback: (DragEvent)->Unit): EventAction<DragEvent> = dragLeaveHandler.addEvent(callback)
+    override fun changed(callback: (Event)->Unit): EventAction<dynamic> = changedHandler.addEvent(callback)
+    override fun input(callback: (Event)->Unit): EventAction<dynamic> = inputHandler.addEvent(callback)
 
-    fun clearMousePressed() = mousePressedHandler.clear()
-    fun clearDoubleClicked() = doubleClickedHandler.clear()
-    fun clearMouseReleased() = mouseReleasedHandler.clear()
-    fun clearMouseWheel() = mouseWheelHandler.clear()
-    fun clearMouseClicked() = mouseClickedHandler.clear()
-    fun clearMouseMoved() = mouseMovedHandler.clear()
-    fun clearMouseOver() = mouseOverHandler.clear()
-    fun clearMouseOut() = mouseOutHandler.clear()
-    fun clearTouchStarted() = touchStartedHandler.clear()
-    fun clearTouchMoved() = touchMovedHandler.clear()
-    fun clearTouchEnded() = touchEndedHandler.clear()
-    fun clearDragOver() = dragOverHandler.clear()
-    fun clearDragLeave() = dragLeaveHandler.clear()
-    fun clearChanged() = changedHandler.clear() 
-    fun clearInput() = inputHandler.clear()
+    override fun clearMousePressed() = mousePressedHandler.clear()
+    override fun clearDoubleClicked() = doubleClickedHandler.clear()
+    override fun clearMouseReleased() = mouseReleasedHandler.clear()
+    override fun clearMouseWheel() = mouseWheelHandler.clear()
+    override fun clearMouseClicked() = mouseClickedHandler.clear()
+    override fun clearMouseMoved() = mouseMovedHandler.clear()
+    override fun clearMouseOver() = mouseOverHandler.clear()
+    override fun clearMouseOut() = mouseOutHandler.clear()
+    override fun clearTouchStarted() = touchStartedHandler.clear()
+    override fun clearTouchMoved() = touchMovedHandler.clear()
+    override fun clearTouchEnded() = touchEndedHandler.clear()
+    override fun clearDragOver() = dragOverHandler.clear()
+    override fun clearDragLeave() = dragLeaveHandler.clear()
+    override fun clearChanged() = changedHandler.clear()
+    override fun clearInput() = inputHandler.clear()
 
-    var isMouseOver: Boolean = false
-    var isClicked: Boolean = false
-    var isTouched: Boolean = false
-    var isDraggedOver: Boolean = false
+    override var isMouseOver: Boolean = false
+    override var isClicked: Boolean = false
+    override var isTouched: Boolean = false
+    override var isDraggedOver: Boolean = false
 
     init {
         with(nativeElement) {

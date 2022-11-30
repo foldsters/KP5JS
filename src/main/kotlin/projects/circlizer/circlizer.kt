@@ -5,6 +5,7 @@ import p5.core.*
 import p5.core.WebGLCore.Companion.getWebGLCore
 import p5.ksl.vec2
 import p5.ksl.vec3
+import p5.core.P5.Vector
 import kotlin.math.abs
 
 fun circlizer() = Sketch {
@@ -29,8 +30,22 @@ fun circlizer() = Sketch {
 
         noFill()
         val colors = arrayOf(color(255, 0, 0), color(255, 255, 0), color(0, 255, 0), color(0, 255, 255), color(0, 0, 255))
-        var imageLocation = createVector(width*random()-500, height*random()-500)
-        var imageSize = createVector(300*(random()+1), 300*(random()+1))
+        val ImageSides = object {
+            var left = width*random()-500
+            var top = height*random()-500
+            var right = left + 300*(random()+1)
+            var bottom = top + 300*(random()+1)
+            var location
+                get() = createVector(left, top)
+                set(value) {
+                    val cacheSize = size
+                    left = value.x
+                    top = value.y
+                    right = left + cacheSize.x
+                    bottom = top + cacheSize.y
+                }
+            val size get() = createVector(right-left, bottom-top)
+        }
 
         var i = 0
 
@@ -39,7 +54,7 @@ fun circlizer() = Sketch {
             magFilterMode = MagFilterMode.NEAREST
         ) {
 
-            it.p5.image(sourceImage, imageLocation, imageSize)
+            it.p5.image(sourceImage, ImageSides.location, ImageSides.size)
 
             val fr by url { 10 }
 
@@ -84,9 +99,6 @@ fun circlizer() = Sketch {
                             val newAlpha = colorInv.a + color.a*(1.0-colorInv.a)
                             color.rgb = (colorInv.rgb*colorInv.a + color.rgb*color.a*(1.0-colorInv.a))/newAlpha
                             color.a = newAlpha
-//                            val newAlpha = color.a + colorInv.a*(1.0-color.a)
-//                            color.rgb = (colorInv.rgb*colorInv.a + color.rgb*color.a*(1.0-colorInv.a))/newAlpha
-//                            color.a = newAlpha
                         }
                     }
 
@@ -99,8 +111,8 @@ fun circlizer() = Sketch {
         getWebGLCore(0).sketch.p5.getCanvas().attribute("id", "?")
         console.log(getWebGLCore(0).sketch.p5.getCanvas())
 
-        var startMouseLocation = createVector(0, 0)
-        var startCircleLocation = createVector(0, 0)
+        var cacheMouse = createVector(0, 0)
+        var cachePoint = createVector(0, 0)
         var lastIndex = -1
         var resizing = false
         var moving = false
@@ -109,147 +121,164 @@ fun circlizer() = Sketch {
             if(pmouse != createVector(0, 0)) {
                 getWebGLCore(0).clear()
                 liteCanvas.p5.clear()
-                liteCanvas.p5.image(sourceImage, imageLocation, imageSize)
+                liteCanvas.p5.image(sourceImage, ImageSides.location, ImageSides.size)
                 getWebGLCore(0).attach(liteCanvas.p5)
             }
         }
 
+        data class CircleElement(var center: Vector, var radius: Double, var border: Double)  {
+            val bodyElement = CanvasElement {
+                dist(it, center) < (radius - border/2)
+            }
+            val borderElement = CanvasElement {
+                dist(it, center) in (radius-border/2)..(radius+border/2)
+            }
+            val onBorder get() = borderElement.isMouseOver
+            val onBody get() = bodyElement.isMouseOver
+        }
+
+        val myCircle = CircleElement(createVector(circles[0][0], circles[0][1]), circles[0][2].toDouble(), 20.toDouble())
+
+        myCircle.borderElement.mouseOver {
+            println("in circle!")
+        }
+        myCircle.borderElement.mouseOut {
+            println("out circle!")
+        }
+        myCircle.borderElement.mouseClicked {
+            println("clicked!")
+        }
+        myCircle.borderElement.mouseReleased {
+            println("released")
+        }
+        myCircle.borderElement.mousePressed {
+            println("pressed")
+        }
+
         Draw {
-            var hit = false
+            var hit = true
             clear()
             image(liteCanvas.p5, 0, 0, width, height)
             val w = 20
 
-            // Image Resizing
-            if(resizing && lastIndex<0) {
-                hit = true
-                stroke(255)
-                if (mouseIsPressed) {
-                    when(lastIndex) {
-                        -4 -> { // left
-                            val right = imageLocation.x + imageSize.x
-                            imageLocation.x = mouse.x - startMouseLocation.x + startCircleLocation.x
-                            imageSize.x = right - imageLocation.x
-                        }
-                        -3 -> { // top
-                            val bottom = imageLocation.y + imageSize.y
-                            imageLocation.y = mouse.y - startMouseLocation.y + startCircleLocation.y
-                            imageSize.y = bottom - imageLocation.y
-                        }
-                        -2 -> imageSize.x = mouse.x - startMouseLocation.x + startCircleLocation.x
-                        -1 -> imageSize.y = mouse.y - startMouseLocation.y + startCircleLocation.y
-                    }
-                    restart()
-                } else {
-                    resizing = false
-                }
-            } else if(moving && lastIndex<0) {
-                hit = true
-                if (mouseIsPressed) {
-                    val newXY = (mouse - startMouseLocation + startCircleLocation)
-                    if(newXY != imageLocation) {
-                        imageLocation.xy = newXY
-                        restart()
-                    }
-                } else {
-                    moving = false
-                }
-            // left
-            } else if(dist(mouse.x, imageLocation.x) < w && mouse.y > imageLocation.y && mouse.y < (imageLocation.y + imageSize.y) && !hit) {
-                hit = true
-                lastIndex = -4
-                if(mouseIsPressed) {
-                    startCircleLocation.xy = imageLocation
-                    startMouseLocation.xy = mouse
-                    resizing = true
-                }
-            // up
-            } else if(dist(mouse.y, imageLocation.y) < w && mouse.x > imageLocation.x && mouse.x < (imageLocation.x + imageSize.x) && !hit) {
-                hit = true
-                lastIndex = -3
-                if(mouseIsPressed) {
-                    startCircleLocation.xy = imageLocation
-                    startMouseLocation.xy = mouse
-                    resizing = true
-                }
-            // right
-            } else if(dist(mouse.x, imageLocation.x + imageSize.x) < w && mouse.y > imageLocation.y && mouse.y < (imageLocation.y + imageSize.y) && !hit) {
-                hit = true
-                lastIndex = -2
-                if(mouseIsPressed) {
-                    startCircleLocation.xy = imageSize
-                    startMouseLocation.xy = mouse
-                    resizing = true
-                }
-            // down
-            } else if(dist(mouse.y, imageLocation.y + imageSize.y) < w && mouse.x > imageLocation.x && mouse.x < (imageLocation.x + imageSize.x) && !hit) {
-                hit = true
-                lastIndex = -1
-                if(mouseIsPressed) {
-                    startCircleLocation.xy = imageSize
-                    startMouseLocation.xy = mouse
-                    resizing = true
-                }
-            // moving
-            } else if(mouse.x > imageLocation.x && mouse.y > imageLocation.y && mouse.x < (imageLocation.x + imageSize.x) && mouse.y < (imageLocation.y + imageSize.y) && !hit) {
-                console.log("moving!")
-                hit = true
-                lastIndex = -1
-                if(mouseIsPressed) {
-                    startCircleLocation.xy = imageLocation
-                    startMouseLocation.xy = mouse
-                    moving = true
-                }
-            }
-
-            // Circle Resizing
-            circles.zip(colors).forEachIndexed { i, (cir, col) ->
-                val cxy = createVector(cir[0], cir[1])
-                val r = cir[2]
-
-                if(resizing && i==lastIndex) {
-                    hit = true
-                    stroke(255)
+            ImageSides.apply {
+                if(resizing && lastIndex < 0) {
                     if (mouseIsPressed) {
-                        val newRad = dist(mouse, cxy)
-                        if(newRad != cir[2]) {
-                            cir[2] = dist(mouse, cxy)
-                            restart()
+                        when(lastIndex) {
+                            -4 -> left   = mouse.x - cacheMouse.x + cachePoint.x
+                            -3 -> top    = mouse.y - cacheMouse.y + cachePoint.y
+                            -2 -> right  = mouse.x - cacheMouse.x + cachePoint.x
+                            -1 -> bottom = mouse.y - cacheMouse.y + cachePoint.y
                         }
+                        restart()
                     } else {
                         resizing = false
                     }
-                } else if(moving && i==lastIndex) {
-                    hit = true
-                    stroke(col)
-
+                } else if(moving && lastIndex < 0) {
                     if (mouseIsPressed) {
-                        val newXY = (mouse - startMouseLocation + startCircleLocation)
-                        if(newXY.x != cir[0] || newXY.y != cir[1]) {
-                            cir[0] = newXY.x
-                            cir[1] = newXY.y
+                        val newXY = (mouse - cacheMouse + cachePoint)
+                        if(newXY != location) {
+                            location = newXY
                             restart()
                         }
-                    } else { moving = false }
-                } else if(abs(dist(cxy, mouse)-r) < w && !hit && (!mouseIsPressed || i==lastIndex)) {
-                    hit = true
-                    lastIndex = i
-                    stroke(255)
-                    if(mouseIsPressed) { resizing = true }
-                } else if(dist(cxy, mouse) < r-w && !hit && (!mouseIsPressed || i==lastIndex)) {
-                    hit = true
-                    lastIndex = i
-                    stroke(col)
+                    } else {
+                        moving = false
+                    }
+                    // left
+                } else if(dist(mouse.x, left) < w && mouse.y in top..bottom) {
+                    lastIndex = -4
                     if(mouseIsPressed) {
-                        startCircleLocation = cxy
-                        startMouseLocation = mouse
+                        cachePoint.xy = location
+                        cacheMouse.xy = mouse
+                        resizing = true
+                    }
+                    // up
+                } else if(dist(mouse.y, top) < w && mouse.x in left..right) {
+                    lastIndex = -3
+                    if(mouseIsPressed) {
+                        cachePoint.xy = location
+                        cacheMouse.xy = mouse
+                        resizing = true
+                    }
+                    // right
+                } else if(dist(mouse.x, right) < w && mouse.y in top..bottom) {
+                    lastIndex = -2
+                    if(mouseIsPressed) {
+                        cachePoint.xy = location + size
+                        cacheMouse.xy = mouse
+                        resizing = true
+                    }
+                    // down
+                } else if(dist(mouse.y, bottom) < w && mouse.x in left..right) {
+                    lastIndex = -1
+                    if(mouseIsPressed) {
+                        cachePoint.xy = location + size
+                        cacheMouse.xy = mouse
+                        resizing = true
+                    }
+                    // moving
+                } else if(mouse.x in left..right && mouse.y in top..bottom) {
+                    console.log("moving!", mouse.x, mouse.y)
+                    console.log(ImageSides.left, ImageSides.top, ImageSides.right, ImageSides.bottom)
+                    lastIndex = -1
+                    if (mouseIsPressed) {
+                        cachePoint.xy = location
+                        cacheMouse.xy = mouse
                         moving = true
                     }
                 } else {
-                    stroke(col.asVector { this*0.5 + 128 })
+                    hit = false
                 }
-                circle(cir[0], cir[1], 2*cir[2])
+            }
+            if(!hit) {
+                // Circle Resizing
+                circles.zip(colors).forEachIndexed { i, (cir, col) ->
+                    val cxy = createVector(cir[0], cir[1])
+                    val r = cir[2]
 
+                    if(resizing && i==lastIndex) {
+                        hit = true
+                        stroke(255)
+                        if (mouseIsPressed) {
+                            val newRad = dist(mouse, cxy)
+                            if(newRad != cir[2]) {
+                                cir[2] = dist(mouse, cxy)
+                                restart()
+                            }
+                        } else {
+                            resizing = false
+                        }
+                    } else if(moving && i==lastIndex) {
+                        hit = true
+                        stroke(col)
+
+                        if (mouseIsPressed) {
+                            val newXY = (mouse - cacheMouse + cachePoint)
+                            if(newXY.x != cir[0] || newXY.y != cir[1]) {
+                                cir[0] = newXY.x
+                                cir[1] = newXY.y
+                                restart()
+                            }
+                        } else { moving = false }
+                    } else if(abs(dist(cxy, mouse)-r) < w && !hit && (!mouseIsPressed || i==lastIndex)) {
+                        hit = true
+                        lastIndex = i
+                        stroke(255)
+                        if(mouseIsPressed) { resizing = true }
+                    } else if(dist(cxy, mouse) < r-w && !hit && (!mouseIsPressed || i==lastIndex)) {
+                        hit = true
+                        lastIndex = i
+                        stroke(col)
+                        if(mouseIsPressed) {
+                            cachePoint = cxy
+                            cacheMouse = mouse
+                            moving = true
+                        }
+                    } else {
+                        stroke(col.asVector { this*0.5 + 128 })
+                    }
+                    circle(cir[0], cir[1], 2*cir[2])
+                }
             }
         }
 

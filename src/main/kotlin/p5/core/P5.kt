@@ -449,16 +449,154 @@ class P5(var nativeP5: NativeP5) {
     fun createElement(tag: String): Element = Element(nativeP5.createElement(tag))
     fun createElement(tag: String, content: String): Element = Element(nativeP5.createElement(tag, content))
 
-    sealed class Renderer(nativeRenderer: NativeElement) : Element(nativeRenderer) {
+    sealed class Renderer(nativeRenderer: NativeElement): Element(nativeRenderer) {
         val gl: dynamic get() = nativeElement.asDynamic().GL
     }
-    class Renderer2D(val nativeRenderer2D: NativeRenderer2D) : Renderer(nativeRenderer2D)
+    inner class Renderer2D(val nativeRenderer2D: NativeRenderer2D): Renderer(nativeRenderer2D)
+
+    open inner class CanvasElement(val pointInRegion: (Vector)->Boolean) {
+
+        private var parent: Interactable = getCanvas()
+        private val children = mutableListOf<Interactable>()
+        fun parent(): Interactable = parent
+        fun parent(newParent: Interactable) {
+            parent = newParent
+        }
+        fun children(): List<Interactable> = children.toList()
+
+        init {
+            parent.mouseMoved {
+                wasMouseOver = isMouseOver
+                isMouseOver = pointInRegion(mouse)
+            }
+            parent.mousePressed {
+                isClicked = parent.isMouseOver
+            }
+            parent.mouseReleased {
+                isClicked = false
+            }
+            parent.mouseOut {
+                wasMouseOver = isMouseOver
+                isMouseOver = false
+            }
+        }
+
+        fun drop(callback: (File)->Unit) = parent.drop {
+            if(isMouseOver) { callback(it) }
+        }
+        fun drop(callback: (File)->Unit, onDrop: ()->Unit) = parent.drop(
+            { if(isMouseOver) { callback(it) } },
+            { if(isMouseOver) { onDrop() } })
+        fun mousePressed(callback: (Unit)->Unit): EventAction<Unit> = parent.mousePressed {
+            if(isMouseOver) { callback(it) }
+        }
+        fun doubleClicked(callback: (MouseEvent)->Unit): EventAction<MouseEvent> = parent.doubleClicked {
+            if(isMouseOver) { callback(it) }
+        }
+        fun mouseClicked(callback: (PointerEvent)->Unit): EventAction<PointerEvent> = parent.mouseClicked {
+            if(isMouseOver) { callback(it) }
+        }
+        fun mouseReleased(callback: (MouseEvent)->Unit): EventAction<MouseEvent> = parent.mouseReleased {
+            callback(it)
+        }
+        fun mouseMoved(callback: (MouseEvent)->Unit): EventAction<MouseEvent> = parent.mouseMoved {
+            if(isMouseOver) { callback(it) }
+        }
+        fun mouseOver(callback: (MouseEvent)->Unit): EventAction<MouseEvent> = parent.mouseMoved {
+            if(isMouseOver && !wasMouseOver) { callback(it) }
+        }
+        fun mouseOut(callback: (MouseEvent)->Unit): EventAction<MouseEvent> = parent.mouseMoved {
+            if(!isMouseOver && wasMouseOver) { callback(it) }
+        }
+        fun mouseWheel(callback: (WheelEvent)->Unit): EventAction<WheelEvent> = parent.mouseWheel {
+            if(isMouseOver) { callback(it) }
+        }
+
+//            // Smarter Event Handler
+//            private class ActionHandler<D: Any> {
+//                val actions = mutableListOf<EventAction<D>>()
+//                fun addEvent(callback: (D)->Unit): EventAction<D> {
+//                    val action = EventAction(callback)
+//                    actions.add(action)
+//                    action.remove = {
+//                        action.remove = null
+//                        actions.remove(action)
+//                    }
+//                    return action
+//                }
+//                fun clear() {
+//                    actions.forEach { it.remove = null }
+//                    actions.clear()
+//                }
+//                fun trigger(eventData: D) = actions.forEach {
+//                    it.callback(eventData)
+//                }
+//            }
+
+//            private val doubleClickedHandler = ActionHandler<MouseEvent>()
+//            private val mouseReleasedHandler = ActionHandler<MouseEvent>()
+//            private val mouseWheelHandler    = ActionHandler<WheelEvent>()
+//            private val mouseClickedHandler  = ActionHandler<PointerEvent>()
+//            private val mouseMovedHandler    = ActionHandler<MouseEvent>()
+//            private val mouseOverHandler     = ActionHandler<MouseEvent>()
+//            private val mouseOutHandler      = ActionHandler<MouseEvent>()
+//            private val touchStartedHandler  = ActionHandler<dynamic>()
+//            private val touchMovedHandler    = ActionHandler<dynamic>()
+//            private val touchEndedHandler    = ActionHandler<dynamic>()
+//            private val dragOverHandler      = ActionHandler<DragEvent>()
+//            private val dragLeaveHandler     = ActionHandler<DragEvent>()
+//            private val changedHandler       = ActionHandler<dynamic>()
+//            private val inputHandler         = ActionHandler<dynamic>()
+
+//            override fun touchStarted(callback: (dynamic)->Unit): EventAction<dynamic> = touchStartedHandler.addEvent(callback)
+//            override fun touchMoved(callback: (dynamic)->Unit): EventAction<dynamic> = touchMovedHandler.addEvent(callback)
+//            override fun touchEnded(callback: (dynamic)->Unit): EventAction<dynamic> = touchEndedHandler.addEvent(callback)
+//            override fun dragOver(callback: (DragEvent)->Unit): EventAction<DragEvent> = dragOverHandler.addEvent(callback)
+//            override fun dragLeave(callback: (DragEvent)->Unit): EventAction<DragEvent> = dragLeaveHandler.addEvent(callback)
+//            override fun changed(callback: (Event)->Unit): EventAction<dynamic> = changedHandler.addEvent(callback)
+//            override fun input(callback: (Event)->Unit): EventAction<dynamic> = inputHandler.addEvent(callback)
+//
+//            override fun clearMousePressed() = mousePressedHandler.clear()
+//            override fun clearDoubleClicked() = doubleClickedHandler.clear()
+//            override fun clearMouseReleased() = mouseReleasedHandler.clear()
+//            override fun clearMouseWheel() = mouseWheelHandler.clear()
+//            override fun clearMouseClicked() = mouseClickedHandler.clear()
+//            override fun clearMouseMoved() = mouseMovedHandler.clear()
+//            override fun clearMouseOver() = mouseOverHandler.clear()
+//            override fun clearMouseOut() = mouseOutHandler.clear()
+//            override fun clearTouchStarted() = touchStartedHandler.clear()
+//            override fun clearTouchMoved() = touchMovedHandler.clear()
+//            override fun clearTouchEnded() = touchEndedHandler.clear()
+//            override fun clearDragOver() = dragOverHandler.clear()
+//            override fun clearDragLeave() = dragLeaveHandler.clear()
+//            override fun clearChanged() = changedHandler.clear()
+//            override fun clearInput() = inputHandler.clear()
+
+        private var wasMouseOver: Boolean = false
+        var isMouseOver: Boolean = false
+        var isClicked: Boolean = false
+        var isTouched: Boolean = false
+        var isDraggedOver: Boolean = false
+        //
+//            fun mouseOverDelay(delayMillis: Number, block: () -> Unit): EventAction<MouseEvent> {
+//                return mouseOver {
+//                    setTimeout(delayMillis) {
+//                        if(isMouseOver) {
+//                            block()
+//                        }
+//                    }
+//                }
+//            }
+//
+        var name: String? = null
+    }
+
     class RendererGL(val nativeRendererGl: NativeRendererGL) : Renderer(nativeRendererGl)
 
     private var canvas: Renderer? = null
 
     fun getCanvas(): Renderer = canvas ?: error("canvas has not been initialized yet")
-    fun createCanvas(w: Number, h: Number): Renderer = Renderer2D(nativeP5.createCanvas(w, h)).also { canvas = it }
+    fun createCanvas(w: Number, h: Number): Renderer2D = Renderer2D(nativeP5.createCanvas(w, h)).also { canvas = it }
     fun createCanvas(wh: Vector): Renderer = createCanvas(wh.x, wh.y)
     fun createCanvas(w: Number, h: Number, renderMode: RenderMode): Renderer = when (renderMode) {
         RenderMode.P2D -> {
@@ -2863,4 +3001,6 @@ class P5(var nativeP5: NativeP5) {
     fun dist(d1: Double, d2: Double): Double {
         return abs(d1-d2)
     }
+
+
 }
