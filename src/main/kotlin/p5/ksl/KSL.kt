@@ -2021,6 +2021,43 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     fun `?`(cond: BoolExpr, ifTrue: IntExpr, ifFalse: IntExpr): IntExpr {
         return int(mix(float(ifTrue), float(ifFalse), cond))
     }
+
+
+    // Literal BY extensions
+    operator fun Boolean.getValue(nothing: Nothing?, property: KProperty<*>): BoolExpr {
+        val newBool = bool(this).getValue(nothing, property)
+        return newBool
+    }
+
+    operator fun Boolean.setValue(thisRef: Any?, property: KProperty<*>, value: BoolExpr) {
+        val newBool = bool(this).setValue(thisRef, property, value)
+    }
+
+/*    operator fun getValue(thisRef: Any?, property: KProperty<*>): T {
+        val varName = property.name
+        name = varName
+        uniformCallback?.register(varName)
+        uniformCallback = null
+        if(seenVariableNames.add(name!!) && !builtIn) {
+            instructions.add(Instruction(AssignmentStatement(varName, this.copy() as T, true, assign, modifiers)))
+        }
+        children = listOf(VariableExpr(varName))
+        return this as T
+    }
+
+    operator fun setValue(thisRef: Any?, property: KProperty<*>, value: T) {
+        val varName = property.name
+        name = varName
+        uniformCallback?.register(varName)
+        uniformCallback = null
+        if(seenVariableNames.add(name!!) && !builtIn) {
+            instructions.add(Instruction(AssignmentStatement(varName, this.copy() as GenExpr<*>, true, assign, modifiers)))
+        }
+        children = value.children.copy()
+        id = genSnapshotId()
+        instructions.add(Instruction(AssignmentStatement(varName, this, name!! !in seenVariableNames)))
+    }*/
+
 }
 
 typealias float = KSL.FloatExpr

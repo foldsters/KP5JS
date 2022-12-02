@@ -62,10 +62,12 @@ fun circlizer() = Sketch {
 
             Fragment {
                 val prevFrame by UniformP5 { it.p5 }
-                val iResolution: vec2 by Uniform<vec2> { arrayOf(width, height) }
-                val c by Uniform<vec3> {
+                val resolution: vec2 by Uniform<vec2> { arrayOf(width, height) }
+                val circle by Uniform<vec3> {
                     circles[i%circles.size].also { i++ }
                 }
+
+                val pixelate by UniformBool { false }
 
                 val between by buildFunction { v: vec2, dl: vec2, ur: vec2 ->
                     (dl.x LT v.x) AND (dl.y LT v.y) AND (v.x LT ur.x) AND (v.y LT ur.y)
@@ -75,34 +77,42 @@ fun circlizer() = Sketch {
                     vec2(floor(v.x), floor(v.y))
                 }
 
-                val inv by buildFunction { v: vec2 ->
-                    val d by (v - c.xy)
-                    c.xy + d*c.z*c.z/dot(d, d)
+                val circleInvert by buildFunction { v: vec2 ->
+                    val d by (v - circle.xy)
+                    circle.xy + d*circle.z*circle.z/dot(d, d)
                 }
 
                 Main {
                     val uv by it
-                    uv.y = (iResolution - uv).y
-                    val offset = uv - flr(uv)
-                    //val color by texture(prevFrame, uv/iResolution)
-                    val color by texelFetch(prevFrame, ivec2(int(uv.x), int(uv.y)), int(0))
-                    val uvInv by inv(uv)
-                    val colorInv by texelFetch(prevFrame, uvInv.toIVec(), int(0))
+                    uv.y = (resolution - uv).y
+                    val uvInv by circleInvert(uv)
+                    val thisColor by texelFetch(prevFrame, ivec2(int(uv.x), int(uv.y)), int(0))
+                    var otherColor by vec4(0)
+                    var passPixelCheck by bool(false)
 
-                    val uv1 by flr(inv(vec2(floor(uvInv.x), floor(uvInv.y)))) + offset
-                    val uv2 by flr(inv(vec2(floor(uvInv.x), ceil(uvInv.y)))) + offset
-                    val uv3 by flr(inv(vec2(ceil(uvInv.x), ceil(uvInv.y)))) + offset
-                    val uv4 by flr(inv(vec2(ceil(uvInv.x), floor(uvInv.y)))) + offset
+                    IF(pixelate) {
+                        val offset by uv - flr(uv)
+                        otherColor = texelFetch(prevFrame, uvInv.toIVec(), int(0))
+                        val uv1 by flr(circleInvert(vec2(floor(uvInv.x), floor(uvInv.y)))) + offset
+                        val uv2 by flr(circleInvert(vec2(floor(uvInv.x), ceil(uvInv.y)))) + offset
+                        val uv3 by flr(circleInvert(vec2(ceil(uvInv.x), ceil(uvInv.y)))) + offset
+                        val uv4 by flr(circleInvert(vec2(ceil(uvInv.x), floor(uvInv.y)))) + offset
+                        passPixelCheck = (uv1 EQ uv) OR (uv2 EQ uv) OR (uv3 EQ uv) OR (uv4 EQ uv)
+                    } ELSE {
+                        otherColor = texture(prevFrame, uvInv/resolution)
+                    }
 
-                    IF((uv1 EQ uv) OR (uv2 EQ uv) OR (uv3 EQ uv) OR (uv4 EQ uv)) {
-                        IF( between(uvInv, vec2(0,0), iResolution)) {
-                            val newAlpha = colorInv.a + color.a*(1.0-colorInv.a)
-                            color.rgb = (colorInv.rgb*colorInv.a + color.rgb*color.a*(1.0-colorInv.a))/newAlpha
-                            color.a = newAlpha
+                    val l by float(1.0)
+
+                    IF(!pixelate OR passPixelCheck) {
+                        IF( between(uvInv, vec2(0,0), resolution)) {
+                            val newAlpha = otherColor.a + thisColor.a*(1.0-otherColor.a)
+                            thisColor.rgb = (thisColor.rgb*thisColor.a*(1.0+otherColor.a*(l-1.0)) + otherColor.rgb*otherColor.a*(1.0-l*thisColor.a))/newAlpha
+                            thisColor.a = newAlpha*.9999 + 0.0001
                         }
                     }
 
-                    color
+                    thisColor
                 }
             }
         }
@@ -292,4 +302,5 @@ fun circlizer() = Sketch {
 
 
 }
+
 
