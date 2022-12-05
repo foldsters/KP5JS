@@ -1983,9 +1983,9 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     inline fun Vec3Expr.map(f: (FloatExpr)->FloatExpr) = vec3(f(x), f(y), f(z))
     inline fun Vec4Expr.map(f: (FloatExpr)->FloatExpr) = vec4(f(x), f(y), f(z), f(w))
 
-    inline fun Vec2Expr.toIVec() = ivec2(int(x), int(y))
-    inline fun Vec3Expr.toIVec() = ivec3(int(x), int(y), int(z))
-    inline fun Vec4Expr.toIVec() = ivec4(int(x), int(y), int(z), int(w))
+    inline fun Vec2Expr.toIVec() = ivec2(int(floor(x)), int(floor(y)))
+    inline fun Vec3Expr.toIVec() = ivec3(int(floor(x)), int(floor(y)), int(floor(z)))
+    inline fun Vec4Expr.toIVec() = ivec4(int(floor(x)), int(floor(y)), int(floor(z)), int(floor(w)))
 
     infix fun IntExpr.uxor(other: IntExpr): IntExpr {
         return int(uint(this) `^` uint(other))

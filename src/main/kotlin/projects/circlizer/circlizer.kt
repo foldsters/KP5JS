@@ -3,9 +3,8 @@ package projects.circlizer
 import p5.Sketch
 import p5.core.*
 import p5.core.WebGLCore.Companion.getWebGLCore
-import p5.ksl.vec2
-import p5.ksl.vec3
 import p5.core.P5.Vector
+import p5.ksl.*
 import kotlin.math.abs
 
 fun circlizer() = Sketch {
@@ -82,6 +81,38 @@ fun circlizer() = Sketch {
                     circle.xy + d*circle.z*circle.z/dot(d, d)
                 }
 
+                val alphaMix by buildFunction { color0: vec4, color1: vec4, weightFactor: float ->
+                    val newAlpha by mix(color0.a, color1.a, weightFactor)
+                    val weight0 by color0.a*(1.0-weightFactor) // avoid div by zero
+                    val weight1 by color1.a*weightFactor
+                    var resultColor by vec4(0)
+                    IF((weight0 + weight1) GT 0.0) {
+                        val newRGB by (color0.rgb*weight0 + color1.rgb*weight1)/(weight0 + weight1)
+                        resultColor = vec4(newRGB, newAlpha)
+                    }
+                    resultColor
+                }
+//
+//                val alphaBlend by buildFunction { color0: vec4, color1: vec4, blendFactor: float ->
+//                    val newAlpha by color1.a + color0.a*(1.0-color1.a)
+//                    val newRGB by (color0.rgb*color0.a*(1.0+color1.a*(blendFactor-1.0)) + color1.rgb*color1.a*(1.0-blendFactor*color0.a))/newAlpha
+//                    vec4(newRGB, newAlpha)
+//                }
+
+                val alphaTexture by buildFunction { sampler: KSL.Sampler2D, texelCoord: vec2 ->
+                    val offset by fract(texelCoord)
+                    val intCoord by texelCoord.toIVec()
+                    val sampleColorTL by texelFetch(sampler, ivec2(intCoord.x, intCoord.y), int(0))
+                    val sampleColorTR by texelFetch(sampler, ivec2(intCoord.x+1, intCoord.y), int(0))
+                    val sampleColorBR by texelFetch(sampler, ivec2(intCoord.x+1, intCoord.y+1), int(0))
+                    val sampleColorBL by texelFetch(sampler, ivec2(intCoord.x, intCoord.y+1), int(0))
+
+                    val topColor by alphaMix(sampleColorTL, sampleColorTR, offset.x)
+                    val bottomColor by alphaMix(sampleColorBL, sampleColorBR, offset.x)
+                    val resultColor by alphaMix(topColor, bottomColor, offset.y)
+                    resultColor
+                }
+
                 Main {
                     val uv by it
                     uv.y = (resolution - uv).y
@@ -99,10 +130,10 @@ fun circlizer() = Sketch {
                         val uv4 by flr(circleInvert(vec2(ceil(uvInv.x), floor(uvInv.y)))) + offset
                         passPixelCheck = (uv1 EQ uv) OR (uv2 EQ uv) OR (uv3 EQ uv) OR (uv4 EQ uv)
                     } ELSE {
-                        otherColor = texture(prevFrame, uvInv/resolution)
+                        otherColor = alphaTexture(prevFrame, uvInv)
                     }
 
-                    val l by float(1.0)
+                    val l by float(0.99)
 
                     IF(!pixelate OR passPixelCheck) {
                         IF( between(uvInv, vec2(0,0), resolution)) {
