@@ -464,10 +464,21 @@ class P5(var nativeP5: NativeP5) {
         }
         fun children(): List<Interactable> = children.toList()
 
+        private var wasMouseOver: Boolean = false
+        var isMouseOver: Boolean = false
+        var isClicked: Boolean = false
+        var isTouched: Boolean = false
+        var isDraggedOver: Boolean = false
+
+        var handleMouseOver: Boolean = false
+        var handleMouseOut: Boolean = false
+
         init {
             parent.mouseMoved {
                 wasMouseOver = isMouseOver
                 isMouseOver = pointInRegion(mouse)
+                if(!wasMouseOver && isMouseOver) handleMouseOver = true
+                if(wasMouseOver && !isMouseOver) handleMouseOut = true
             }
             parent.mousePressed {
                 isClicked = parent.isMouseOver
@@ -478,37 +489,44 @@ class P5(var nativeP5: NativeP5) {
             parent.mouseOut {
                 wasMouseOver = isMouseOver
                 isMouseOver = false
+                handleMouseOut = true
             }
         }
 
-        fun drop(callback: (File)->Unit) = parent.drop {
+        fun drop(callback: CanvasElement.(File)->Unit) = parent.drop {
             if(isMouseOver) { callback(it) }
         }
-        fun drop(callback: (File)->Unit, onDrop: ()->Unit) = parent.drop(
+        fun drop(callback: CanvasElement.(File)->Unit, onDrop: ()->Unit) = parent.drop(
             { if(isMouseOver) { callback(it) } },
             { if(isMouseOver) { onDrop() } })
-        fun mousePressed(callback: (Unit)->Unit): EventAction<Unit> = parent.mousePressed {
+        fun mousePressed(callback: CanvasElement.(Unit)->Unit): EventAction<Unit> = parent.mousePressed {
             if(isMouseOver) { callback(it) }
         }
-        fun doubleClicked(callback: (MouseEvent)->Unit): EventAction<MouseEvent> = parent.doubleClicked {
+        fun doubleClicked(callback: CanvasElement.(MouseEvent)->Unit): EventAction<MouseEvent> = parent.doubleClicked {
             if(isMouseOver) { callback(it) }
         }
-        fun mouseClicked(callback: (PointerEvent)->Unit): EventAction<PointerEvent> = parent.mouseClicked {
+        fun mouseClicked(callback: CanvasElement.(PointerEvent)->Unit): EventAction<PointerEvent> = parent.mouseClicked {
             if(isMouseOver) { callback(it) }
         }
-        fun mouseReleased(callback: (MouseEvent)->Unit): EventAction<MouseEvent> = parent.mouseReleased {
+        fun mouseReleased(callback: CanvasElement.(MouseEvent)->Unit): EventAction<MouseEvent> = parent.mouseReleased {
             callback(it)
         }
-        fun mouseMoved(callback: (MouseEvent)->Unit): EventAction<MouseEvent> = parent.mouseMoved {
+        fun mouseMoved(callback: CanvasElement.(MouseEvent)->Unit): EventAction<MouseEvent> = parent.mouseMoved {
             if(isMouseOver) { callback(it) }
         }
-        fun mouseOver(callback: (MouseEvent)->Unit): EventAction<MouseEvent> = parent.mouseMoved {
-            if(isMouseOver && !wasMouseOver) { callback(it) }
+        fun mouseOver(callback: CanvasElement.(MouseEvent)->Unit): EventAction<MouseEvent> = parent.mouseMoved {
+            if(handleMouseOver) {
+                callback(it)
+                handleMouseOver = false
+            }
         }
-        fun mouseOut(callback: (MouseEvent)->Unit): EventAction<MouseEvent> = parent.mouseMoved {
-            if(!isMouseOver && wasMouseOver) { callback(it) }
+        fun mouseOut(callback: CanvasElement.(MouseEvent)->Unit): EventAction<MouseEvent> = parent.mouseMoved {
+            if(handleMouseOut) {
+                callback(it)
+                handleMouseOut = false
+            }
         }
-        fun mouseWheel(callback: (WheelEvent)->Unit): EventAction<WheelEvent> = parent.mouseWheel {
+        fun mouseWheel(callback: CanvasElement.(WheelEvent)->Unit): EventAction<WheelEvent> = parent.mouseWheel {
             if(isMouseOver) { callback(it) }
         }
 
@@ -572,11 +590,7 @@ class P5(var nativeP5: NativeP5) {
 //            override fun clearChanged() = changedHandler.clear()
 //            override fun clearInput() = inputHandler.clear()
 
-        private var wasMouseOver: Boolean = false
-        var isMouseOver: Boolean = false
-        var isClicked: Boolean = false
-        var isTouched: Boolean = false
-        var isDraggedOver: Boolean = false
+
         //
 //            fun mouseOverDelay(delayMillis: Number, block: () -> Unit): EventAction<MouseEvent> {
 //                return mouseOver {
