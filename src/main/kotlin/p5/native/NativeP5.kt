@@ -293,7 +293,7 @@ external class NativeP5 {
     val drawingContext: dynamic
     fun setAttributes(key: String, value: Boolean)
     @JsName("canvas")
-    val canvasHtml: dynamic
+    var canvasHtml: dynamic
 
     // TRANSFORM
     fun applyMatrix(a: Number, b: Number, c: Number, d: Number, e: Number, f: Number)

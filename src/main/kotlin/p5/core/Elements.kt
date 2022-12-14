@@ -74,6 +74,7 @@ open class Element(val nativeElement: NativeElement): Interactable {
     fun html(htmlString: String, append: Boolean) = nativeElement.html(htmlString, append)
     fun position(): dynamic = nativeElement.position() // TODO: Remove Dynamic
     fun position(x: Number, y: Number) = nativeElement.position(x, y)
+    fun position(x: Number, y: Number, positionMode: PositionMode) = nativeElement.position(x, y, positionMode.nativeValue)
     fun style(property: String): String? = nativeElement.style(property)
     fun style(property: String, value: String) = nativeElement.style(property, value)
     fun attribute(attr: String): String = nativeElement.attribute(attr)
@@ -88,7 +89,7 @@ open class Element(val nativeElement: NativeElement): Interactable {
     override fun drop(callback: (File)->Unit) = nativeElement.drop { nativeFile -> callback(File(nativeFile)) }
     override fun drop(callback: (File)->Unit, onDrop: ()->Unit) = nativeElement.drop({ nativeFile -> callback(File(nativeFile)) }, onDrop)
     fun center(alignMode: AlignMode) = nativeElement.center(alignMode.nativeValue)
-    fun position(x: Number, y: Number, positionMode: PositionMode) = nativeElement.position(x, y, positionMode.nativeValue)
+
     fun size(w: AUTO) = nativeElement.size("auto")
     fun size(w: AUTO, h: Number) = nativeElement.size("auto", h)
     fun size(w: Number, h: AUTO) = nativeElement.size(w, "auto")
@@ -297,7 +298,7 @@ class Radio(val nativeRadio: NativeRadio): ValueElement<String>(nativeRadio) {
     fun disable(value: Boolean) = nativeRadio.disable(value)
 }
 
-class ColorPicker(val nativeColorPicker: NativeColorPicker) {
+class ColorPicker(val nativeColorPicker: NativeColorPicker): Element(nativeColorPicker) {
     fun color(): Color = Color(nativeColorPicker.color())
 }
 

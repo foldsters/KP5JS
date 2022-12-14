@@ -5,6 +5,9 @@ import p5.core.*
 import p5.core.WebGLCore.Companion.getWebGLCore
 import p5.core.P5.Vector
 import p5.ksl.*
+import p5.util.rotateLeft
+import p5.util.rotateRight
+import p5.util.Map
 
 private interface BorderedElement {
     val bodyElement: P5.CanvasElement
@@ -12,15 +15,20 @@ private interface BorderedElement {
     val borderWidth: Double
 }
 
+private fun BorderedElement.elements() = listOf(bodyElement) + borderElements
+
 fun circlizer() = Sketch {
 
     lateinit var sourceImage: Image
 
     Preload {
         sourceImage = loadImage("../../../stock/flower2.jpg")
+        loadFont("./fonts/futuralight.otf")
     }
 
     Setup {
+
+        noCanvas()
 
         getBody().style("background-color", "#46484a")
         val canvas = createCanvas(1920, 1080)
@@ -28,11 +36,18 @@ fun circlizer() = Sketch {
         strokeWeight(5)
         noFill()
 
+        val sourceImageCanvas = createGraphics(width/4, width/4).apply {
+            image(sourceImage, 0, 0, width, width)
+        }
+
+        var backgroundColor = color(15, 255)
+
+        var postProcessCanvas = createGraphics(width, height)
+
         val circles: Array<Array<Number>> = Array(5) {
             arrayOf(width*random(), height*random(), 500)
         }
 
-        noFill()
         val colors = arrayOf(color(255, 0, 0), color(255, 255, 0), color(0, 255, 0), color(0, 255, 255), color(0, 0, 255))
 
         val imageLeft = width*random()-500
@@ -41,7 +56,7 @@ fun circlizer() = Sketch {
         val imageRight = imageLeft + imageSize
         val imageBottom = imageTop + imageSize
 
-        data class CircleElement(var center: Vector, var radius: Double, override var borderWidth: Double): BorderedElement  {
+        class CircleElement(var center: Vector, var radius: Double, override var borderWidth: Double): BorderedElement  {
             override val bodyElement = CanvasElement {
                 dist(it, center) < (radius - borderWidth/2)
             }
@@ -52,7 +67,7 @@ fun circlizer() = Sketch {
             )
         }
 
-        data class BoxElement(var topLeft: Vector, var bottomRight: Vector, override var borderWidth: Double): BorderedElement {
+        class BoxElement(var topLeft: Vector, var bottomRight: Vector, override var borderWidth: Double): BorderedElement {
             override val bodyElement = CanvasElement {
                 (it.x in (topLeft.x + borderWidth/2)..(bottomRight.x - borderWidth/2)) &&
                         (it.y in (topLeft.y + borderWidth/2)..(bottomRight.y - borderWidth/2))
@@ -84,57 +99,18 @@ fun circlizer() = Sketch {
             CircleElement(createVector(circles[it][0], circles[it][1]), circles[it][2].toDouble(), 20.0)
         }
 
-//        myBox.bodyElement.mousePressed
-//
-//        for(element in myBox.borderElements) {
-//            element.mousePressed {
-//                if(selectedElement != null) return@mousePressed
-//                selectedElement = this
-//                cacheMouse = mouse.copy()
-//                cachePoint = myBox.topLeft.copy()
-//            }
-//        }
-//
-//        for(circle in myCircles) {
-//            circle.bodyElement.mousePressed {
-//                if(selectedElement != null) return@mousePressed
-//                selectedElement = this
-//                cacheMouse = mouse.copy()
-//                cachePoint = circle.center.copy()
-//            }
-//            circle.borderElements[0].mousePressed {
-//                if(selectedElement != null) return@mousePressed
-//                selectedElement = this
-//                cacheMouse = mouse.copy()
-//                cachePoint = circle.center.copy()
-//            }
-//        }
-
-        MouseReleased {
-            selectedElement = null
+        val circleColors = Map(5) {
+            myCircles[it] to colors[it]
         }
 
-        val canvasElements = buildList {
-            add(listOf(myBox.bodyElement) + myBox.borderElements)
-            for(circle in myCircles) {
-                add(listOf(circle.bodyElement, circle.borderElements[0]))
-            }
-        }
-
+        var borderedElements = listOf(myBox) + myCircles
 
         var circleIndex = 0
 
-        val liteCanvas = ShaderSketch(width, height, 0, true,
+        val shaderSketch = ShaderSketch(width, height, 0, true,
             minFilterMode = MinFilterMode.NEAREST_MIPMAP_NEAREST,
             magFilterMode = MagFilterMode.NEAREST
         ) {
-
-            it.p5.image(sourceImage, myBox.topLeft, myBox.bottomRight - myBox.topLeft)
-
-            val fr by url { 10 }
-
-            getWebGLCore(0).sketch.p5.frameRate(fr)
-
             Fragment {
                 val prevFrame by UniformP5 { it.p5 }
                 val resolution: vec2 by Uniform<vec2> { arrayOf(width, height) }
@@ -161,7 +137,7 @@ fun circlizer() = Sketch {
 
                 val alphaMix by buildFunction { color0: vec4, color1: vec4, weightFactor: float ->
                     val newAlpha by mix(color0.a, color1.a, weightFactor)
-                    val weight0 by color0.a*(1.0-weightFactor) // avoid div by zero
+                    val weight0 by color0.a*(1.0-weightFactor)
                     val weight1 by color1.a*weightFactor
                     var resultColor by vec4(0)
                     IF((weight0 + weight1) GT 0.0) {
@@ -226,20 +202,84 @@ fun circlizer() = Sketch {
             }
         }
 
-        getWebGLCore(0).attach(liteCanvas.p5)
-        getWebGLCore(0).sketch.p5.getCanvas().attribute("id", "?")
-        console.log(getWebGLCore(0).sketch.p5.getCanvas())
+        var blurImage: Image = sourceImage
 
-        fun restart() {
-            if(pmouse != createVector(0, 0)) {
-                getWebGLCore(0).clear()
-                liteCanvas.p5.clear()
-                liteCanvas.p5.image(sourceImage, myBox.topLeft, myBox.bottomRight - myBox.topLeft)
-                getWebGLCore(0).attach(liteCanvas.p5)
+        val blurSketch = ShaderSketch(width, height, 0, true,
+            minFilterMode = MinFilterMode.NEAREST_MIPMAP_NEAREST,
+            magFilterMode = MagFilterMode.NEAREST
+        ) {
+            Fragment {
+                val img by UniformImage {
+                    blurImage }
+                val resolution: vec2 by Uniform<vec2> { arrayOf(width, height) }
+
+                val alphaMix by buildFunction { color0: vec4, color1: vec4, weightFactor: float ->
+                    val newAlpha by mix(color0.a, color1.a, weightFactor)
+                    val weight0 by color0.a*(1.0-weightFactor)
+                    val weight1 by color1.a*weightFactor
+                    var resultColor by vec4(0)
+                    IF((weight0 + weight1) GT 0.0) {
+                        val newRGB by (color0.rgb*weight0 + color1.rgb*weight1)/(weight0 + weight1)
+                        resultColor = vec4(newRGB, newAlpha)
+                    }
+                    resultColor
+                }
+
+                val alphaTexture by buildFunction { sampler: KSL.Sampler2D, texelCoord: vec2 ->
+                    val offset by fract(texelCoord)
+                    val intCoord by texelCoord.toIVec()
+                    val sampleColorTL by texelFetch(sampler, ivec2(intCoord.x, intCoord.y), int(0))
+                    val sampleColorTR by texelFetch(sampler, ivec2(intCoord.x+1, intCoord.y), int(0))
+                    val sampleColorBR by texelFetch(sampler, ivec2(intCoord.x+1, intCoord.y+1), int(0))
+                    val sampleColorBL by texelFetch(sampler, ivec2(intCoord.x, intCoord.y+1), int(0))
+
+                    val topColor by alphaMix(sampleColorTL, sampleColorTR, offset.x)
+                    val bottomColor by alphaMix(sampleColorBL, sampleColorBR, offset.x)
+                    val resultColor by alphaMix(topColor, bottomColor, offset.y)
+                    resultColor
+                }
+
+                val flr by buildFunction { v: vec2 ->
+                    vec2(floor(v.x), floor(v.y))
+                }
+
+                Main {
+                    var uv by it
+                    uv.y = (resolution - uv).y
+                    uv = flr(uv)
+                    val c by alphaTexture(img, uv)
+                    val l by alphaTexture(img, uv + vec2(-1, 0))
+                    val u by alphaTexture(img, uv + vec2(0, 1))
+                    val r by alphaTexture(img, uv + vec2(-1, 0))
+                    val d by alphaTexture(img, uv + vec2(0, -1))
+                    val ul by alphaTexture(img, uv + vec2(1, 1))
+                    val ur by alphaTexture(img, uv + vec2(-1, 1))
+                    val dr by alphaTexture(img, uv + vec2(-1, -1))
+                    val dl by alphaTexture(img, uv + vec2(1, -1))
+
+                    val cornerColor by alphaMix(alphaMix(ul, ur, float(0.5)), alphaMix(dl, dr, float(0.5)), float(0.5))
+                    val sideColor by alphaMix(alphaMix(u, d, float(0.5)), alphaMix(l, r, float(0.5)), float(0.5))
+                    val cornerCenterColor by alphaMix(cornerColor, c, float(0.5))
+                    val resultColor by alphaMix(sideColor, cornerCenterColor, float(0.5))
+                    resultColor
+                }
             }
         }
 
-        MouseDragged {
+        //getWebGLCore(0).attach(shaderSketch.p5)
+
+        fun restart(bypassMotionCheck: Boolean = false) {
+            loop()
+            if(pmouse != createVector(0, 0) || bypassMotionCheck) {
+                sourceImageCanvas.image(sourceImage, 0, 0, width/4, width/4)
+                getWebGLCore(0).clear()
+                shaderSketch.p5.clear()
+                shaderSketch.p5.image(sourceImage, myBox.topLeft, myBox.bottomRight - myBox.topLeft)
+                //getWebGLCore(0).attach(shaderSketch.p5)
+            }
+        }
+
+        fun updateSelectedElement() {
             when(selectedElement) {
                 myBox.bodyElement -> {
                     val boxDimensions = myBox.bottomRight - myBox.topLeft
@@ -254,69 +294,91 @@ fun circlizer() = Sketch {
             for(circleElement in myCircles) {
                 if(selectedElement == circleElement.bodyElement) {
                     circleElement.center = cachePoint + mouse - cacheMouse
-                } else if(selectedElement == circleElement.borderElements[0]) {
-                    console.log("Dragging Radius")
+                } else if (selectedElement == circleElement.borderElements[0]) {
                     circleElement.radius = dist(circleElement.center, mouse)
                 }
             }
-            restart()
+            if(selectedElement != null) restart()
+        }
+
+        fun updateOverElement() {
+
+            selectedElement = null
+
+            if(overElement?.isMouseOver == false) {
+                overElement = null
+            }
+
+            if(overElement == null) {
+                for (element in borderedElements.map { it.elements() }.flatten()) {
+                    if (element.isMouseOver) {
+                        overElement = element
+                        break
+                    }
+                }
+            }
+
+            if(overElement != null) {
+                selectedElement = overElement
+                cacheMouse = mouse.copy()
+            }
+
+            var newCachePoint = when(selectedElement) {
+                myBox.bodyElement -> myBox.topLeft
+                myBox.borderElements[0] -> myBox.topLeft
+                myBox.borderElements[1] -> myBox.topLeft
+                myBox.borderElements[2] -> myBox.bottomRight
+                myBox.borderElements[3] -> myBox.bottomRight
+                else -> null
+            }?.copy()
+
+            for(circleElement in myCircles) {
+                if(selectedElement == circleElement.bodyElement) {
+                    newCachePoint = circleElement.center.copy()
+                }
+            }
+
+            cachePoint = newCachePoint ?: cachePoint
+        }
+
+        fun updateElements() {
+            if(mouseIsPressed) {
+                updateSelectedElement()
+            } else {
+                updateOverElement()
+            }
+        }
+
+        fun drawCircles() {
+            for(element in borderedElements.filterIsInstance<CircleElement>()) {
+                val circleColor = circleColors[element]!!
+                val strokeColor = when(overElement) {
+                    element.bodyElement -> circleColor
+                    element.borderElements[0] -> circleColor.asVector { map { 127 + it/2 } }
+                    else -> circleColor.asVector { map { it/2 } }
+                }
+                noFill()
+                strokeWeight(element.borderWidth/2)
+                stroke(strokeColor)
+                circle(element.center, element.radius*2)
+            }
+        }
+
+        KeyPressed {
+            if(key == "d") borderedElements = borderedElements.rotateRight(1)
+            if(key == "a") borderedElements = borderedElements.rotateLeft(1)
+            overElement = null
         }
 
 
         Draw {
             clear()
-            image(liteCanvas.p5, 0, 0, width, height)
-
-            if(!mouseIsPressed) {
-                if(overElement?.isMouseOver == true) {
-                    overElement = null
-                }
-
-                if(overElement == null) {
-                    for (element in canvasElements.flatten()) {
-                        if (element.isMouseOver) {
-                            overElement = element
-                            break
-                        }
-                    }
-                }
-
-                if(overElement != null) {
-                    selectedElement = overElement
-                    cacheMouse = mouse.copy()
-                }
-
-                var newCachePoint = when(selectedElement) {
-                    myBox.bodyElement -> myBox.topLeft
-                    myBox.borderElements[0] -> myBox.topLeft
-                    else -> null
-                }?.copy()
-
-                if(newCachePoint == null) {
-                    for(circleElement in myCircles) {
-                        if(selectedElement == circleElement.bodyElement) {
-                            newCachePoint = circleElement.center
-                        }
-                    }
-                }
-
-                cachePoint = newCachePoint ?: cachePoint
-            }
-
-
-
-
-            for((i, circleElement) in myCircles.withIndex()) {
-                val strokeColor = when(overElement) {
-                    circleElement.bodyElement -> colors[i]
-                    circleElement.borderElements[0] -> color(255)
-                    else -> colors[i].asVector { map { it/2 } }
-                }
-                noFill()
-                strokeWeight(circleElement.borderWidth/2)
-                stroke(strokeColor)
-                circle(circleElement.center, circleElement.radius*2)
-            }
+            shaderSketch.p5.redraw()
+            image(shaderSketch.p5, 0, 0, width, height)
+            updateElements()
+            drawCircles()
+            postProcessCanvas.background(backgroundColor)
+            postProcessCanvas.image(shaderSketch.p5, 0, 0, width, height)
         }
 
         canvas.drop { file ->
@@ -325,9 +387,144 @@ fun circlizer() = Sketch {
                 restart()
             }
         }
+
+        fun stop() {
+            noLoop()
+            getWebGLCore(0).sketch.p5.noLoop()
+        }
+
+        fun postProcess() {
+            stop()
+            val largeBlur = shaderSketch.p5.get()
+            //val smallBlur = shaderSketch.p5.get()
+            blurImage = largeBlur
+            repeat(16) {
+                blurSketch.p5.redraw()
+                blurImage = blurSketch.p5.get()
+            }
+            postProcessCanvas.background(backgroundColor)
+            postProcessCanvas.image(blurImage, 0, 0, width, height)
+            //postProcessCanvas.image(smallBlur, 0, 0, width, height)
+            postProcessCanvas.image(shaderSketch.p5, 0, 0, width, height)
+        }
+
+        Layout {
+
+            fun P5.Grid.cardStyle() {
+                GridStyle(inherit = false) {
+                    style("background-color", "#2b2b2b")
+                    style("padding", "32px ".repeat(4))
+                    style("border-radius", "32px")
+                    style("margin", "32px ".repeat(4))
+                }
+            }
+
+            fun P5.StyleBuilder.titleStyle() {
+                style("font-size", "64px")
+                style("color", "white")
+                style("font-family", "futuralight")
+            }
+
+            Column {
+                Column {
+                    cardStyle()
+                    add(createSpan("Adjustments")) {
+                        titleStyle()
+                    }
+                    add(canvas)
+                    Row {
+                        GridStyle(inherit=false) {
+                            style("margin-top", "32px")
+                        }
+                        GridStyle(inherit=true) {
+                            style("grid-gap", "32px")
+                        }
+                        Column {
+                            add(sourceImageCanvas)
+                            val changeImageButton = createButton("Change Image").apply {
+                                style("background-color", "#2b2b2b")
+                                style("font-size", "64px")
+                                style("color", "white")
+                                style("border-radius", "32px")
+                                style("font-family", "futuralight")
+                                style("border-color", "white")
+                                mouseClicked {
+                                    chooseFile {
+                                        loadImage(it.data) {
+                                            sourceImage = it
+                                            restart()
+                                        }
+                                    }
+                                }
+                            }
+                            add(changeImageButton) {
+                                style("width", "${width/4.0}px")
+                                style("height", "${width/12.0}px")
+                            }
+                        }
+
+                        Column {
+
+                            val colorPreview = createDiv("")
+                            add(colorPreview) {
+                                style("width", "${width/4}px")
+                                style("height", "${width/4}px")
+                            }
+                            colorPreview.apply {
+                                style("background-color", backgroundColor.toString())
+                                style("border", "2px solid white")
+                            }
+                            val changeColorButton = createButton("Change Color").apply {
+                                style("background-color", "#2b2b2b")
+                                style("font-size", "64px")
+                                style("color", "white")
+                                style("border-radius", "32px")
+                                style("font-family", "futuralight")
+                                style("border-color", "white")
+                                mousePressed {
+                                    pickColor {
+                                        backgroundColor = it
+                                        colorPreview.style("background-color", it.toString())
+                                    }
+                                }
+                            }
+                            add(changeColorButton) {
+                                style("width", "${width/4.0}px")
+                                style("height", "${width/12.0}px")
+                            }
+                        }
+
+                        Column {
+                            val postProcessButton = createButton("Post Process").apply {
+                                style("background-color", "#2b2b2b")
+                                style("font-size", "64px")
+                                style("color", "white")
+                                style("border-radius", "32px")
+                                style("font-family", "futuralight")
+                                style("border-color", "white")
+                                mousePressed {
+                                    postProcess()
+                                }
+                            }
+                            add(postProcessButton) {
+                                style("width", "${width/4.0}px")
+                                style("height", "${width/12.0}px")
+                            }
+                        }
+                    }
+
+                }
+                Column {
+                    cardStyle()
+                    add(createSpan("Output")) {
+                        titleStyle()
+                    }
+                    //add(shaderSketch.p5.getCanvas())
+                    add(postProcessCanvas)
+                }
+            }
+        }
     }
-
-
 }
 
 

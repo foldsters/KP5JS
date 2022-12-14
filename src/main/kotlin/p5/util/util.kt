@@ -310,3 +310,13 @@ fun isDarkMode(): Boolean {
     return window.matchMedia("(prefers-color-scheme: dark)").matches
 }
 
+fun <T> List<T>.rotateLeft(n: Int) = drop(n) + take(n)
+fun <T> List<T>.rotateRight(n: Int) = takeLast(n) + dropLast(n)
+
+inline fun <T, R> Map(size: Int, init: (Int)->Pair<T, R>): Map<T, R> = buildMap {
+    repeat(size) {
+        val (key, value) = init(it)
+        put(key, value)
+    }
+}
+

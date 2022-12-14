@@ -2,6 +2,7 @@
 
 package p5.core
 
+import kotlinx.browser.document
 import kotlinx.serialization.*
 import kotlinx.serialization.json.Json as SerialJson
 import kotlinx.serialization.descriptors.SerialDescriptor
@@ -373,8 +374,13 @@ class P5(var nativeP5: NativeP5) {
     fun isLooping(): Boolean = nativeP5.isLooping()
     fun push() = nativeP5.push()
     fun pop() = nativeP5.pop()
-    fun redraw() = nativeP5.redraw()
+    fun redraw() {
+        isRedrawing = true
+        nativeP5.redraw()
+    }
     fun redraw(n: Int) = nativeP5.redraw(n)
+
+    var isRedrawing: Boolean = false
 
     fun select(selectors: String): Element? = nativeP5.select(selectors)?.toElement()
     fun select(selectors: String, containerString: String): Element? =
@@ -615,22 +621,30 @@ class P5(var nativeP5: NativeP5) {
     fun createCanvas(w: Number, h: Number, renderMode: RenderMode): Renderer = when (renderMode) {
         RenderMode.P2D -> {
             val nativeCanvas = nativeP5.createCanvas(w, h, renderMode.nativeValue)
-            Renderer2D(nativeCanvas as NativeRenderer2D)
+            val result = Renderer2D(nativeCanvas as NativeRenderer2D)
+            canvas = result
+            result
         }
         RenderMode.WEBGL -> {
             val nativeCanvas = nativeP5.createCanvas(w, h, renderMode.nativeValue)
-            RendererGL(nativeCanvas as NativeRendererGL).apply {
+            val result = RendererGL(nativeCanvas as NativeRendererGL).apply {
                 setAttributes(RenderAttribute.ALPHA, true)
             }
+            canvas = result
+            result
         }
         RenderMode.WEBGL2 -> {
+            val previousCanvasElement = nativeP5.canvasHtml
             enableWebgl2()
             val nativeCanvas = nativeP5.createCanvas(w, h, renderMode.nativeValue)
-            RendererGL(nativeCanvas as NativeRendererGL).apply {
+            val result = RendererGL(nativeCanvas as NativeRendererGL).apply {
                 setAttributes(RenderAttribute.ALPHA, true)
             }
+            document.getElementById(previousCanvasElement.id).let { it?.parentNode?.removeChild(it) }
+            canvas = result
+            result
         }
-    }.also { canvas = it }
+    }
 
     fun createCanvas(wh: Vector, renderMode: RenderMode): Renderer = createCanvas(wh.x, wh.y, renderMode)
     fun createCanvas(renderMode: RenderMode): Renderer = createCanvas(0, 0, renderMode)
@@ -769,6 +783,9 @@ class P5(var nativeP5: NativeP5) {
     val winMouseX: Number by nativeP5::winMouseX
     val winMouseY: Number by nativeP5::winMouseY
     val winMouse: Vector get() = createVector(winMouseX, winMouseY)
+    val absMouseX: Number get() = nativeP5.mouseX + (getCanvas().position().x as Double)
+    val absMouseY: Number get() = nativeP5.mouseY + (getCanvas().position().y as Double)
+    val absMouse: Vector get() = createVector(absMouseX, absMouseY)
     val pwinMouseX: Number by nativeP5::pwinMouseX
     val pwinMouseY: Number by nativeP5::pwinMouseY
     val pwinMouse: Vector get() = createVector(pwinMouseX, pwinMouseY)
@@ -2918,7 +2935,7 @@ class P5(var nativeP5: NativeP5) {
         override val logName = "Grid Row"
 
         init {
-            modifier.gridStyles.add(StyleData.Style("grid-auto-flow", "column").apply {active = true })
+            modifier.gridStyles.add(StyleData.Style("grid-auto-flow", "column").apply { active = true })
         }
     }
     inner class GridColumn: Grid() {
@@ -3016,5 +3033,54 @@ class P5(var nativeP5: NativeP5) {
         return abs(d1-d2)
     }
 
+    fun chooseFile(callback: (File)->Unit) {
+        fileChooserCallback = callback
+        if(fileChooser == null) {
+            fileChooser = createFileInput {
+                fileChooserCallback(it)
+            }.apply {
+                style("display", "none")
+                attribute("id", "hiddenFileInput")
+            }
+        }
+        js("document.getElementById('hiddenFileInput').click()")
+    }
+
+    fun pickColor(openAt: Element? = null, callback: (Color)->Unit) {
+        colorPickerCallback = callback
+        if(colorPicker == null) {
+            colorPicker = createColorPicker(lastColor ?: color(0, 0)).apply {
+                attribute("id", "hiddenColorPicker")
+                style("opacity", "0")
+                input {
+                    colorPickerCallback(this.color())
+                }
+            }
+            colorPickerDiv = createDiv("").apply {
+                child(colorPicker!!)
+                style("width", "0px")
+                style("height", "0px")
+            }
+        }
+        if(openAt == null) {
+            colorPickerDiv?.position(absMouseX, absMouseY)
+        } else {
+            val e = openAt.nativeElement
+            console.log(e)
+            val rect = js("e.getBoundingClientRect()")
+            colorPickerDiv?.position(rect.left, rect.bottom)
+        }
+        js("document.getElementById('hiddenColorPicker').focus()")
+        js("document.getElementById('hiddenColorPicker').click()")
+    }
+
+    companion object {
+        var fileChooser: Element? = null
+        var fileChooserCallback: (File)->Unit = {}
+        var colorPickerDiv: Div? = null
+        var colorPicker: ColorPicker? = null
+        var colorPickerCallback: (Color)->Unit = {}
+        var lastColor: Color? = null
+    }
 
 }

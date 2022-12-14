@@ -94,8 +94,11 @@ class Sketch private constructor() {
             if(autoStart) loop() else noLoop()
             draw = wrap {
                 repeat(stepsPerFrame) {
-                    block(frame)
-                    frame++
+                    if(isLooping() || isRedrawing) {
+                        block(frame)
+                        frame++
+                        isRedrawing = false
+                    }
                 }
                 nextDraw.afterFrame?.invoke()
             }

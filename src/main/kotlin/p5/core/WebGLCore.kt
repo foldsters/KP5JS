@@ -3,7 +3,6 @@ package p5.core
 import p5.Sketch
 import p5.ksl.ShaderScope
 import p5.ksl.buildShader
-import p5.util.ifNotNull
 
 class WebGLCore private constructor() {
     private val attachedSketches: MutableSet<P5> = mutableSetOf()
@@ -11,9 +10,7 @@ class WebGLCore private constructor() {
 
     val sketch = Sketch {
         Setup {
-            createCanvas(0, 0, RenderMode.WEBGL2).apply {
-                attribute("id", "webgl")
-            }
+            createCanvas(1, 1, RenderMode.WEBGL2)
             pixelDensity(1)
             background(0, 0, 0, 0)
             noStroke()
@@ -83,9 +80,7 @@ fun ShaderSketch(width: Number, height: Number,
                  magFilterMode: MagFilterMode? = null,
                  shaderBuilder: ShaderScope.(Sketch)->Unit) = Sketch {
     Setup {
-        createCanvas(width, height).apply {
-            attribute("id", "ShaderSketch")
-        }
+        createCanvas(width, height)
         pixelDensity(1)
         noStroke()
         val webGLCore = WebGLCore.getWebGLCore(webGLCoreIndex)
