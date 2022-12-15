@@ -219,6 +219,8 @@ fun circlizer() = Sketch {
                     blurStrength
                 }
 
+                val light by buildStruct2<float, int>()
+
                 val alphaMix by buildFunction { color0: vec4, color1: vec4, weightFactor: float ->
                     val newAlpha by mix(color0.a, color1.a, weightFactor)
                     val weight0 by color0.a*(1.0-weightFactor)
@@ -253,6 +255,8 @@ fun circlizer() = Sketch {
                     var uv by it
                     uv.y = (resolution - uv).y
                     uv = flr(uv)
+                    val lightVar by light(float(3), int(4))
+                    lightVar.s1 = float(lightVar.s2)
                     val c by alphaTexture(img, uv)
                     val l by alphaTexture(img, uv + vec2(-1, 0))
                     val u by alphaTexture(img, uv + vec2(0, 1))
@@ -402,15 +406,12 @@ fun circlizer() = Sketch {
 
         fun postProcess() {
             stop()
-            val largeBlur = shaderSketch.p5.get()
-            //val smallBlur = shaderSketch.p5.get()
+            val largeBlur = postProcessCanvas.get()
             blurImage = largeBlur
             repeat(blurSize) {
                 blurImage = blurShader.redraw(width, height)
             }
-            postProcessCanvas.background(backgroundColor)
             postProcessCanvas.image(blurImage, 0, 0, width, height)
-            //postProcessCanvas.image(smallBlur, 0, 0, width, height)
             postProcessCanvas.image(shaderSketch.p5, 0, 0, width, height)
         }
 

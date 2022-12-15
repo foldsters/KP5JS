@@ -1806,7 +1806,7 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     fun vec4(x: Int, yzw: Vec3Expr):                Vec4Expr = Vec4ExprImpl(float(x), yzw)
 
     // Function Building
-    inner class GlslFun<R>(val functionString: (String)->Unit, val innerFun: (String)->R) {
+    inner class GlslFunConstructor<R>(val functionString: (String)->Unit, val innerFun: (String)->R) {
         var functionRendered = false
         operator fun getValue(thisRef: Any?, property: KProperty<*>): R {
             if(!functionRendered) {
@@ -1821,7 +1821,7 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
 
     // 0 params
     @OverloadResolutionByLambdaReturnType
-    inline fun <reified R: GenExpr<R>> buildFunction(crossinline block: ()->R): GlslFun<()->R> {
+    inline fun <reified R: GenExpr<R>> buildFunction(crossinline block: ()->R): GlslFunConstructor<()->R> {
         pushScope()
         val openId = genSnapshotId()
         val blockRender = block().render()
@@ -1838,11 +1838,11 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
             }, closeId)
         }
 
-        return GlslFun(functionString) { name -> { functionOf(name) } }
+        return GlslFunConstructor(functionString) { name -> { functionOf(name) } }
     }
     // 1 param
     inline fun <reified P1: GenExpr<P1>, reified R: GenExpr<R>>
-            buildFunction(crossinline block: (P1)->R): GlslFun<(P1)->R> {
+            buildFunction(crossinline block: (P1)->R): GlslFunConstructor<(P1)->R> {
 
         pushScope()
         val openId = genSnapshotId()
@@ -1861,11 +1861,11 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
             }, closeId)
         }
 
-        return GlslFun(functionString) { name -> { it1 -> functionOf(name, it1) } }
+        return GlslFunConstructor(functionString) { name -> { it1 -> functionOf(name, it1) } }
     }
     // 2 param
     inline fun <reified P1: GenExpr<P1>, reified P2: GenExpr<P2>, reified R: GenExpr<R>>
-            buildFunction(crossinline block: (P1, P2)->R): GlslFun<(P1, P2)->R> {
+            buildFunction(crossinline block: (P1, P2)->R): GlslFunConstructor<(P1, P2)->R> {
 
         pushScope()
         val openId = genSnapshotId()
@@ -1888,11 +1888,11 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
             }, closeId)
         }
 
-        return GlslFun(functionString) { name -> { it1, it2 -> functionOf(name, it1, it2) } }
+        return GlslFunConstructor(functionString) { name -> { it1, it2 -> functionOf(name, it1, it2) } }
     }
     // 3 param
     inline fun <reified P1: GenExpr<P1>, reified P2: GenExpr<P2>, reified P3: GenExpr<P3>, reified R: GenExpr<R>>
-            buildFunction(crossinline block: (P1, P2, P3)->R): GlslFun<(P1, P2, P3)->R> {
+            buildFunction(crossinline block: (P1, P2, P3)->R): GlslFunConstructor<(P1, P2, P3)->R> {
 
         pushScope()
         val openId = genSnapshotId()
@@ -1917,12 +1917,12 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
             }, closeId)
         }
 
-        return GlslFun(functionString) { name -> { it1, it2, it3 -> functionOf(name, it1, it2, it3) } }
+        return GlslFunConstructor(functionString) { name -> { it1, it2, it3 -> functionOf(name, it1, it2, it3) } }
     }
 
     // 4 param
     inline fun <reified P1: GenExpr<P1>, reified P2: GenExpr<P2>, reified P3: GenExpr<P3>, reified P4: GenExpr<P4>, reified R: GenExpr<R>>
-            buildFunction(crossinline block: (P1, P2, P3, P4)->R): GlslFun<(P1, P2, P3, P4)->R> {
+            buildFunction(crossinline block: (P1, P2, P3, P4)->R): GlslFunConstructor<(P1, P2, P3, P4)->R> {
 
         pushScope()
         val openId = genSnapshotId()
@@ -1949,7 +1949,142 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
             }, closeId)
         }
 
-        return GlslFun(functionString) { name -> { it1, it2, it3, it4 -> functionOf(name, it1, it2, it3, it4) } }
+        return GlslFunConstructor(functionString) { name -> { it1, it2, it3, it4 -> functionOf(name, it1, it2, it3, it4) } }
+    }
+
+    inner class GlslStructConstructor<R>(val functionString: (String)->Unit, val innerFun: (String)->R) {
+        var structRendered = false
+        operator fun getValue(thisRef: Any?, property: KProperty<*>): R {
+            if(!structRendered) {
+                pushScope()
+                functionString(property.name)
+                structRendered = true
+                popScope()
+            }
+            return innerFun(property.name)
+        }
+    }
+
+    class Struct0
+
+//    abstract inner class VecExpr<T: VecExpr<T>>(vararg cs: ShaderNode): GenFExpr<T>(*cs) {
+//
+//        abstract val numComponents: Int
+//
+//        inner class ComponentProvider<R: GenExpr<R>>(val clazz: KClass<R>) {
+//            operator fun getValue(thisRef: Any?, property: KProperty<*>): R {
+//                return newByClass(clazz, ComponentExpr(property.name, this@VecExpr.copy()))
+//            }
+//
+//            operator fun setValue(thisRef: Any?, property: KProperty<*>, value: R) {
+//                val varName = name ?: throw IllegalStateException("Unable to Determine Name of Vector")
+//                instructions.add(Instruction(AssignmentStatement("${varName}.${property.name}", value, false)))
+//            }
+//        }
+//
+//        // See swizzle.kt for components
+//
+//        val C1 = ComponentProvider(FloatExpr::class)
+//        val C2 = ComponentProvider(Vec2Expr::class)
+//        val C3 = ComponentProvider(Vec3Expr::class)
+//        val C4 = ComponentProvider(Vec4Expr::class)
+//
+//        var x    by C1; var y    by C1; var xy   by C2; var yx   by C2; val xx   by C2; val yy   by C2
+//        val xxx  by C3; val xxy  by C3; val xyx  by C3; val xyy  by C3; val yxx  by C3; val yxy  by C3
+//        val yyx  by C3; val yyy  by C3; val xxxx by C4; val xxxy by C4; val xxyx by C4; val xxyy by C4
+//        val xyxx by C4; val xyxy by C4; val xyyx by C4; val xyyy by C4; val yxxx by C4; val yxxy by C4
+//        val yxyx by C4; val yxyy by C4; val yyxx by C4; val yyxy by C4; val yyyx by C4; val yyyy by C4
+//
+//        override fun render(): String {
+//            if (children.size == 1) { return super.render() }
+//            require(children.size <= numComponents) {"Error Rendering $name of type $nativeTypeName: Wrong Number of Children"}
+//            return "$nativeTypeName(${children.render()})"
+//        }
+
+    inner class Struct1<S1: GenExpr<S1>>(var typeS1: KClass<S1>, var structName: String, vararg cs: ShaderNode): GenExpr<Struct1<S1>>(*cs) {
+        override val nativeTypeName get() = structName
+        override val logTypeName = "Struct1"
+        override fun new(vararg cs: ShaderNode): GenExpr<Struct1<S1>> {
+            return Struct1(typeS1, structName, *cs)
+        }
+        override fun render(): String {
+            if (children.isNotEmpty() && children[0] is GenExpr<*>) { return "$nativeTypeName(${children.render()})" }
+            return super.render()
+        }
+
+        inner class ComponentProvider<R: GenExpr<R>>(val clazz: KClass<R>) {
+            operator fun getValue(thisRef: Any?, property: KProperty<*>): R {
+                return newByClass(clazz, ComponentExpr(property.name, this@Struct1.copy()))
+            }
+
+            operator fun setValue(thisRef: Any?, property: KProperty<*>, value: R) {
+                val varName = name ?: throw IllegalStateException("Unable to Determine Name of Struct")
+                instructions.add(Instruction(AssignmentStatement("${varName}.${property.name}", value, false)))
+            }
+        }
+
+        var s1 by ComponentProvider(typeS1)
+    }
+
+    inner class Struct2<S1: GenExpr<S1>, S2: GenExpr<S2>>(var typeS1: KClass<S1>, var typeS2: KClass<S2>, var structName: String, vararg cs: ShaderNode): GenExpr<Struct2<S1, S2>>(*cs) {
+        override val nativeTypeName get() = structName
+        override val logTypeName = "Struct2"
+        override fun new(vararg cs: ShaderNode): GenExpr<Struct2<S1, S2>> {
+            return Struct2(typeS1, typeS2, structName, *cs)
+        }
+        override fun render(): String {
+            if (children.isNotEmpty() && children[0] is GenExpr<*>) { return "$nativeTypeName(${children.render()})" }
+            return super.render()
+        }
+
+        inner class ComponentProvider<R: GenExpr<R>>(val clazz: KClass<R>) {
+            operator fun getValue(thisRef: Any?, property: KProperty<*>): R {
+                return newByClass(clazz, ComponentExpr(property.name, this@Struct2.copy()))
+            }
+
+            operator fun setValue(thisRef: Any?, property: KProperty<*>, value: R) {
+                val varName = name ?: throw IllegalStateException("Unable to Determine Name of Struct")
+                instructions.add(Instruction(AssignmentStatement("${varName}.${property.name}", value, false)))
+            }
+        }
+
+        var s1 by ComponentProvider(typeS1)
+        var s2 by ComponentProvider(typeS2)
+    }
+
+    class Struct3<S1: GenExpr<S1>, S2: GenExpr<S2>, S3: GenExpr<S3>>(val s1: S1, val s2: S2, val s3: S3)
+    class Struct4<S1: GenExpr<S1>, S2: GenExpr<S2>, S3: GenExpr<S3>, S4: GenExpr<S4>>(val s1: S1, val s2: S2, val s3: S3, val s4: S4)
+
+    inline fun <reified S1: GenExpr<S1>> buildStruct1(): GlslStructConstructor<(S1)->Struct1<S1>> {
+        val openId = genSnapshotId()
+        val closeId = genSnapshotId()
+
+        val structString = { name: String ->
+            addInstructionAt(buildString {
+                append("struct ", name, " {\n", nameByClass(S1::class), " s1;")
+            }, openId)
+            addInstructionAt(buildString {
+                append("};")
+            }, closeId)
+        }
+
+        return GlslStructConstructor(structString) { name -> { s1 -> Struct1(S1::class, name, s1) } }
+    }
+
+    inline fun <reified S1: GenExpr<S1>, reified S2: GenExpr<S2>> buildStruct2(): GlslStructConstructor<(S1, S2)->Struct2<S1, S2>> {
+        val openId = genSnapshotId()
+        val closeId = genSnapshotId()
+
+        val structString = { name: String ->
+            addInstructionAt(buildString {
+                append("struct ", name, " {\n", nameByClass(S1::class), " s1;\n", nameByClass(S2::class), " s2;")
+            }, openId)
+            addInstructionAt(buildString {
+                append("};")
+            }, closeId)
+        }
+
+        return GlslStructConstructor(structString) { name -> { s1, s2 -> Struct2(S1::class, S2::class, name, s1, s2) } }
     }
 
     // Logging
