@@ -35,6 +35,7 @@ fun circlizer() = Sketch {
         scalarMode(ScalarMode.XYZ)
         strokeWeight(5)
         noFill()
+        noLoop()
 
         val sourceImageCanvas = createGraphics(width/4, width/4).apply {
             image(sourceImage, 0, 0, width, width)
@@ -42,7 +43,7 @@ fun circlizer() = Sketch {
 
         var backgroundColor = color(15, 255)
 
-        var postProcessCanvas = createGraphics(width, height)
+        val postProcessCanvas = createGraphics(width, height)
 
         val circles: Array<Array<Number>> = Array(5) {
             arrayOf(width*random(), height*random(), 500)
@@ -111,6 +112,9 @@ fun circlizer() = Sketch {
             minFilterMode = MinFilterMode.NEAREST_MIPMAP_NEAREST,
             magFilterMode = MagFilterMode.NEAREST
         ) {
+
+            it.p5.getCanvas().hide()
+
             Fragment {
                 val prevFrame by UniformP5 { it.p5 }
                 val resolution: vec2 by Uniform<vec2> { arrayOf(width, height) }
@@ -203,15 +207,17 @@ fun circlizer() = Sketch {
         }
 
         var blurImage: Image = sourceImage
+        var blurSize = 5
+        var blurStrength = 2.0
 
-        val blurSketch = ShaderSketch(width, height, 0, true,
-            minFilterMode = MinFilterMode.NEAREST_MIPMAP_NEAREST,
-            magFilterMode = MagFilterMode.NEAREST
-        ) {
+        val blurShader = ShaderPass(0) {
             Fragment {
-                val img by UniformImage {
-                    blurImage }
+                val img by UniformImage { blurImage }
                 val resolution: vec2 by Uniform<vec2> { arrayOf(width, height) }
+                val gamma by UniformFloat {
+                    console.log(blurStrength)
+                    blurStrength
+                }
 
                 val alphaMix by buildFunction { color0: vec4, color1: vec4, weightFactor: float ->
                     val newAlpha by mix(color0.a, color1.a, weightFactor)
@@ -261,12 +267,13 @@ fun circlizer() = Sketch {
                     val sideColor by alphaMix(alphaMix(u, d, float(0.5)), alphaMix(l, r, float(0.5)), float(0.5))
                     val cornerCenterColor by alphaMix(cornerColor, c, float(0.5))
                     val resultColor by alphaMix(sideColor, cornerCenterColor, float(0.5))
+                    resultColor.a = pow(resultColor.a, 1.0/gamma)
                     resultColor
                 }
             }
         }
 
-        //getWebGLCore(0).attach(shaderSketch.p5)
+        var startStopButton: Button? = null
 
         fun restart(bypassMotionCheck: Boolean = false) {
             loop()
@@ -275,7 +282,6 @@ fun circlizer() = Sketch {
                 getWebGLCore(0).clear()
                 shaderSketch.p5.clear()
                 shaderSketch.p5.image(sourceImage, myBox.topLeft, myBox.bottomRight - myBox.topLeft)
-                //getWebGLCore(0).attach(shaderSketch.p5)
             }
         }
 
@@ -370,8 +376,8 @@ fun circlizer() = Sketch {
             overElement = null
         }
 
-
         Draw {
+            startStopButton?.html("Stop")
             clear()
             shaderSketch.p5.redraw()
             image(shaderSketch.p5, 0, 0, width, height)
@@ -381,7 +387,7 @@ fun circlizer() = Sketch {
             postProcessCanvas.image(shaderSketch.p5, 0, 0, width, height)
         }
 
-        canvas.drop { file ->
+        sourceImageCanvas.getCanvas().drop { file ->
             loadImage(file.data) {
                 sourceImage = it
                 restart()
@@ -390,6 +396,7 @@ fun circlizer() = Sketch {
 
         fun stop() {
             noLoop()
+            startStopButton?.html("Restart")
             getWebGLCore(0).sketch.p5.noLoop()
         }
 
@@ -398,9 +405,8 @@ fun circlizer() = Sketch {
             val largeBlur = shaderSketch.p5.get()
             //val smallBlur = shaderSketch.p5.get()
             blurImage = largeBlur
-            repeat(16) {
-                blurSketch.p5.redraw()
-                blurImage = blurSketch.p5.get()
+            repeat(blurSize) {
+                blurImage = blurShader.redraw(width, height)
             }
             postProcessCanvas.background(backgroundColor)
             postProcessCanvas.image(blurImage, 0, 0, width, height)
@@ -495,6 +501,28 @@ fun circlizer() = Sketch {
                         }
 
                         Column {
+
+
+                            startStopButton = createButton("Start").apply {
+                                style("background-color", "#2b2b2b")
+                                style("font-size", "64px")
+                                style("color", "white")
+                                style("border-radius", "32px")
+                                style("font-family", "futuralight")
+                                style("border-color", "white")
+                                mousePressed {
+                                    if(isLooping() || isRedrawing) {
+                                        stop()
+                                    } else {
+                                        restart(true)
+                                    }
+                                }
+                            }
+                            add(startStopButton!!) {
+                                style("width", "${width/4.0}px")
+                                style("height", "${width/12.0}px")
+                            }
+
                             val postProcessButton = createButton("Post Process").apply {
                                 style("background-color", "#2b2b2b")
                                 style("font-size", "64px")
@@ -510,6 +538,66 @@ fun circlizer() = Sketch {
                                 style("width", "${width/4.0}px")
                                 style("height", "${width/12.0}px")
                             }
+
+                            Row {
+                                GridStyle(false) {
+                                    style("background-color", "#2b2b2b")
+                                    style("font-size", "48px")
+                                    style("color", "white")
+                                    style("font-family", "futuralight")
+                                    style("width", "${width/4.0}px")
+                                }
+                                add(createSpan("Blur Strength:")) {
+                                    style("justify-self", "start")
+                                }
+                                add(createSpan(blurStrength.toString()).apply {
+                                    attribute("contenteditable", "true")
+                                    input {
+                                        blurStrength = html().toDoubleOrNull() ?: blurStrength
+                                    }
+                                }) {
+                                    style("justify-self", "end")
+                                }
+                            }
+
+                            Row {
+                                GridStyle(false) {
+                                    style("background-color", "#2b2b2b")
+                                    style("font-size", "48px")
+                                    style("color", "white")
+                                    style("font-family", "futuralight")
+                                    style("width", "${width/4.0}px")
+                                }
+                                add(createSpan("Blur Size:")) {
+                                    style("justify-self", "start")
+                                }
+                                add(createSpan(blurSize.toString()).apply {
+                                    attribute("contenteditable", "true")
+                                    input {
+                                        blurSize = html().toIntOrNull() ?: blurSize
+                                    }
+                                }) {
+                                    style("justify-self", "end")
+                                }
+                            }
+
+                            Row {
+                                GridStyle(false) {
+                                    style("background-color", "#2b2b2b")
+                                    style("font-size", "48px")
+                                    style("color", "white")
+                                    style("font-family", "futuralight")
+                                    style("width", "${width/4.0}px")
+                                }
+                                add(createSpan("Frame Rate:")) {
+                                    style("justify-self", "start")
+                                }
+                                add(createSpan(frameRate().toString()).apply {
+                                    attribute("contenteditable", "true")
+                                }) {
+                                    style("justify-self", "end")
+                                }
+                            }
                         }
                     }
 
@@ -519,7 +607,6 @@ fun circlizer() = Sketch {
                     add(createSpan("Output")) {
                         titleStyle()
                     }
-                    //add(shaderSketch.p5.getCanvas())
                     add(postProcessCanvas)
                 }
             }

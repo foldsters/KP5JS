@@ -1,4 +1,4 @@
-package p5.openSimplexNoise
+package p5.native.openSimplexNoise
 
 @JsModule("open-simplex-noise")
 @JsNonModule

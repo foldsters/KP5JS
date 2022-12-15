@@ -17,7 +17,7 @@ import p5.native.*
 import p5.native.NativeP5.*
 import kotlin.js.Json
 import kotlin.reflect.KProperty
-import p5.openSimplexNoise.OpenSimplexNoise
+import p5.native.openSimplexNoise.OpenSimplexNoise
 import p5.util.*
 import kotlin.js.json
 import kotlin.reflect.KClass

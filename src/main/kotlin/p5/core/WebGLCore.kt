@@ -99,3 +99,38 @@ fun ShaderSketch(width: Number, height: Number,
         }
     }
 }
+
+class ShaderPass(webGLCoreIndex: Int, shaderBuilder: ShaderScope.()->Unit) {
+
+    val webGLCore = WebGLCore.getWebGLCore(webGLCoreIndex)
+    val webGLRenderer = webGLCore.sketch.p5
+    val shader = webGLCore.sketch.p5.buildShader(debug = true) {
+        shaderBuilder()
+    }
+
+    fun redraw(width: Number, height: Number): Image {
+        webGLRenderer.clear()
+        webGLRenderer.resizeCanvas(width, height)
+        webGLRenderer.shader(shader)
+        webGLRenderer.apply { shader.update() }
+        webGLRenderer.rect(0, 0, width, height)
+        return webGLRenderer.get(0, 0, width, height)
+    }
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
