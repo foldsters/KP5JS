@@ -1180,20 +1180,22 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
         block(iterVar)
         +"}"
     }
+    fun KSL.FOR(stop: FloatExpr, block: (FloatExpr)->Unit) = _For(float(0), float(stop), block)
+    fun KSL.FOR(stop: Double, block: (FloatExpr)->Unit) = _For(float(0), float(stop), block)
 
     fun KSL.FOR(start: FloatExpr, stop: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), block)
-    fun FOR(start: FloatExpr, stop: Double, block: (FloatExpr)->Unit) = _For(float(start), float(stop), block)
-    fun FOR(start: Double, stop: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), block)
-    fun FOR(start: Double, stop: Double, block: (FloatExpr)->Unit) = _For(float(start), float(stop), block)
+    fun KSL.FOR(start: FloatExpr, stop: Double, block: (FloatExpr)->Unit) = _For(float(start), float(stop), block)
+    fun KSL.FOR(start: Double, stop: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), block)
+    fun KSL.FOR(start: Double, stop: Double, block: (FloatExpr)->Unit) = _For(float(start), float(stop), block)
 
-    fun FOR(start: FloatExpr, stop: FloatExpr, step: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
-    fun FOR(start: FloatExpr, stop: FloatExpr, step: Double, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
-    fun FOR(start: FloatExpr, stop: Double, step: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
-    fun FOR(start: FloatExpr, stop: Double, step: Double, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
-    fun FOR(start: Double, stop: FloatExpr, step: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
-    fun FOR(start: Double, stop: FloatExpr, step: Double, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
-    fun FOR(start: Double, stop: Double, step: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
-    fun FOR(start: Double, stop: Double, step: Double, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
+    fun KSL.FOR(start: FloatExpr, stop: FloatExpr, step: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
+    fun KSL.FOR(start: FloatExpr, stop: FloatExpr, step: Double, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
+    fun KSL.FOR(start: FloatExpr, stop: Double, step: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
+    fun KSL.FOR(start: FloatExpr, stop: Double, step: Double, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
+    fun KSL.FOR(start: Double, stop: FloatExpr, step: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
+    fun KSL.FOR(start: Double, stop: FloatExpr, step: Double, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
+    fun KSL.FOR(start: Double, stop: Double, step: FloatExpr, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
+    fun KSL.FOR(start: Double, stop: Double, step: Double, block: (FloatExpr)->Unit) = _For(float(start), float(stop), float(step), block)
 
     private fun _For(start: IntExpr, stop: IntExpr, step: IntExpr, block: (IntExpr)->Unit) {
         val iterName = makeIteratorVar()
@@ -1211,19 +1213,22 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
         +"}"
     }
 
-    fun FOR(start: IntExpr, stop: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), block)
-    fun FOR(start: IntExpr, stop: Int, block: (IntExpr)->Unit) = _For(int(start), int(stop), block)
-    fun FOR(start: Int, stop: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), block)
-    fun FOR(start: Int, stop: Int, block: (IntExpr)->Unit) = _For(int(start), int(stop), block)
+    fun KSL.FOR(stop: IntExpr, block: (IntExpr)->Unit) = _For(int(0), int(stop), block)
+    fun KSL.FOR(stop: Int, block: (IntExpr)->Unit) = _For(int(0), int(stop), block)
 
-    fun FOR(start: IntExpr, stop: IntExpr, step: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
-    fun FOR(start: IntExpr, stop: IntExpr, step: Int, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
-    fun FOR(start: IntExpr, stop: Int, step: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
-    fun FOR(start: IntExpr, stop: Int, step: Int, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
-    fun FOR(start: Int, stop: IntExpr, step: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
-    fun FOR(start: Int, stop: IntExpr, step: Int, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
-    fun FOR(start: Int, stop: Int, step: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
-    fun FOR(start: Int, stop: Int, step: Int, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
+    fun KSL.FOR(start: IntExpr, stop: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), block)
+    fun KSL.FOR(start: IntExpr, stop: Int, block: (IntExpr)->Unit) = _For(int(start), int(stop), block)
+    fun KSL.FOR(start: Int, stop: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), block)
+    fun KSL.FOR(start: Int, stop: Int, block: (IntExpr)->Unit) = _For(int(start), int(stop), block)
+
+    fun KSL.FOR(start: IntExpr, stop: IntExpr, step: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
+    fun KSL.FOR(start: IntExpr, stop: IntExpr, step: Int, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
+    fun KSL.FOR(start: IntExpr, stop: Int, step: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
+    fun KSL.FOR(start: IntExpr, stop: Int, step: Int, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
+    fun KSL.FOR(start: Int, stop: IntExpr, step: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
+    fun KSL.FOR(start: Int, stop: IntExpr, step: Int, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
+    fun KSL.FOR(start: Int, stop: Int, step: IntExpr, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
+    fun KSL.FOR(start: Int, stop: Int, step: Int, block: (IntExpr)->Unit) = _For(int(start), int(stop), int(step), block)
 
     fun WHILE(cond: BoolExpr, block: ()->Unit) {
         +"while(${cond.render()}) {"
@@ -1254,6 +1259,10 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     val Break: Unit get() = +"break;"
     val Continue: Unit get() = +"continue;"
     val Discard: Unit get() = +"discard;"
+
+    fun <T: GenExpr<T>> Return(result: T) {
+        +"return ${result.render()};"
+    }
 
     // List Helper Functions
     private fun List<ShaderNode>.render(): String {
@@ -1966,40 +1975,6 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     }
 
     class Struct0
-
-//    abstract inner class VecExpr<T: VecExpr<T>>(vararg cs: ShaderNode): GenFExpr<T>(*cs) {
-//
-//        abstract val numComponents: Int
-//
-//        inner class ComponentProvider<R: GenExpr<R>>(val clazz: KClass<R>) {
-//            operator fun getValue(thisRef: Any?, property: KProperty<*>): R {
-//                return newByClass(clazz, ComponentExpr(property.name, this@VecExpr.copy()))
-//            }
-//
-//            operator fun setValue(thisRef: Any?, property: KProperty<*>, value: R) {
-//                val varName = name ?: throw IllegalStateException("Unable to Determine Name of Vector")
-//                instructions.add(Instruction(AssignmentStatement("${varName}.${property.name}", value, false)))
-//            }
-//        }
-//
-//        // See swizzle.kt for components
-//
-//        val C1 = ComponentProvider(FloatExpr::class)
-//        val C2 = ComponentProvider(Vec2Expr::class)
-//        val C3 = ComponentProvider(Vec3Expr::class)
-//        val C4 = ComponentProvider(Vec4Expr::class)
-//
-//        var x    by C1; var y    by C1; var xy   by C2; var yx   by C2; val xx   by C2; val yy   by C2
-//        val xxx  by C3; val xxy  by C3; val xyx  by C3; val xyy  by C3; val yxx  by C3; val yxy  by C3
-//        val yyx  by C3; val yyy  by C3; val xxxx by C4; val xxxy by C4; val xxyx by C4; val xxyy by C4
-//        val xyxx by C4; val xyxy by C4; val xyyx by C4; val xyyy by C4; val yxxx by C4; val yxxy by C4
-//        val yxyx by C4; val yxyy by C4; val yyxx by C4; val yyxy by C4; val yyyx by C4; val yyyy by C4
-//
-//        override fun render(): String {
-//            if (children.size == 1) { return super.render() }
-//            require(children.size <= numComponents) {"Error Rendering $name of type $nativeTypeName: Wrong Number of Children"}
-//            return "$nativeTypeName(${children.render()})"
-//        }
 
     inner class Struct1<S1: GenExpr<S1>>(var typeS1: KClass<S1>, var structName: String, vararg cs: ShaderNode): GenExpr<Struct1<S1>>(*cs) {
         override val nativeTypeName get() = structName

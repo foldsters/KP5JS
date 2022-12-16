@@ -7,6 +7,7 @@ import p5.util.isDarkMode
 import p5.util.println
 import projects.cards.perlinLightning
 import projects.circlizer.circlizer
+import projects.correlation_tiler.CorrelationTiler
 import projects.hopper.hopperClouds
 import projects.hopper.hopperClouds2
 import projects.huegene.huegene
@@ -25,7 +26,7 @@ fun main() {
     window.onload = {
         val pageName = js("page") as String
         console.log(pageName)
-        circlizer()
+        CorrelationTiler()
     }
 }
 
