@@ -24,6 +24,8 @@ fun CorrelationTiler() = Sketch {
         val r1 by url { 0.01 }
         val r2 by url { 0.01 }
 
+        var replaceImg1 = true
+
         val correlationShader = ShaderPass(0) {
 
             Fragment {
@@ -51,7 +53,7 @@ fun CorrelationTiler() = Sketch {
 
                     val radSteps by float(5)
                     val radSize  by float(0.1)
-                    val lineSteps by float(10)
+                    val lineSteps by float(5)
 
                     val da by normalize(ap)*radSize/radSteps
                     val db by normalize(bp)*radSize/radSteps
@@ -76,7 +78,7 @@ fun CorrelationTiler() = Sketch {
                                             bestDist = newDist
                                             color = mix(cola.rgb, colb.rgb, float(0.5))
                                         }
-                                        IF(newDist LT 0.05) {
+                                        IF(newDist LT 0.01) {
                                             Return(color)
                                         }
                                     }
@@ -100,8 +102,22 @@ fun CorrelationTiler() = Sketch {
             }
         }
 
-        image(correlationShader.redraw(1080, 1080), 0, 0, 1080, 1080)
+        fun start() {
+            image(correlationShader.redraw(1080, 1080), 0, 0, 1080, 1080)
+        }
 
+        start()
+
+        getCanvas().drop {
+            loadImage(it.data) {
+                if(replaceImg1) {
+                    sourceImage1 = it
+                } else {
+                    sourceImage2 = it
+                }
+                replaceImg1 = !replaceImg1
+                start()
+            }
+        }
     }
-
 }

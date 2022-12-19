@@ -562,10 +562,6 @@ open class Shader(val nativeShader: NativeShader, var uniformCallbacks: MutableM
     }
 }
 
-class MultiShader(nativeShader: NativeShader, uniformCallbacks: MutableMap<String, ()->Any>? = null): Shader(nativeShader, uniformCallbacks)
-
-
-
 class PrintWriter(val nativePrintWriter: NativePrintWriter) { // TODO: Remove dynamic
     fun write(data: dynamic) = nativePrintWriter.write(data)
     fun print(data: dynamic) = nativePrintWriter.print(data)

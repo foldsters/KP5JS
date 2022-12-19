@@ -1145,16 +1145,24 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     }
 
     fun KSL.IF(cond: BoolExpr, block: () -> Unit): _If {
+        val result = _If()
         +"if(${cond.render()}) {"
         block()
         +"}"
-        return _If()
+        return result
     }
-    inner class _If
+    inner class _If {
+        val startid = genSnapshotId()
+    }
 
     infix fun _If.ELSE(block: ()->Unit) {
         +"else {"
         block()
+        +"}"
+    }
+
+    infix fun _If.ELSE(_if: _If) {
+        addInstructionAt("else {", _if.startid)
         +"}"
     }
 

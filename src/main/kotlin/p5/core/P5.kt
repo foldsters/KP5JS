@@ -12,7 +12,9 @@ import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.*
 import p5.Sketch
+import p5.core.WebGLCore.Companion.getWebGLCore
 import p5.createLoop.nativeCreateLoop
+import p5.ksl.*
 import p5.native.*
 import p5.native.NativeP5.*
 import kotlin.js.Json
@@ -3073,6 +3075,63 @@ class P5(var nativeP5: NativeP5) {
         js("document.getElementById('hiddenColorPicker').focus()")
         js("document.getElementById('hiddenColorPicker').click()")
     }
+
+    fun shaderFold(image: Image, webGLIndex: Int, foldFunction: ShaderScope.(c: vec4, n: float, acc: vec4)->vec4): Color {
+
+        val webGLCore = getWebGLCore(webGLIndex)
+        val webGLRenderer = webGLCore.renderer
+        var foldRows = false
+        var shaderImage = image
+
+        val foldShader = webGLRenderer.buildShader {
+            Fragment {
+                val img by UniformImage { shaderImage }
+                val res by Uniform<vec2> { arrayOf(image.width, image.height) }
+                val foldRows by UniformBool { foldRows }
+
+                val fold by buildFunction { color: vec4, count: float, acc: vec4 ->
+                    foldFunction(color, count, acc)
+                }
+
+                Main {
+                    val uv by ivec2(int(floor(it.x)), int(res.y - floor(it.y) - 1.0))
+                    var acc by vec4(0)
+                    var count by float(0)
+
+                    IF(foldRows) {
+                        FOR(int(res.x)) { x ->
+                            val color by texelFetch(img, ivec2(x, uv.y), int(0))
+                            acc = fold(color, count, acc)
+                            count += 1.0
+                        }
+                    } ELSE {
+                        FOR(int(res.y)) { y ->
+                            val color by texelFetch(img, ivec2(uv.x, y), int(0))
+                            acc = fold(color, count, acc)
+                            count += 1.0
+                        }
+                    }
+
+                    acc
+                }
+            }
+        }
+
+        shaderImage = webGLCore.render(foldShader, width, height)
+        foldRows = false
+
+        shaderImage = webGLCore.render(foldShader, width, height)
+
+        var result = color(0)
+        shaderImage.withPixels {
+            result = colorArray[0, 0]
+        }
+
+        return result
+    }
+
+
+
 
     companion object {
         var fileChooser: Element? = null
