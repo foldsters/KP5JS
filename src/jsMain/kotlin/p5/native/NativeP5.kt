@@ -4,6 +4,7 @@ package p5.native
 
 import kotlin.js.Json
 
+
 @JsModule("p5")
 @JsNonModule
 external class NativeP5 {

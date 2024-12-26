@@ -4,6 +4,7 @@ package p5.createLoop
 
 import kotlin.js.Json
 
+@JsExport
 fun nativeCreateLoop(options: Json): dynamic {
     val loopPackage = js("import('createLoop')")
     return js("window.createLoop(options)")

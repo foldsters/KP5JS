@@ -2,6 +2,7 @@ package p5.core
 
 import p5.native.*
 
+
 open class Event(val nativeEvent: NativeEvent) {
     val isTrusted: Boolean = nativeEvent.isTrusted
     val bubbles: Boolean = nativeEvent.bubbles
@@ -17,6 +18,7 @@ open class Event(val nativeEvent: NativeEvent) {
     val timeStamp: Double = nativeEvent.timeStamp
     val type: String = nativeEvent.type
 }
+
 
 class KeyboardEvent(val nativeKeyboardEvent: NativeKeyboardEvent) {
     val altKey: Boolean by nativeKeyboardEvent::altKey
@@ -43,6 +45,7 @@ class KeyboardEvent(val nativeKeyboardEvent: NativeKeyboardEvent) {
     val type: String by nativeKeyboardEvent::type
     val which: Int by nativeKeyboardEvent::which
 }
+
 
 class WheelEvent(val nativeWheelEvent: NativeWheelEvent): Event(nativeWheelEvent) {
     val altKey: Boolean = nativeWheelEvent.altKey
@@ -76,6 +79,7 @@ class WheelEvent(val nativeWheelEvent: NativeWheelEvent): Event(nativeWheelEvent
     val y: Double = nativeWheelEvent.y
 }
 
+
 class MouseEvent(val nativeMouseEvent: NativeMouseEvent): Event(nativeMouseEvent) {
     val altKey: Boolean by nativeMouseEvent::altKey
     val button: Int by nativeMouseEvent::button
@@ -102,6 +106,7 @@ class MouseEvent(val nativeMouseEvent: NativeMouseEvent): Event(nativeMouseEvent
     val x: Double by nativeMouseEvent::x
     val y: Double by nativeMouseEvent::y
 }
+
 
 class PointerEvent(val nativePointerEvent: NativePointerEvent): Event(nativePointerEvent) {
     val altKey: Boolean by nativePointerEvent::altKey
@@ -142,12 +147,14 @@ class PointerEvent(val nativePointerEvent: NativePointerEvent): Event(nativePoin
     val y: Double by nativePointerEvent::y
 }
 
+
 class DataTransfer(val nativeDataTransfer: NativeDataTransfer) {
     val dropEffect: String by nativeDataTransfer::dropEffect
     val effectAllowed: String by nativeDataTransfer::effectAllowed
     val files: dynamic by nativeDataTransfer::files
     val items: dynamic by nativeDataTransfer::items
 }
+
 
 
 class DragEvent(val nativeDragEvent: NativeDragEvent): Event(nativeDragEvent) {
@@ -177,6 +184,7 @@ class DragEvent(val nativeDragEvent: NativeDragEvent): Event(nativeDragEvent) {
     val x: Double by nativeDragEvent::x
     val y: Double by nativeDragEvent::y
 }
+
 
 class EventAction<T>(val callback: (T)->Unit) {
     var remove: (()->Boolean)? = null

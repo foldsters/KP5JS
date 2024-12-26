@@ -1,12 +1,17 @@
 package p5.core
 
+
 object CLOSE
+
+
 object AUTO
+
 
 enum class DescriptionMode(val nativeValue: String) {
     LABEL("label"),
     FALLBACK("fallback")
 }
+
 
 enum class ColorMode(val nativeValue: String) {
     RGB("rgb"),
@@ -14,16 +19,19 @@ enum class ColorMode(val nativeValue: String) {
     HSL("hsl")
 }
 
+
 enum class FillStyle {
     GRADIENT,
     SOLID
 }
+
 
 enum class ArcMode(val nativeValue: String) {
     CHORD("chord"),
     PIE("pie"),
     OPEN("open")
 }
+
 
 enum class CenterMode(val nativeValue: String) {
     CENTER("center"),
@@ -32,17 +40,20 @@ enum class CenterMode(val nativeValue: String) {
     CORNERS("corners")
 }
 
+
 enum class CapMode(val nativeValue: String) {
     ROUND("round"),
     SQUARE("butt"),
     PROJECT("square")
 }
 
+
 enum class JoinMode(val nativeValue: String) {
     MITER("miter"),
     BEVEL("bevel"),
     ROUND("round")
 }
+
 
 enum class PathMode(val nativeValue: Any) {
     POINTS(0),
@@ -55,10 +66,12 @@ enum class PathMode(val nativeValue: Any) {
     TESS("tess")
 }
 
+
 enum class AlignMode(val nativeValue: String) {
     VERTICAL("vertical"),
     HORIZONTAL("horizontal")
 }
+
 
 enum class PositionMode(val nativeValue: String) {
     STATIC("static"),
@@ -69,11 +82,13 @@ enum class PositionMode(val nativeValue: String) {
     INHERIT("inherit")
 }
 
+
 enum class CrossOriginMode(val nativeValue: String) {
     ANONYMOUS("anonymous"),
     USE_CREDENTIALS("use-credentials"),
     NONE("")
 }
+
 
 enum class TargetMode(val nativeValue: String) {
     BLANK("_blank"),
@@ -82,10 +97,12 @@ enum class TargetMode(val nativeValue: String) {
     TOP("_top")
 }
 
+
 enum class InputMode(val nativeValue: String) {
     TEXT("text"),
     PASSWORD("password")
 }
+
 
 enum class CaptureMode(val nativeValue: String) {
     AUDIO("audio"),
@@ -93,11 +110,13 @@ enum class CaptureMode(val nativeValue: String) {
     BOTH("")
 }
 
+
 enum class RenderMode(val nativeValue: String) {
     P2D("p2d"),
     WEBGL("webgl"),
     WEBGL2("webgl")
 }
+
 
 enum class BlendMode(val nativeValue: String) {
     BLEND("source-over"),
@@ -119,10 +138,12 @@ enum class BlendMode(val nativeValue: String) {
     SUBTRACT("subtract")
 }
 
+
 enum class AngleMode(val nativeValue: String) {
     RADIANS("radians"),
     DEGREES("degrees")
 }
+
 
 @Suppress("EnumEntryName")
 enum class RenderAttribute(val nativeValue: String) {
@@ -135,10 +156,12 @@ enum class RenderAttribute(val nativeValue: String) {
     PER_PIXEL_LIGHTING("perPixelLighting"),
 }
 
+
 enum class DeviceOrientation(val nativeValue: String) {
     LANDSCAPE("landscape"),
     PORTRAIT("portrait")
 }
+
 
 enum class FilterMode(val nativeValue: String) {
     THRESHOLD("threshold"),
@@ -151,10 +174,12 @@ enum class FilterMode(val nativeValue: String) {
     BLUR("blur")
 }
 
+
 enum class ImageExtension(val nativeValue: String) {
     PNG("png"),
     JPG("jpg")
 }
+
 
 enum class ImageMode(val nativeValue: String) {
     CENTER("center"),
@@ -162,11 +187,13 @@ enum class ImageMode(val nativeValue: String) {
     CORNERS("corners")
 }
 
+
 enum class ScalarMode {
     X,
     XY,
     XYZ;
 }
+
 
 enum class TableMode(val nativeValue: String) {
     TSV("tsv"),
@@ -174,21 +201,25 @@ enum class TableMode(val nativeValue: String) {
     HTML("html")
 }
 
+
 enum class MouseButton(val nativeValue: String) {
     CENTER("center"),
     LEFT("left"),
     RIGHT("right")
 }
 
+
 enum class JsonType(val nativeValue: String){
     JSON("json"),
     JSONP("jsonp")
 }
 
+
 enum class MagFilterMode(val nativeValue: Int) {
     LINEAR(9729),
     NEAREST(9728)
 }
+
 
 enum class MinFilterMode(val nativeValue: Int) {
     LINEAR(9729),

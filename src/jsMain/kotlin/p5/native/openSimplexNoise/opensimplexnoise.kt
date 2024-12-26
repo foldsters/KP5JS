@@ -1,5 +1,6 @@
 package p5.native.openSimplexNoise
 
+
 @JsModule("open-simplex-noise")
 @JsNonModule
 external object OpenSimplexNoise {

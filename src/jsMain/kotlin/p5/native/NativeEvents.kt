@@ -1,5 +1,6 @@
 package p5.native
 
+
 open external class NativeEvent {
     val isTrusted: Boolean
     val bubbles: Boolean
@@ -16,9 +17,11 @@ open external class NativeEvent {
     val type: String
 }
 
+
 external class NativeTouchEvent {
 
 }
+
 
 external class NativeKeyboardEvent: NativeEvent {
     val altKey: Boolean
@@ -35,6 +38,7 @@ external class NativeKeyboardEvent: NativeEvent {
     val shiftKey: Boolean
     val which: Int
 }
+
 
 external class NativeWheelEvent: NativeEvent {
     val altKey: Boolean
@@ -68,6 +72,7 @@ external class NativeWheelEvent: NativeEvent {
     val y: Double
 }
 
+
 external class NativeMouseEvent: NativeEvent {
     val altKey: Boolean
     val button: Int
@@ -94,6 +99,7 @@ external class NativeMouseEvent: NativeEvent {
     val x: Double
     val y: Double
 }
+
 
 external class NativePointerEvent: NativeEvent {
     val altKey: Boolean
@@ -134,12 +140,14 @@ external class NativePointerEvent: NativeEvent {
     val y: Double
 }
 
+
 external class NativeDataTransfer {
     val dropEffect: String
     val effectAllowed: String
     val files: dynamic
     val items: dynamic
 }
+
 
 external class NativeDragEvent: NativeEvent {
     val altKey: Boolean

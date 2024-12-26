@@ -7,6 +7,8 @@ import p5.core.WebGLCore.Companion.getWebGLCore
 import p5.native.NativeP5
 import kotlin.math.max
 
+@JsExport
+@JsName("SimpleSketch")
 fun SimpleSketch(width: Number, height: Number, loop: Boolean = true, onDraw: P5.(Int)->Unit) = Sketch {
     Setup {
         createCanvas(width, height)
@@ -15,7 +17,9 @@ fun SimpleSketch(width: Number, height: Number, loop: Boolean = true, onDraw: P5
     Draw { onDraw(it) }
 }
 
+@JsExport
 class Sketch private constructor() {
+    @JsName("SketchConstructor")
     constructor(sketch: Sketch.()->Unit): this() {
         NativeP5 {
             p5 = P5(it)
@@ -87,6 +91,7 @@ class Sketch private constructor() {
         fun AfterDone(continuation: ()->Unit): DrawContinuation { afterDone = continuation; return this }
     }
 
+    @JsName("DrawAutostart")
     fun Draw(stepsPerFrame: Int = 1, autoStart: Boolean=true, block: P5.(Int)->Unit): DrawContinuation {
         val nextDraw = DrawContinuation()
         var frame = 0
@@ -106,6 +111,7 @@ class Sketch private constructor() {
         return nextDraw
     }
 
+    @JsName("Draw")
     fun Draw(stepsPerFrame: AUTO, block: P5.(Int)->Unit): DrawContinuation {
         val nextDraw = DrawContinuation()
         var frame = 0
@@ -125,6 +131,7 @@ class Sketch private constructor() {
         return nextDraw
     }
 
+    @JsName("DrawWithPixelsAutostart")
     fun DrawWithPixels(stepsPerFrame: Int = 1, autoStart: Boolean=true, block: P5.PixelScope.(Int)->Unit): DrawContinuation {
         val nextDraw = DrawContinuation()
         var frame = 0
@@ -143,6 +150,7 @@ class Sketch private constructor() {
         return nextDraw
     }
 
+    @JsName("DrawWithPixels")
     fun DrawWithPixels(stepsPerFrame: AUTO, block: P5.PixelScope.(Int)->Unit): DrawContinuation {
         val nextDraw = DrawContinuation()
         var frame = 0
@@ -164,6 +172,7 @@ class Sketch private constructor() {
         return nextDraw
     }
 
+    @JsName("DrawWhileAutostart")
     fun DrawWhile(cond: ()->Boolean, stepsPerFrame: Int = 1, block: P5.(Int)->Unit): DrawContinuation {
         val nextDraw = DrawContinuation()
         var frame = 0
@@ -186,6 +195,7 @@ class Sketch private constructor() {
         return nextDraw
     }
 
+    @JsName("DrawWhile")
     fun DrawWhile(cond: ()->Boolean, stepsPerFrame: AUTO, block: P5.(Int)->Unit): DrawContinuation {
         val nextDraw = DrawContinuation()
         var frame = 0
@@ -211,6 +221,7 @@ class Sketch private constructor() {
         return nextDraw
     }
 
+    @JsName("DrawForAutostart")
     fun <T> DrawFor(iter: Iterable<T>, stepsPerFrame: Int = 1, loop: Boolean=false, block: P5.(T) -> Unit): DrawContinuation {
         var itor = iter.iterator()
         val nextDraw = DrawContinuation()
@@ -234,6 +245,7 @@ class Sketch private constructor() {
         return nextDraw
     }
 
+    @JsName("DrawFor")
     fun <T> DrawFor(iter: Iterable<T>, stepsPerFrame: AUTO, block: P5.(T) -> Unit): DrawContinuation {
         val itor = iter.iterator()
         val nextDraw = DrawContinuation()
@@ -256,6 +268,7 @@ class Sketch private constructor() {
         return nextDraw
     }
 
+    @JsName("DrawForWithPixelsAutostart")
     fun <T> DrawForWithPixels(iter: Iterable<T>, stepsPerFrame: Int = 1, block: P5.PixelScope.(T) -> Unit): DrawContinuation {
         val itor = iter.iterator()
         val nextDraw = DrawContinuation()
@@ -277,6 +290,7 @@ class Sketch private constructor() {
         return nextDraw
     }
 
+    @JsName("DrawForWithPixels")
     fun <T> DrawForWithPixels(iter: Iterable<T>, stepsPerFrame: AUTO, block: P5.PixelScope.(T) -> Unit): DrawContinuation {
         val itor = iter.iterator()
         val nextDraw = DrawContinuation()
@@ -301,6 +315,7 @@ class Sketch private constructor() {
         return nextDraw
     }
 
+    @JsName("DrawWhileWithPixelsAutostart")
     fun DrawWhileWithPixels(cond: ()->Boolean, stepsPerFrame: Int = 1, block: P5.PixelScope.()->Unit): DrawContinuation {
         val nextDraw = DrawContinuation()
         //var frame = 0
@@ -325,6 +340,7 @@ class Sketch private constructor() {
         return nextDraw
     }
 
+    @JsName("DrawWhileWithPixels")
     fun DrawWhileWithPixels(cond: ()->Boolean, stepsPerFrame: AUTO, block: P5.PixelScope.()->Unit): DrawContinuation {
         val nextDraw = DrawContinuation()
         autoStepsPerFrame = 1
@@ -350,6 +366,7 @@ class Sketch private constructor() {
         return nextDraw
     }
 
+    @JsName("DrawUsingAutostart")
     fun <T> DrawUsing(frames: Int? = null, stepsPerFrame: Int = 1, with: T, using: (()->Unit)->Unit, block: T.()->Unit): DrawContinuation {
         val nextDraw = DrawContinuation()
         with(p5) {
@@ -382,6 +399,7 @@ class Sketch private constructor() {
         return nextDraw
     }
 
+    @JsName("DrawUsing")
     fun <T> DrawUsing(frames: Int? = null, stepsPerFrame: AUTO, with: T, using: (()->Unit)->Unit, block: T.()->Unit): DrawContinuation {
         val nextDraw = DrawContinuation()
         autoStepsPerFrame = 1

@@ -3,6 +3,7 @@ package p5.native
 import kotlin.js.Json
 import kotlin.js.RegExp
 
+
 @JsName("Element")
 open external class NativeElement(elt: String) {
     fun parent(): dynamic
@@ -79,6 +80,7 @@ open external class NativeElement(elt: String) {
     fun value(v: dynamic)
 }
 
+
 @JsName("Color")
 external class NativeColor {
     override fun toString(): String
@@ -88,10 +90,12 @@ external class NativeColor {
     fun setAlpha(alpha: Number)
 }
 
+
 @JsName("Checkbox")
 external class NativeCheckbox: NativeElement {
     fun checked(): Boolean
 }
+
 
 @JsName("Select")
 external class NativeSelect: NativeElement {
@@ -103,6 +107,7 @@ external class NativeSelect: NativeElement {
     fun disable(value: String)
 }
 
+
 @JsName("NativeRadio")
 external class NativeRadio: NativeElement {
     fun option(name: String)
@@ -112,10 +117,12 @@ external class NativeRadio: NativeElement {
     fun disable(disabled: Boolean)
 }
 
+
 @JsName("ColorPicker")
 external class NativeColorPicker: NativeElement {
     fun color(): NativeColor
 }
+
 
 @JsName("NativeMediaElement")
 external class NativeMediaElement: NativeElement {
@@ -145,6 +152,7 @@ external class NativeMediaElement: NativeElement {
     fun get(): NativeImage
 }
 
+
 @JsName("File")
 external class NativeFile {
     val file: dynamic
@@ -154,6 +162,7 @@ external class NativeFile {
     val size: dynamic // TODO: Figure out what type this really is
     val data: String
 }
+
 
 @JsName("Image")
 external class NativeImage {
@@ -188,6 +197,7 @@ external class NativeImage {
     fun delay(d: Number, index: Number)
 }
 
+
 @JsName("Font")
 external class NativeFont {
     val font: dynamic // TODO: Remove Dynamic
@@ -198,6 +208,7 @@ external class NativeFont {
     fun textToPoints(text: String, x: Number, y: Number, fontSize: Number): Array<dynamic> // TODO: Remove Dynamic
     fun textToPoints(text: String, x: Number, y: Number, fontSize: Number, options: dynamic): Array<dynamic> // TODO: Remove Dynamic
 }
+
 
 @JsName("Table")
 external class NativeTable() {
@@ -255,6 +266,7 @@ external class NativeTable() {
     fun getArray(): Array<Array<Any>>
 }
 
+
 @JsName("TableRow")
 external class NativeTableRow(str: String = definedExternally, separator: String = definedExternally) { // TODO: Move and Lift
     fun set(columnId: Int, value: Number)
@@ -273,8 +285,10 @@ external class NativeTableRow(str: String = definedExternally, separator: String
     fun getString(columnHeader: String): String
 }
 
+
 @JsName("Texture")
 external class NativeTexture
+
 
 @JsName("Shader")
 external class NativeShader {
@@ -287,6 +301,7 @@ external class NativeShader {
     fun setUniform(uniformName: String, data: NativeP5.NativeRenderer2D)
     fun setUniform(uniformName: String, data: NativeP5.NativeRendererGL)
 }
+
 
 @JsName("PrintWriter")
 external class NativePrintWriter {

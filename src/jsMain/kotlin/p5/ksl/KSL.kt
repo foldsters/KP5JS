@@ -20,6 +20,7 @@ import kotlin.math.max
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty
 
+
 fun P5.buildShader(debug: Boolean = false, block: ShaderScope.() -> Unit): Shader {
     val shaderScope = ShaderScope(isWebgl2Enabled, debug)
     block(shaderScope)
@@ -32,6 +33,7 @@ fun P5.buildShader(debug: Boolean = false, block: ShaderScope.() -> Unit): Shade
     }
     return createShader(shaderScope.vertexCode, shaderScope.fragmentCode, shaderScope.uniformCallbacks)
 }
+
 
 class ShaderScope(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
 
@@ -85,6 +87,7 @@ precision highp int;
     }
 
 }
+
 
 
 @OptIn(ExperimentalTypeInference::class)
@@ -2178,18 +2181,42 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
 
 }
 
+
 typealias float = KSL.FloatExpr
+
+
 typealias vec2  = KSL.Vec2Expr
+
+
 typealias vec3  = KSL.Vec3Expr
+
+
 typealias vec4  = KSL.Vec4Expr
+
+
 typealias bool  = KSL.BoolExpr
+
+
 typealias bvec2 = KSL.BVec2Expr
+
+
 typealias bvec3 = KSL.BVec3Expr
+
+
 typealias bvec4 = KSL.BVec4Expr
+
+
 typealias int   = KSL.IntExpr
+
+
 typealias ivec2 = KSL.IVec2Expr
+
+
 typealias ivec3 = KSL.IVec3Expr
+
+
 typealias ivec4 = KSL.IVec4Expr
+
 
 typealias Callback<T> = T.()->T
 

@@ -27,12 +27,16 @@ import kotlin.math.*
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
+
 @JsModule("p5")
 @JsNonModule
 @JsName("p5")
 private external val p5: dynamic
 
+
+
 private var P5UUID = 0
+
 
 class P5(var nativeP5: NativeP5) {
     constructor() : this(NativeP5())

@@ -5,6 +5,7 @@ import p5.ksl.*
 import kotlin.math.max
 import kotlin.math.round
 
+
 class WebGLCore private constructor() {
     private val attachedSketches: MutableSet<P5> = mutableSetOf()
     private val queuedSketches: MutableSet<P5> = mutableSetOf()
@@ -64,6 +65,7 @@ class WebGLCore private constructor() {
     }
 }
 
+
 fun LiteShaderSketch(width: Number, height: Number, shader: Shader, webGLCoreIndex: Int) = Sketch {
     Setup {
         createCanvas(width, height)
@@ -79,6 +81,7 @@ fun LiteShaderSketch(width: Number, height: Number, shader: Shader, webGLCoreInd
         }
     }
 }
+
 
 fun ShaderSketch(width: Number, height: Number,
                  webGLCoreIndex: Int, debug: Boolean = false,
@@ -106,6 +109,7 @@ fun ShaderSketch(width: Number, height: Number,
         }
     }
 }
+
 
 class ShaderPass(webGLCoreIndex: Int, shaderBuilder: ShaderScope.()->Unit) {
 

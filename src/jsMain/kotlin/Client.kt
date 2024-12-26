@@ -22,11 +22,12 @@ import projects.som.paletteGenerator
 import projects.testing.ElementEvents
 import website.front
 
+
 fun main() {
     window.onload = {
         val pageName = js("page") as String
         console.log(pageName)
-        CorrelationTiler()
+        mysticTomato()
     }
 }
 

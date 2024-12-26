@@ -12,6 +12,7 @@ import kotlin.random.Random.Default.nextDouble
 import kotlin.reflect.KProperty
 import kotlin.reflect.KType
 
+
 infix fun ClosedRange<Int>.step(step: Double): Iterable<Double> {
     require(step > 0.0) { "Step must be positive, was: $step." }
     val sequence = generateSequence(start.toDouble()) { previous ->
@@ -21,6 +22,7 @@ infix fun ClosedRange<Int>.step(step: Double): Iterable<Double> {
     return sequence.asIterable()
 }
 
+
 infix fun ClosedRange<Int>.stepByUntil(step: Double): Iterable<Double> {
     require(step > 0.0) { "Step must be positive, was: $step." }
     val sequence = generateSequence(start.toDouble()) { previous ->
@@ -29,6 +31,7 @@ infix fun ClosedRange<Int>.stepByUntil(step: Double): Iterable<Double> {
     }
     return sequence.asIterable()
 }
+
 
 infix fun ClosedRange<Double>.stepByUntil(step: Double): Iterable<Double> {
     require(start.isFinite())
@@ -42,11 +45,13 @@ infix fun ClosedRange<Double>.stepByUntil(step: Double): Iterable<Double> {
     return sequence.asIterable()
 }
 
+
 fun Json.setIfNotNull(propertyName: String, value: Any?) {
     if (value != null) {
         set(propertyName, value)
     }
 }
+
 
 fun Window.setTimeout(timeout: Int, arguments: Array<Any?>? = null, handler: dynamic) {
     if (arguments == null) {
@@ -56,7 +61,9 @@ fun Window.setTimeout(timeout: Int, arguments: Array<Any?>? = null, handler: dyn
     }
 }
 
+
 fun Number.toFixed(digits: Int): String = this.asDynamic().toFixed(digits) as String
+
 
 inline fun <T> T.ifTrue(block: (T)->Unit) {
     if (this == true) {
@@ -64,11 +71,13 @@ inline fun <T> T.ifTrue(block: (T)->Unit) {
     }
 }
 
+
 inline fun <T> T.ifFalse(block: (T)->Unit) {
     if (this == false) {
         block(this)
     }
 }
+
 
 inline fun <T> T.ifNull(block: (T)->Unit) {
     if (this == null) {
@@ -76,29 +85,36 @@ inline fun <T> T.ifNull(block: (T)->Unit) {
     }
 }
 
+
 inline fun <T: Any> T?.ifNotNull(block: (T)->Unit) {
     if (this != null) {
         block(this)
     }
 }
 
+
 fun StringBuilder.appendAll(iterable: Iterable<Any?>, sep: String="") {
     iterable.forEach { append(it, sep) }
 }
+
 
 fun StringBuilder.appendAll(array: Array<out Any?>, sep: String="") {
     array.forEach { append(it, sep) }
 }
 
+
 fun <T: Comparable<T>> List<T>.indexOfMax(): Int { return indexOf(maxOf { it })}
+
 
 inline fun <T> Iterable<T>.withEach(action: T.()->Unit) {
     return this.forEach { action(it) }
 }
 
+
 inline fun <T> withEach(vararg receivers: T, action: T.()->Unit) {
     return receivers.forEach { action(it) }
 }
+
 
 fun println(message: Any?, message2: Any?, vararg messages: Any?, sep: String = " ") {
     val result = buildString {
@@ -107,6 +123,7 @@ fun println(message: Any?, message2: Any?, vararg messages: Any?, sep: String = 
     }
     println(result)
 }
+
 
 class FieldMap<T, V>(private val defaultValue: V) {
     private val fields: MutableMap<T, V> = mutableMapOf()
@@ -119,6 +136,7 @@ class FieldMap<T, V>(private val defaultValue: V) {
         fields[thisRef] = value
     }
 }
+
 
 class JsField<T, V>(val defaultValue: V) {
     operator fun getValue(thisRef: T, property: KProperty<*>): V {
@@ -138,33 +156,41 @@ class JsField<T, V>(val defaultValue: V) {
     }
 }
 
+
 fun <L1, L2, R> List<Pair<L1, R>>.runOnFirst(block: List<L1>.() -> List<L2>): List<Pair<L2, R>> {
     return block( map{ it.first } ).zip( map{it.second} )
 }
+
 
 fun <L, R1, R2> List<Pair<L, R1>>.runOnSecond(block: List<R1>.() -> List<R2>): List<Pair<L, R2>> {
     return map{ it.first }.zip( block( map{it.second} ) )
 }
 
+
 fun <L, R> List<Pair<L, R>>.transpose(): Pair<List<L>, List<R>> {
     return map{it.first} to map{it.second}
 }
+
 
 fun <T, P> List<T>.runOver(getter: T.()->P, setter: T.(P)->T, block: List<P>.()->List<P>): List<T> {
     return zip(block(map{getter(it)})).map { setter(it.first, it.second) }
 }
 
+
 fun <T, P> List<T>.runOver(getter: T.()->P, setter: T.(P)->Unit, block: List<P>.()->List<P>) {
     zip(block(map{getter(it)})).forEach { setter(it.first, it.second) }
 }
+
 
 fun <T, P1, P2, R> List<T>.traverse(selector: T.()->P1, effect: List<P1>.()->List<P2>, result: T.(P2)->R): List<R> {
     return zip(effect(map{selector(it)})).map { result(it.first, it.second) }
 }
 
+
 fun <T, P, R> List<T>.traverse(selector: T.()->P, result: T.(P)->R): List<R> {
     return zip(map{selector(it)}).map { result(it.first, it.second) }
 }
+
 
 fun <T: @Serializable Any> kotlinx.serialization.json.Json.decodeFromString(kType: KType, string: String): T {
     return with(serializersModule) {
@@ -172,32 +198,42 @@ fun <T: @Serializable Any> kotlinx.serialization.json.Json.decodeFromString(kTyp
     }
 }
 
+
 fun <T: @Serializable Any> kotlinx.serialization.json.Json.encodeToString(kType: KType, value: T): String {
     return with(serializersModule) {
         encodeToString(serializer(kType) as KSerializer<T>, value)
     }
 }
 
+
 fun String.mapLines(transform: (String)->String): String {
     return split('\n').joinToString(separator = "\n", transform = transform)
 }
+
 
 fun String.mapLinesIndexed(transform: (Int, String)->String): String {
     return split('\n').mapIndexed(transform).joinToString(separator = "\n")
 }
 
+
 operator fun <T> (()->T).getValue(thisRef: Any?, property: KProperty<*>): T {
     return this()
 }
 
+
 inline fun <T, reified R> Array<T>.arrayMap(transform: (T)->R): Array<R> = Array(size) { transform(this[it]) }
+
 
 fun setTimeout(delayMillis: Number, block: ()->Unit): Int {
     return js("setTimeout(block, delayMillis)") as Int
 }
 
+
 typealias Undefined = Nothing?
+
+
 fun Undefined.load() {}
+
 
 fun <T> weightedChoice(weightedCandidates: List<Pair<T, Double>>): T? {
     if (weightedCandidates.isEmpty()) return null
@@ -210,11 +246,18 @@ fun <T> weightedChoice(weightedCandidates: List<Pair<T, Double>>): T? {
     return null
 }
 
+
 class MutableValue<T: Any?>(var value: T)
+
+
 fun <T: Any?> mutableValueOf(value: T) = MutableValue(value)
+
+
 fun <T: Any?> mutableValueOf() = MutableValue<T?>(null)
 
+
 inline fun <T, R> Iterable<T>.mapWith(transform: T.()->R): List<R> = map { transform(it) }
+
 
 inline fun <T, R: Comparable<R>> Collection<T>.takeSmallestBy(n: Int, crossinline selector: (T)->R): List<T> {
     if(n > size.toDouble()) return toList()
@@ -246,6 +289,7 @@ inline fun <T, R: Comparable<R>> Collection<T>.takeSmallestBy(n: Int, crossinlin
     return smallElements
 }
 
+
 inline fun <T, R: Comparable<R>> Collection<T>.takeLargestBy(n: Int, crossinline selector: (T)->R): List<T> {
     if(n >= size.toDouble()) return toList()
     if(n >= ln(size.toDouble())) return sortedBy(selector).takeLast(n)
@@ -276,7 +320,9 @@ inline fun <T, R: Comparable<R>> Collection<T>.takeLargestBy(n: Int, crossinline
     return largeElements
 }
 
+
 fun Boolean.toInt() = if (this) 1 else 0
+
 
 fun <T> blockUntilNotNull(attempts: Int = 1000000000, action: ()->T?): T {
     var attempt = 0
@@ -293,6 +339,7 @@ fun <T> blockUntilNotNull(attempts: Int = 1000000000, action: ()->T?): T {
     error("Resource would not load")
 }
 
+
 fun <T> blockUntilTrue(resultCallback: ()->T, condition: (T)->Boolean): T {
     while(true) {
         val result = resultCallback()
@@ -302,16 +349,22 @@ fun <T> blockUntilTrue(resultCallback: ()->T, condition: (T)->Boolean): T {
     }
 }
 
+
 fun getTimestamp(): String {
     return Date.now().toLong().toString()
 }
+
 
 fun isDarkMode(): Boolean {
     return window.matchMedia("(prefers-color-scheme: dark)").matches
 }
 
+
 fun <T> List<T>.rotateLeft(n: Int) = drop(n) + take(n)
+
+
 fun <T> List<T>.rotateRight(n: Int) = takeLast(n) + dropLast(n)
+
 
 inline fun <T, R> Map(size: Int, init: (Int)->Pair<T, R>): Map<T, R> = buildMap {
     repeat(size) {

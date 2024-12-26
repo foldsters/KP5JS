@@ -9,6 +9,7 @@ import kotlin.js.Json
 import kotlin.js.RegExp
 import kotlin.reflect.KProperty
 
+
 interface Interactable {
 
     fun drop(callback: (File)->Unit)
@@ -50,6 +51,7 @@ interface Interactable {
     var isTouched: Boolean
     var isDraggedOver: Boolean
 }
+
 
 open class Element(val nativeElement: NativeElement): Interactable {
     constructor(elt: String): this(NativeElement(elt))
@@ -252,6 +254,7 @@ open class Element(val nativeElement: NativeElement): Interactable {
     fun style(property: String, value: Number) = style(property, value.toString())
 }
 
+
 open class ValueElement<T>(nativeElement: NativeElement): Element(nativeElement) {
     fun value(): T = nativeElement.value() as T
     fun value(v: T) = nativeElement.value(v)
@@ -267,6 +270,7 @@ open class ValueElement<T>(nativeElement: NativeElement): Element(nativeElement)
     }
 }
 
+
 class Color(val nativeColor: NativeColor) {
     override fun toString(): String = nativeColor.toString()
     fun setRed(red: Number) = nativeColor.setRed(red)
@@ -277,9 +281,11 @@ class Color(val nativeColor: NativeColor) {
         toString() == other.toString()
 }
 
+
 class Checkbox(val nativeCheckbox: NativeCheckbox): ValueElement<Boolean>(nativeCheckbox) {
     fun checked(): Boolean = nativeCheckbox.checked()
 }
+
 
 class Select(val nativeSelect: NativeSelect): ValueElement<String>(nativeSelect) {
     fun option(name: String) = nativeSelect.option(name)
@@ -290,6 +296,7 @@ class Select(val nativeSelect: NativeSelect): ValueElement<String>(nativeSelect)
     fun disable(value: String) = nativeSelect.disable(value)
 }
 
+
 class Radio(val nativeRadio: NativeRadio): ValueElement<String>(nativeRadio) {
     fun option(name: String) = nativeRadio.option(name)
     fun option(name: String, value: String) = nativeRadio.option(name, value)
@@ -298,9 +305,11 @@ class Radio(val nativeRadio: NativeRadio): ValueElement<String>(nativeRadio) {
     fun disable(value: Boolean) = nativeRadio.disable(value)
 }
 
+
 class ColorPicker(val nativeColorPicker: NativeColorPicker): Element(nativeColorPicker) {
     fun color(): Color = Color(nativeColorPicker.color())
 }
+
 
 class MediaElement(val nativeMediaElement: NativeMediaElement): Element(nativeMediaElement) {
     val src: String by nativeMediaElement::src
@@ -329,6 +338,7 @@ class MediaElement(val nativeMediaElement: NativeMediaElement): Element(nativeMe
     fun get(): Image = Image(nativeMediaElement.get())
 }
 
+
 class File(val nativeFile: NativeFile) {
     val file: dynamic by nativeFile::file
     val type: String by nativeFile::type
@@ -337,6 +347,7 @@ class File(val nativeFile: NativeFile) {
     val size: dynamic by nativeFile::size// TODO: Figure out what type this really is
     val data: String by nativeFile::data
 }
+
 
 class Image(val nativeImage: NativeImage) {
     val width: Double by nativeImage::width
@@ -373,6 +384,7 @@ class Image(val nativeImage: NativeImage) {
     fun delay(d: Number, index: Number) = nativeImage.delay(d, index)
 }
 
+
 class Font(val nativeFont: NativeFont) {
     val font: dynamic by nativeFont::font // TODO: Remove Dynamic
     fun textBounds(text: String, x: Number, y: Number): dynamic = nativeFont.textBounds(text, x, y) // TODO: Remove Dynamic
@@ -383,14 +395,18 @@ class Font(val nativeFont: NativeFont) {
     fun textToPoints(text: String, x: Number, y: Number, fontSize: Number, options: dynamic): Array<dynamic> = nativeFont.textToPoints(text, x, y, fontSize, options) // TODO: Remove Dynamic
 }
 
+
 class Slider(val nativeSlider: NativeElement, val min: Number, val max: Number?, val step: Number?): ValueElement<Double>(nativeSlider)
 
+
 class Div(val nativeDiv: NativeElement): Element(nativeDiv)
+
 
 class Button(val nativeButton: NativeElement): Element(nativeButton) {
     fun text(string: String) = html(string)
     fun fontSize(sizePx: Number) = style("font-size", "${sizePx}px")
 }
+
 
 class Table(val nativeTable: NativeTable) {
     constructor(): this(NativeTable())
@@ -448,6 +464,7 @@ class Table(val nativeTable: NativeTable) {
     fun getArray(): Array<Array<Any>> = nativeTable.getArray()
 }
 
+
 class TableRow(val nativeTableRow: NativeTableRow) {
     fun set(columnId: Int, value: Number) = nativeTableRow.set(columnId, value)
     fun set(columnId: Int, value: String) = nativeTableRow.set(columnId, value)
@@ -465,7 +482,9 @@ class TableRow(val nativeTableRow: NativeTableRow) {
     fun getString(columnHeader: String): String = nativeTableRow.getString(columnHeader)
 }
 
+
 class Texture(val nativeTexture: NativeTexture)
+
 
 open class Shader(val nativeShader: NativeShader, var uniformCallbacks: MutableMap<String, ()->Any>? = null) {
 
@@ -562,6 +581,7 @@ open class Shader(val nativeShader: NativeShader, var uniformCallbacks: MutableM
     }
 }
 
+
 class PrintWriter(val nativePrintWriter: NativePrintWriter) { // TODO: Remove dynamic
     fun write(data: dynamic) = nativePrintWriter.write(data)
     fun print(data: dynamic) = nativePrintWriter.print(data)
@@ -569,7 +589,9 @@ class PrintWriter(val nativePrintWriter: NativePrintWriter) { // TODO: Remove dy
     fun close() = nativePrintWriter.close()
 }
 
+
 class Input(nativeElement: NativeElement): ValueElement<String>(nativeElement)
+
 
 class Paragraph(nativeElement: NativeElement): Element(nativeElement) {
     operator fun getValue(thisRef: Any?, property: KProperty<*>): String {
