@@ -4,7 +4,8 @@ import p5.Sketch
 import p5.core.P5.*
 import kotlin.math.abs
 
-fun perlinLightning() = Sketch {
+@JsExport
+fun PerlinLightning() = Sketch {
 
     Setup {
         createCanvas(1920, 1920)

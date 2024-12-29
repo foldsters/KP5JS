@@ -1,11 +1,11 @@
 package projects.huegene
 
-import p5.native.NativeP5
 import p5.Sketch
 import p5.core.Color
 import p5.core.P5.*
 
-fun huegene() = Sketch {
+@JsExport
+fun Huegene() = Sketch {
 
     Setup {
         createCanvas(1024, 1024)

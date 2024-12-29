@@ -4,7 +4,9 @@ import p5.Sketch
 import p5.core.RenderMode
 import p5.ksl.*
 
-fun uniformBridgeExample() = Sketch {
+@OptIn(ExperimentalJsExport::class)
+@JsExport
+fun UniformBridgeExample() = Sketch {
 
     Setup {
 

@@ -1,23 +1,23 @@
+@file:OptIn(ExperimentalJsExport::class)
+
 package projects.hopper
 
-import p5.native.NativeP5.*
 import p5.Sketch
-import p5.core.AUTO
-import p5.core.P5
 import p5.core.P5.*
 import p5.core.RenderMode
 import p5.util.*
-import projects.hopper.HopperData.canvasSize
 import kotlin.math.max
 
-object HopperData {
-    var canvasSize: Number = 512
+@JsExport
+class HopperProps {
+    var canvasSize: Double = 512.0
 }
 
-fun hopper() = Sketch {
+@JsExport
+fun Hopper(props: HopperProps) = Sketch {
 
     Setup {
-        createCanvas(canvasSize, canvasSize, RenderMode.P2D)
+        createCanvas(props.canvasSize, props.canvasSize, RenderMode.P2D)
         background(0)
         pixelDensity(1)
         frameRate(10)

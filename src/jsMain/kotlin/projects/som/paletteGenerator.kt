@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalJsExport::class)
+
 package projects.som
 
 import p5.*
@@ -7,12 +9,18 @@ import p5.core.P5.*
 import p5.util.*
 import kotlin.io.println
 
-fun paletteGenerator() = Sketch {
+@JsExport
+class PaletteGeneratorProps(
+    val imageSource: String
+)
+
+@JsExport
+fun PaletteGenerator(props: PaletteGeneratorProps) = Sketch {
 
     lateinit var sourceImage: Image
 
     Preload {
-        sourceImage = loadImage("stock/flower.png")
+        sourceImage = loadImage(props.imageSource)
     }
 
     Setup {

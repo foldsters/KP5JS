@@ -1,11 +1,13 @@
+@file:OptIn(ExperimentalJsExport::class)
+
 package projects.singularity
 
 import p5.Sketch
 import p5.core.AUTO
-import p5.util.println
 import kotlin.math.*
 
-fun singularity() = Sketch {
+@JsExport
+fun Singularity() = Sketch {
     Setup {
         val colors = listOf(
             color(0, 0, 0),

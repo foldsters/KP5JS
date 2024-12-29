@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalJsExport::class)
+
 package projects.circlizer
 
 import p5.Sketch
@@ -17,12 +19,18 @@ private interface BorderedElement {
 
 private fun BorderedElement.elements() = listOf(bodyElement) + borderElements
 
-fun circlizer() = Sketch {
+@JsExport
+class CirclizerProps(
+    val sourceImage: String
+)
+
+@JsExport
+fun Circlizer(props: CirclizerProps) = Sketch {
 
     lateinit var sourceImage: Image
 
     Preload {
-        sourceImage = loadImage("../../../stock/flower2.jpg")
+        sourceImage = loadImage(props.sourceImage)
         loadFont("./fonts/futuralight.otf")
     }
 

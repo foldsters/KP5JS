@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalJsExport::class)
+
 package projects.examples
 
 import p5.core.P5
@@ -5,27 +7,26 @@ import p5.Sketch
 import kotlin.math.PI
 import kotlin.math.min
 
-fun penrose() = Sketch {
-
-    lateinit var penrose: Penrose
+@JsExport
+fun Penrose() = Sketch {
 
     Setup {
         createCanvas(700, 700)
         noFill()
-        penrose = Penrose(this)
+        val penrose = PenroseInner(this)
         penrose.simulate(5)
         frameRate(10)
         createLoop(duration = 10, gif = true, gifRender = true, gifQuality = 1, gifWorkers = 5)
-    }
 
-    Draw {
-        background(0)
-        penrose.render()
+        Draw {
+            background(0)
+            penrose.render()
+        }
     }
 
 }
 
-class Penrose(val p5: P5) {
+class PenroseInner(val p5: P5) {
 
     var steps = 0
     val axiom = "[X]++[X]++[X]++[X]++[X]"

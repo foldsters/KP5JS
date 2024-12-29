@@ -33,8 +33,6 @@ import kotlin.reflect.typeOf
 @JsName("p5")
 private external val p5: dynamic
 
-
-
 private var P5UUID = 0
 
 
@@ -641,12 +639,13 @@ class P5(var nativeP5: NativeP5) {
         }
         RenderMode.WEBGL2 -> {
             val previousCanvasElement = nativeP5.canvasHtml
+            console.log("Previous Canvas", previousCanvasElement)
             enableWebgl2()
             val nativeCanvas = nativeP5.createCanvas(w, h, renderMode.nativeValue)
             val result = RendererGL(nativeCanvas as NativeRendererGL).apply {
                 setAttributes(RenderAttribute.ALPHA, true)
             }
-            document.getElementById(previousCanvasElement.id).let { it?.parentNode?.removeChild(it) }
+            //document.getElementById(previousCanvasElement.id).let { it?.parentNode?.removeChild(it) }
             canvas = result
             result
         }
@@ -764,14 +763,14 @@ class P5(var nativeP5: NativeP5) {
             nativeP5.keyPressed = { value(KeyboardEvent(it)) }
         }
     var keyReleased: (KeyboardEvent) -> Unit
-        get() = { nativeP5.keyPressed(it.nativeKeyboardEvent) }
+        get() = { nativeP5.keyReleased(it.nativeKeyboardEvent) }
         set(value) {
-            nativeP5.keyPressed = { value(KeyboardEvent(it)) }
+            nativeP5.keyReleased = { value(KeyboardEvent(it)) }
         }
     var keyTyped: (KeyboardEvent) -> Unit
-        get() = { nativeP5.keyPressed(it.nativeKeyboardEvent) }
+        get() = { nativeP5.keyTyped(it.nativeKeyboardEvent) }
         set(value) {
-            nativeP5.keyPressed = { value(KeyboardEvent(it)) }
+            nativeP5.keyTyped = { value(KeyboardEvent(it)) }
         }
 
     fun keyIsDown(code: Int): Boolean = nativeP5.keyIsDown(code)
@@ -1266,12 +1265,12 @@ class P5(var nativeP5: NativeP5) {
 
     fun Shader.update(updateMipmap: Boolean = false) {
         updateUniformCallbacks()
-        val gl = getCanvas().gl
-        //if(updateMipmap) {
+        if(updateMipmap) {
+            val gl = getCanvas().gl
             gl.generateMipmap(gl.TEXTURE_2D)
-        //}
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minFilterMode.nativeValue)
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magFilterMode.nativeValue)
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minFilterMode.nativeValue)
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magFilterMode.nativeValue)
+        }
     }
 
     // SCOPE EXTENSION FUNCTIONS

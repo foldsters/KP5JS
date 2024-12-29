@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalJsExport::class)
+
 package projects.correlation_tiler
 
 import p5.Sketch
@@ -7,14 +9,21 @@ import p5.ksl.float
 import p5.ksl.vec2
 import kotlin.math.PI
 
-fun CorrelationTiler() = Sketch {
+@JsExport
+class CorrelationTilerProps (
+    val imagePath1: String,
+    val imagePath2: String
+)
+
+@JsExport
+fun CorrelationTiler(props: CorrelationTilerProps) = Sketch {
 
     lateinit var sourceImage1: Image
     lateinit var sourceImage2: Image
 
     Preload {
-        sourceImage1 = loadImage("stock/flower.png")
-        sourceImage2 = loadImage("stock/flower2.jpg")
+        sourceImage1 = loadImage(props.imagePath1)
+        sourceImage2 = loadImage(props.imagePath2)
     }
 
     Setup {

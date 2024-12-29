@@ -5,7 +5,7 @@ import p5.core.ColorMode
 import kotlin.math.*
 
 @JsExport
-fun mysticTomato() = Sketch {
+fun MysticTomato() = Sketch {
   Setup {
     createCanvas(1920, 1080)
     colorMode(ColorMode.HSB, 1, 1, 1, 255)
@@ -14,7 +14,7 @@ fun mysticTomato() = Sketch {
     console.log(width, height)
     Draw {
       withPixels {
-        if (y++ == height-1) noLoop()
+        if (y++ == width-1) noLoop()
         repeat(width) { x ->
           val n = noise(x*2.0/height, y*2.0/height)
           val b = abs(2.0*((n*20.0 % 1.0) - 0.5)).pow(2)
@@ -25,3 +25,10 @@ fun mysticTomato() = Sketch {
     }
   }
 }
+
+
+
+
+
+
+

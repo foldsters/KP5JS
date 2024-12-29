@@ -1,34 +1,34 @@
 
-import p5.Sketch
-import projects.cards.mysticTomato
-import projects.hopper.hopper
+//import p5.Sketch
+//import projects.cards.mysticTomato
+//import projects.hopper.hopper
 import kotlinx.browser.window
-import p5.util.isDarkMode
-import p5.util.println
-import projects.cards.perlinLightning
-import projects.circlizer.circlizer
-import projects.correlation_tiler.CorrelationTiler
-import projects.hopper.hopperClouds
-import projects.hopper.hopperClouds2
-import projects.huegene.huegene
-import projects.huegene.huegeneFlow
-import projects.testing.CardList
-import projects.layout.layoutExample1
-import projects.moire.moire
-import projects.ordinary_generating_functions.oge
-import projects.raytrace.bitfield
-import projects.singularity.singularity
-import projects.som.paletteGenerator
-import projects.testing.ElementEvents
-import website.front
+import projects.raytrace.Bitfield
+
+//import p5.util.isDarkMode
+//import p5.util.println
+//import projects.cards.perlinLightning
+//import projects.circlizer.circlizer
+//import projects.correlation_tiler.CorrelationTiler
+//import projects.hopper.hopperClouds
+//import projects.hopper.hopperClouds2
+//import projects.huegene.huegene
+//import projects.huegene.huegeneFlow
+//import projects.testing.CardList
+//import projects.layout.layoutExample1
+//import projects.moire.moire
+//import projects.ordinary_generating_functions.oge
+//import projects.raytrace.bitfield
+//import projects.singularity.singularity
+//import projects.som.paletteGenerator
+//import projects.testing.ElementEvents
+//import website.front
 
 
 fun main() {
-    window.onload = {
-        val pageName = js("page") as String
-        console.log(pageName)
-        mysticTomato()
-    }
+//   window.onload = {
+//     Bitfield()
+//   }
 }
 
 //val sketchMap = mutableMapOf<String, ()->Sketch>(

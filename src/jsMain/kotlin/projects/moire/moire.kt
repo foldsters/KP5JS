@@ -1,13 +1,15 @@
+@file:OptIn(ExperimentalJsExport::class)
+
 package projects.moire
 
 import p5.Sketch
 import p5.core.LiteShaderSketch
-import p5.core.ShaderSketch
 import p5.core.WebGLCore.Companion.getWebGLCore
 import p5.ksl.*
 import kotlin.math.PI
 
-fun moire() = Sketch {
+@JsExport
+fun Moire() = Sketch {
 
     Setup {
         noCanvas()
@@ -22,8 +24,8 @@ fun moire() = Sketch {
                 val zoom by Uniform { zoomSlider.value() }
 
                 val inSquare by buildFunction { AB: vec2, AD: vec2, AP: vec2 ->
-                    (0.0 `<=` dot(AP, AB)) AND (dot(AP, AB) `<=` dot(AB, AB)) AND
-                    (0.0 `<=` dot(AP, AD)) AND (dot(AP, AD) `<=` dot(AD, AD))
+                    (0.0 LE dot(AP, AB)) AND (dot(AP, AB) LE dot(AB, AB)) AND
+                    (0.0 LE dot(AP, AD)) AND (dot(AP, AD) LE dot(AD, AD))
                 }
 
                 val rotate by buildFunction { v: vec2, a: float ->

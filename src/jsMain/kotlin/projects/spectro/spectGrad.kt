@@ -2,7 +2,9 @@ package projects.spectro
 
 import p5.Sketch
 
-fun spectGrad() = Sketch {
+@OptIn(ExperimentalJsExport::class)
+@JsExport
+fun SpectGrad() = Sketch {
 
     Setup {
         for(i in 400..800 step 5) {

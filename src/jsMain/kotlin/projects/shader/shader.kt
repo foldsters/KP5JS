@@ -1,10 +1,13 @@
+@file:OptIn(ExperimentalJsExport::class)
+
 package projects.shader
 
 import p5.Sketch
 import p5.core.RenderMode
 import p5.ksl.*
 
-fun shader() = Sketch {
+@JsExport
+fun ExampleShader() = Sketch {
 
     Setup {
 

@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalJsExport::class)
+
 package projects.hopper
 
 import kotlinx.browser.window
@@ -10,7 +12,8 @@ import p5.ksl.vec2
 import p5.util.*
 import kotlin.math.*
 
-fun hopperClouds2() = Sketch {
+@JsExport
+fun HopperClouds2() = Sketch {
 
     fun P5.genHopperTop(minCrystalSize: Int, maxCrystalSize: Int): List<Int> {
         fun spiral(): List<Int> = buildList {
@@ -171,11 +174,11 @@ fun hopperClouds2() = Sketch {
                         }
                     }
                     edge = (edge.rrr + edge.ggg + edge.bbb)/9.0 + texture(mask, uv).rgb
-                    IF(edge.r `<` 0.0) {
+                    IF(edge.r LT 0.0) {
                         edge = vec3(0.01, 0.01, 0.01)
                     }
                     edge = clamp(edge, float(0), float(1))
-                    edge = mix(edge, level, float(edge.r `==` 0.0))
+                    edge = mix(edge, level, float(edge.r EQ 0.0))
 
                     vec4(edge, 1.0)
                 }

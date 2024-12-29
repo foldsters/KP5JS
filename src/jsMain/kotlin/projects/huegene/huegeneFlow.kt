@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalJsExport::class)
+
 package projects.huegene
 
 import p5.Sketch
@@ -7,7 +9,8 @@ import p5.core.P5.*
 import p5.util.*
 import kotlin.math.abs
 
-fun huegeneFlow() = Sketch {
+@JsExport
+fun HuegeneFlow() = Sketch {
 
     Setup {
         val canvas = createCanvas(1024, 1024)

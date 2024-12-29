@@ -1,17 +1,17 @@
+@file:OptIn(ExperimentalJsExport::class)
+
 package projects.ordinary_generating_functions
 
 import p5.Sketch
 import p5.core.LiteShaderSketch
-import p5.core.ShaderSketch
-import p5.core.P5
 import p5.core.WebGLCore.Companion.getWebGLCore
 import p5.ksl.buildShader
 import p5.ksl.float
-import p5.ksl.int
 import p5.ksl.vec2
 import kotlin.math.PI
 
-fun oge() = Sketch {
+@JsExport
+fun Oge() = Sketch {
 
     Setup {
         noCanvas()
