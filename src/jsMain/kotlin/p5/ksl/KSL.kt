@@ -1268,8 +1268,11 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     }
 
     val Break: Unit get() = +"break;"
+    val BREAK: Unit get() = +"break;"
     val Continue: Unit get() = +"continue;"
+    val CONTINUE: Unit get() = +"continue;"
     val Discard: Unit get() = +"discard;"
+    val DISCARD: Unit get() = +"discard;"
 
     fun <T: GenExpr<T>> Return(result: T) {
         +"return ${result.render()};"
@@ -2131,6 +2134,13 @@ class KSL(val useWEBGL2: Boolean = false, val debug: Boolean = false) {
     fun Vec2Expr.max() = max(x, y)
     fun Vec3Expr.max() = max(max(x, y), z)
     fun Vec4Expr.max() = max(max(max(x, y), z), w)
+
+    fun Vec2Expr.rotate(angle: FloatExpr): Vec2Expr {
+        val v = this
+        val c = cos(angle)
+        val s = sin(angle)
+        return Vec2ExprImpl(c*v.x - s*v.y, s*v.x + c*v.y)
+    }
 
     fun Vec3Expr.rotate(around: Vec3Expr, angle: FloatExpr): Vec3Expr {
         val v = this

@@ -68,7 +68,7 @@ const val outFrag = """
                 float d = 0.0;
                 float reverse = 1.0;
 
-                for(float z = 1.0; z > -1.0; z-=0.02) {
+                for(float z = 1.0; z > -1.0; z-=0.005) {
                     vec3 uvw = vec3(uv, z)/size;
                     uvw = rotate(uvw, vec3(0.0, 0.0, 1.0), -rotZ);
                     uvw = rotate(uvw, vec3(1.0, 0.0, 0.0), rotY);
@@ -114,7 +114,7 @@ const val outFrag = """
                 float r = curler(uv);
 
                 if (r == 0.0) {
-                    color = vec3(0);
+                    discard;
                 } else {
                     color = vec3(pow(color.r, 1.0/r), pow(color.g, 1.0/r), pow(color.b, 1.0/r));
                 }
@@ -129,15 +129,14 @@ const val outFrag = """
 fun Curler() = Sketch {
 
     lateinit var outShader: Shader
-    lateinit var sliders: List<Slider>
-    lateinit var paragraphs: Array<Element>
+    lateinit var params: Array<Double>
 
     Preload {
         outShader = createShader(outVert.trimIndent(), outFrag.trimIndent())
     }
 
     Setup {
-        val canvas = createCanvas(128, 128, RenderMode.WEBGL2)
+        val canvas = createCanvas(512, 512, RenderMode.WEBGL)
         noStroke()
         frameRate(15)
         shader(outShader)
@@ -145,45 +144,17 @@ fun Curler() = Sketch {
         outShader["iResolution"] = arrayOf(width, height)
         rect(0, 0, width, height)
 
-        //textFont(font, 100)
-
-        sliders = arrayOf(0.0, 2.54, 0, 3.05, 0.72, 0.45, 0.63).mapIndexed { i, it ->
-            createSlider(0.0, 2*PI, it, 0.01).apply {
-                size(1000, 50)
-                position(width + 50, 100*i)
-            }
-        }
-
-        paragraphs = Array(7) {
-            createP(sliders[it].value().toString()).apply {
-                style("font-size", "50px")
-                position(width + 1100, 100*it - 50)
-            }
-        }
-
-        createButton("save").apply {
-            size(200, 100)
-            fontSize(50)
-            mouseClicked {
-                noLoop()
-                frameCount = 0
-                createLoop(duration = 15, framesPerSecond = 15, gif = true, gifRender = true, gifQuality = 50) {
-                    draw()
-                    frameCount++
-                }
-            }
-        }
+        params = arrayOf(0.0, 2.54, 0.0, 3.05, 0.72, 0.45, 0.63)
 
         Draw {
+            clear()
             val theta = 2.0*PI*frameCount.toDouble()/(15.0*15.0)
             outShader["iTime"] = theta
             arrayOf("rotX", "rotY", "rotZ", "swirl", "slope", "size", "sep").forEachIndexed { i, v ->
-                val num = sliders[i].value()
+                val num = params[i]
                 outShader[v] = num
-                paragraphs[i].html(num.toString())
             }
             rect(0, 0, width, height)
-            console.log(theta)
         }
     }
 

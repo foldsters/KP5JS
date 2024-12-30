@@ -7,9 +7,10 @@ import p5.Sketch
 import p5.core.MouseButton
 import p5.core.RenderMode
 import p5.core.P5.*
+import p5.core.P5.Vector.Companion.dot
+import p5.core.P5.Vector.Companion.normalize
 import p5.ksl.*
-import kotlin.math.asin
-import kotlin.math.atan2
+import kotlin.math.abs
 
 @JsExport
 fun Bitfield() = Sketch {
@@ -29,39 +30,36 @@ fun Bitfield() = Sketch {
         frameRate(60)
         pixelDensity(1)
 
-
-        val canvas = createCanvas(1920, 1920, RenderMode.WEBGL2)
+        val canvas = createCanvas(1080, 1080, RenderMode.WEBGL2)
         noStroke()
+        var focused = false
 
         val tracerData = RayTracerData(
             createVector(0.0, 0.0, 0.0),
             createVector(0.0, 0.0, 1.0),
             createVector(0.0, 1.0, 0.0),
             createVector(1.0, 0.0, 0.0),
-            10.0,
-            10.0
+            40.0,
+            100.0
         )
 
-        val shaderProgram = buildShader(debug = true) {
+        val shaderProgram = buildShader(debug = false) {
             Fragment {
 
                 val resolution by Uniform<vec2> { arrayOf(width, height) }
                 val cameraPos by Uniform<vec3> { arrayOf(tracerData.cameraPos.x, tracerData.cameraPos.y, tracerData.cameraPos.z) }
                 val planeDist by Uniform { tracerData.planeDist }
                 val planeWidth by Uniform { tracerData.planeWidth }
-                val azimuth by Uniform { atan2(tracerData.cameraForward.x, tracerData.cameraForward.z)  }
-                val zenith by Uniform { asin(tracerData.cameraForward.y) }
+                val cameraUp by Uniform<vec3> { tracerData.cameraUp.array() }
+                val cameraRight by Uniform<vec3> { tracerData.cameraRight.array() }
+                val cameraForward by Uniform<vec3> { tracerData.cameraForward.array() }
+                val frame by Uniform { frameCount.toDouble() }
 
                 Main {
-                    val uv by planeWidth*(gl_FragCoord.xy/resolution - 0.5)
-                    var rayDir by vec3(uv, planeDist)
-
-                    val azimuthAxis by vec3(0, 1, 0)
-                    var zenithAxis by vec3(1, 0, 0)
-
-                    rayDir = rayDir.rotate(azimuthAxis, azimuth)
-                    zenithAxis = zenithAxis.rotate(azimuthAxis, azimuth)
-                    rayDir = rayDir.rotate(zenithAxis, -zenith)
+                    var uv by planeWidth*(gl_FragCoord.xy/resolution - 0.5)
+                    val roll = asin(float(tracerData.cameraRight.y))
+                    uv = uv.rotate(roll)
+                    val rayDir = cameraRight * uv.x + cameraUp * uv.y + cameraForward * planeDist
 
                     val floorPos by cameraPos.map { floor(it) }
                     val signPos by rayDir.map { sign(it) }
@@ -80,6 +78,7 @@ fun Bitfield() = Sketch {
                     var hitType by float(0.0)
 
                     WHILE(!hit) {
+
                         val smallestSide by sideDist.min()
 
                         IF(sideDist.x EQ smallestSide) {
@@ -103,21 +102,19 @@ fun Bitfield() = Sketch {
                         }
 
                         i += 1
-                        IF(i GT 1) {
+                        IF(i GT 10) {
                             val p by floorPos
                             val k by float(uint(abs(p.x + p.y))
-                                    BIT_XOR uint(abs(p.x - p.y))
-                                    BIT_XOR uint(abs(p.y + p.z))
-                                    BIT_XOR uint(abs(p.y - p.z))
-                                    BIT_XOR uint(abs(p.z + p.x))
-                                    BIT_XOR uint(abs(p.z - p.x)))
-                            val e by pow(k, float(5))
-                            hitType = e - 31.0*floor(e/31.0)
-//                            int(abs(mod(pow(k, float(13)), float (7))))
-                            hit = (hitType GT 5.0) AND (hitType LT 25.0)
+                                BIT_XOR uint(abs(p.x - p.y))
+                                BIT_XOR uint(abs(p.y + p.z))
+                                BIT_XOR uint(abs(p.y - p.z))
+                                BIT_XOR uint(abs(p.z + p.x))
+                                BIT_XOR uint(abs(p.z - p.x)))
+                            hitType = floor(mod( pow(k, float(1.0/3.0) + float(i)/5000.0), float(10.0)))
+                            hit = (hitType EQ 1.0)
                         }
 
-                        IF(i GT 150) {
+                        IF(i GT 300) {
                             side = int(0)
                             hitType = float(0.0)
                             Break
@@ -125,6 +122,7 @@ fun Bitfield() = Sketch {
                     }
 
                     var sideColor by vec3(0.0, 0.0, 0.0)
+
                     IF(side EQ 1) {
                         wallDist = wallDistVec.x
                         sideColor = vec3(0.2, 0.8, 0.9)
@@ -134,7 +132,7 @@ fun Bitfield() = Sketch {
                     }.ELSEIF(side EQ 3) {
                         wallDist = wallDistVec.z
                         sideColor = vec3(0.1, 0.8, 0.9)
-                    } 
+                    }
 
                     val x by wallDist*wallDist
                     val color by sideColor.map { a -> 1.0 - x/(x+(a/(1.0-a))) }
@@ -153,16 +151,22 @@ fun Bitfield() = Sketch {
         Draw {
             background(0, 0)
 
-            if (mouseButton == MouseButton.LEFT) {
+            if (focused) {
                 with(tracerData) {
+
                     val deltaYaw = (mouseX/width.toDouble() - 0.5).deadzone(0.02) * 0.05
                     val deltaPitch =  (mouseY/height.toDouble() - 0.5).deadzone(0.02) * 0.05
+
                     val oldRight = cameraRight.copy()
                     val oldUp = cameraUp.copy()
+
                     cameraRight = cameraRight.rotate(oldUp, deltaYaw)
                     cameraUp = cameraUp.rotate(oldRight, deltaPitch)
-                    cameraForward = cameraRight cross cameraUp
+
+                    cameraForward = normalize(cameraRight cross cameraUp)
+
                     cameraPos += cameraForward*speed
+
                 }
             }
 
@@ -175,6 +179,7 @@ fun Bitfield() = Sketch {
             when(key) {
                 "Shift" -> speed = 2.0
                 " " -> speed = if(speed == 0.0) 0.5 else 0.0
+                "Escape" -> focused = false
             }
         }
 
@@ -182,6 +187,10 @@ fun Bitfield() = Sketch {
             if(key == "Shift") {
                 speed = 0.5
             }
+        }
+
+        MouseClicked {
+            focused = true
         }
 
 //        MouseWheel {

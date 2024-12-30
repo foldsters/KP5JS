@@ -3,6 +3,7 @@
 //import projects.cards.mysticTomato
 //import projects.hopper.hopper
 import kotlinx.browser.window
+import projects.Curler
 import projects.raytrace.Bitfield
 
 //import p5.util.isDarkMode
@@ -27,7 +28,7 @@ import projects.raytrace.Bitfield
 
 fun main() {
 //   window.onload = {
-//     Bitfield()
+//     Curler()
 //   }
 }
 
