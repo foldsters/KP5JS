@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react'
-// @ts-ignore - Kotlin compiled output
-import { Penrose } from '@kotlin/kp5js.mjs'
+import { Penrose, Sketch } from '@kotlin/kp5js.mjs'
 
 function App() {
   return (
@@ -13,16 +12,16 @@ function App() {
       color: 'white',
       padding: '2rem'
     }}>
-      <h1>Kotlin/JS + React Template</h1>
+      <h1>Kotlin/JS + React Template (WOW!)</h1>
       <p>Edit sketches in <code>src/jsMain/kotlin/</code> - they'll hot reload!</p>
 
-      <KotlinSketch sketch={Penrose} />
+      <KotlinSketch sketch={Penrose} /> 
     </div>
   )
 }
 
 // Component to mount a Kotlin p5.js sketch
-function KotlinSketch({ sketch }: { sketch: () => void }) {
+function KotlinSketch({ sketch }: { sketch: () => Sketch }) {
   const mountedRef = useRef(false)
 
   useEffect(() => {

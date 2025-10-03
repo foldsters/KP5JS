@@ -38,8 +38,9 @@ src/
   react/              # React app source
     App.tsx           # Main React component
     main.tsx          # Entry point
-  kotlin/             # Kotlin source files (sketches)
-    jsMain/           # Kotlin/JS main source
+  kotlin/             # Kotlin source files (your sketches!)
+    p5/               # p5.js Kotlin wrapper
+    projects/         # Your sketch projects
 assets/               # Static files (images, fonts, etc.)
 scripts/
   prebuild.ts         # Generates Gradle files from config
@@ -118,7 +119,7 @@ The `prebuild:kotlin` script automatically generates `kotlin/build.gradle.kts` a
 - `kotlin-js-store/` - Kotlin/JS npm cache
 
 **Source files** (commit these):
-- `src/kotlin/jsMain/` - Your Kotlin code
+- `src/kotlin/` - Your Kotlin code
 - `src/react/` - Your React code
 - `assets/` - Static files
 - `kotlin.config.ts` - Kotlin build config

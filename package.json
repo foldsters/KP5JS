@@ -4,12 +4,14 @@
   "type": "module",
   "scripts": {
     "prebuild:kotlin": "tsx scripts/prebuild.ts",
-    "dev": "npm run prebuild:kotlin && cd .kotlin-build && ./gradlew build && cd .. && concurrently \"./.kotlin-build/gradlew -p .kotlin-build build --continuous -q\" \"vite\"",
-    "build": "npm run prebuild:kotlin && ./.kotlin-build/gradlew -p .kotlin-build build && vite build",
+    "generate:types": "tsx scripts/generate-types.ts",
+    "dev": "npm run prebuild:kotlin && cd .kotlin-build && ./gradlew build && cd .. && npm run generate:types && concurrently \"./.kotlin-build/gradlew -p .kotlin-build build --continuous -q\" \"vite\"",
+    "build": "npm run prebuild:kotlin && ./.kotlin-build/gradlew -p .kotlin-build build && npm run generate:types && vite build",
     "preview": "vite preview"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "@types/p5": "^1.7.6",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^4.2.0",
@@ -19,10 +21,10 @@
     "vite": "^5.0.0"
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "p5": "^1.4.1",
     "createloop": "^0.0.12",
-    "open-simplex-noise": "^2.5.0"
+    "open-simplex-noise": "^2.5.0",
+    "p5": "^1.4.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   }
 }

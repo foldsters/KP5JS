@@ -24,11 +24,11 @@ function generateBuildGradle(config: any) {
     .join('\n')
 
   const kotlinDepsStr = kotlinDeps
-    .map(dep => `        implementation("${dep}")`)
+    .map((dep: any) => `        implementation("${dep}")`)
     .join('\n')
 
   const optInsStr = optIns
-    .map(opt => `        optIn("${opt}")`)
+    .map((opt: any) => `        optIn("${opt}")`)
     .join('\n')
 
   return `import org.jetbrains.kotlin.gradle.dsl.KotlinJsCompile
@@ -67,6 +67,7 @@ ${optInsStr}
     }
 
     val jsMain by getting {
+      kotlin.srcDir("src")
       dependencies {
         implementation(kotlin("script-runtime"))
 ${kotlinDepsStr}
