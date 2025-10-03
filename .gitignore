@@ -1,16 +1,15 @@
+# Gradle - .kotlin-build is entirely generated
+.gradle/
+.kotlin/
+.kotlin-build/
+kotlin-js-store/
 
-# Project exclude paths
-/.gradle/
-/kotlin-js-store/
-/build/classes/
-/build/compileSync/
-/build/js/
-/build/klib/
-/build/kotlin/
-/build/libs/
-/build/processedResources/
-/build/reports/
-/build/snapshot/
-/build/tmp/
-/.idea/
-/gradle/
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Node/NPM
+node_modules/
+dist/

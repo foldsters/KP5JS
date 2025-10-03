@@ -27,9 +27,9 @@ import projects.raytrace.Bitfield
 
 
 fun main() {
-//   window.onload = {
-//     Curler()
-//   }
+  window.onload = {
+    Curler()
+  }
 }
 
 //val sketchMap = mutableMapOf<String, ()->Sketch>(

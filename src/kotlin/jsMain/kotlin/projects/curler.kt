@@ -110,7 +110,7 @@ const val outFrag = """
             void main() {
                 vec2 uv01 = gl_FragCoord.xy/iResolution.xy;
                 vec2 uv = 2.0*uv01 - 1.0;
-                vec3 color = vec3(250.0, 163.0, 40.0)/255.0;
+                vec3 color = vec3(250.0, 163.0, 40.0).grb/255.0;
                 float r = curler(uv);
 
                 if (r == 0.0) {
